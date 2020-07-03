@@ -1,0 +1,11 @@
+kraken2:
+    db: /gfs/mirror/kraken2/kraken2-microbial-fatfree
+    nthreads: 6
+    job_mem: 10
+    options: ''
+
+report:
+
+    # prefix to use for publishing the report from this pipeline
+    prefix: default
+
