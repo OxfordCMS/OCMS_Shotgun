@@ -69,7 +69,9 @@ def main(argv=None):
         taxon = data[0]
         counts = data[1:]
         taxonomy = taxon.split("|")
+
         if "d__" in taxonomy[-1]:
+            print(taxon, counts)
             d_outf.write("\t".join([taxon] + counts) + "\n")
         elif "k__" in taxonomy[-1]:
             k_outf.write("\t".join([taxon] + counts) + "\n")

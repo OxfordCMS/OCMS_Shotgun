@@ -92,7 +92,7 @@ def classifyReadsWithKraken2(infile, outfile):
     
     db = PARAMS.get("kraken2_db")
     nthreads = PARAMS.get("kraken2_nthreads")
-    job_mem = PARAMS.get("kraken2_job_mem" + "G")
+    job_memory = PARAMS.get("kraken2_job_mem")
     options = PARAMS.get("kraken2_options")
     statement = '''kraken2
                    --db %(db)s
@@ -103,7 +103,7 @@ def classifyReadsWithKraken2(infile, outfile):
                    --use-names
                    --threads %(nthreads)s
                    --gzip-compressed %(p1)s %(p2)s
-                   %(options)s;
+                   %(options)s; 
                    gzip %(prefix)s.classified.tsv %(prefix)s.abundance.tsv
                 '''
     P.run(statement)
@@ -121,11 +121,10 @@ def mergeKraken2(infiles, outfile):
     '''
     merge the results from kraken 2
     '''
-    titles = ",".join([P.snip(x, ".abundance.tsv.gz") for x in glob.glob("kraken2.dir/*abundance.tsv.gz")])
+    titles = ",".join([P.snip(os.path.basename(x), ".abundance.tsv.gz") for x in glob.glob("kraken2.dir/*abundance.tsv.gz")])
     statement = '''cgat combine_tables
                    --glob=kraken2.dir/*abundance.tsv.gz
-                   --headers=%(titles)s
-                   --no-titles
+                   --header-names=%(titles)s
                    -m 0
                    -c 1
                    --log=kraken2.dir/merged_abundances.log
