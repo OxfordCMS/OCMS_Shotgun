@@ -1,0 +1,13 @@
+humann3:
+    # database settings
+    db_nucleotide: /path/to/chocophlan/database/directory 
+    db_protein: /path/to/uniref/database/directory
+    
+    nthreads: 4
+
+    # additional humann3 options
+    options: ''
+
+report:
+    # prefix to use for publishing the report from this pipeline
+    prefix: default
