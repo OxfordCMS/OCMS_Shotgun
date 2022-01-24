@@ -1,0 +1,155 @@
+---
+title: "Humann3 Report"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+header-includes:
+- \usepackage{placeines}
+- \usepackages{float}
+- \floatplacement{figure}{H}
+
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    df_print: paged
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(out.extra = '')
+knitr::opts_chunk$set(as.result=TRUE)
+knitr::opts_chunk$set(dev.args=list(png=list(type="cairo")))
+
+# required r libraries
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(forcats)
+library(DT)
+
+```
+
+```{r read-data}
+path_coverage <- read.csv("../humann3.dir/merged_pathcoverage.tsv", sep="\t")
+path_abundance <- read.csv("../humann3.dir/merged_pathabundance.tsv", sep="\t")
+gene_abundance <- read.csv("../humann3.dir/merged_genefamilies.tsv", sep="\t")
+```
+
+## Pipeline parameters
+
+```{r pipeline-parameters}
+yml <- readLines("../pipeline.yml")
+# only keep parameters
+yml <- yml[grepl(":", yml)]
+# remove unnecessary spaces at beginning
+yml <- gsub("^ +", "", yml)
+
+# parse humann3 options
+humann3_option <- yml[grepl("db_nucleotide:|db_protein:|nthreads:|options:", yml)]
+humann3_option <- sapply(humann3_option, function(x) strsplit(x, ": "))
+humann3_entry <- c()
+for(i in humann3_option) {
+  curr <- data.frame(parameter = i[1], value = i[2])
+  humann3_entry <- rbind(humann3_entry, curr)
+}
+humann3_entry$pipeline_task <- 'runHumann3'
+humann3_entry <- humann3_entry %>% select(pipeline_task, everything())
+
+# put into table
+yml_table <- DT::datatable(humann3_entry, rownames=FALSE)
+```
+
+```{r yml-table}
+yml_table
+```
+
+## Overview
+```{r overview}
+# number of samples
+n_sample <- ncol(gene_abundance) - 1
+
+# summarise of species observed
+species <- gsub("^.*\\|", "", gene_abundance$gene_family)
+unique_species <- unique(species[grepl("^g__", species)])
+n_species <- length(unique_species)
+
+# summarise gene families observed
+gene_family <- gene_abundance$gene_family
+unique_gene_family <- unique(gene_family[!grepl("\\|g__", gene_family)])
+n_gene_family <- length(unique_gene_family)
+
+# summarise pathways observed
+pathway <- path_coverage$pathway
+pathway <- unique(pathway[!grepl("\\|g__", pathway)])
+n_pathway <- length(pathway)
+```
+
+Data set contains: 
+
+* **Number of samples:** `r n_sample` samples
+* **Number of species:** `r n_species` unique species
+* **Number of gene families:** `r n_gene_family` unique gene families
+* **Number of pathways:** `r n_pathway` unique pathways
+
+Unique species observed:
+```{r species}
+DT::datatable(data.frame(species=unique_species))
+```
+
+## Gene Families: 
+From Humann3 manual:
+
+* This file details the abundance of each gene family in the community. Gene families are groups of evolutionarily-related protein-coding sequences that often perform similar functions.
+* Gene family abundance at the community level is stratified to show the contributions from known and unknown species. Individual species' abundance contributions sum to the community total abundance.
+* HUMAnN 3.0 uses the MetaPhlAn2 software along with the ChocoPhlAn database and translated search database for this computation.
+* Gene family abundance is reported in RPK (reads per kilobase) units to normalize for gene length; RPK units reflect relative gene (or transcript) copy number in the community. RPK values can be further sum-normalized to adjust for differences in sequencing depth across samples.
+* The "UNMAPPED" value is the total number of reads which remain unmapped after both alignment steps (nucleotide and translated search). Since other gene features in the table are quantified in RPK units, "UNMAPPED" can be interpreted as a single unknown gene of length 1 kilobase recruiting all reads that failed to map to known sequences.
+* The UniRef50_unknown values represent the total abundance of reads which map to ChocoPhlAn nucleotide sequences which do not have a UniRef50 annotation.
+
+### Community
+Showing top 50 gene family abundance at the community level. Box plots depict interquartile range of samples. 
+
+```{r gene-community}
+avg_gene_abund <- gene_abundance %>%
+  filter(gene_family %in% unique_gene_family) %>%
+  gather('sample_name', 'abundance_RPK', -gene_family) %>%
+  group_by(gene_family) %>%
+  mutate(avg_abund_RPK = mean(abundance_RPK)) 
+
+avg_gene <- avg_gene_abund %>% 
+  distinct(gene_family, avg_abund_RPK)
+genes_to_plot <- avg_gene %>%
+  ungroup() %>%
+  arrange(desc(avg_abund_RPK)) %>%
+  slice(1:50) %>%
+  pull(gene_family)
+
+pdata <- avg_gene_abund %>% 
+  filter(gene_family %in% genes_to_plot) %>%
+  ungroup() %>%
+  mutate(gene_family = fct_reorder(gene_family, avg_abund_RPK))
+
+p_gene_community <- ggplot(pdata, aes(y = gene_family, x = abundance_RPK)) +
+  stat_boxplot(fill=NA) +
+  theme_bw(12)
+```
+
+```{r gene-community-plot, fig.height=18/2.54, fig.width=15/2.54}
+p_gene_community
+```
+
+# Pathway Coverage
+From Humann3 manual:
+
+* Pathway coverage provides an alternative description of the presence (1) and absence (0) of pathways in a community, independent of their quantitative abundance.
+* More specifically, HUMAnN 3.0 assigns a confidence score to each reaction detected in the community. Reactions with abundance greater than the median reaction abundance are considered to be more confidently detected than those below the median abundance.
+* HUMAnN 3.0 then computes pathway coverage using the same algorithms described above in the context of pathway abundance, but substituting reaction confidence for reaction abundance.
+* A pathway with coverage = 1 is considered to be confidently detected (independent of its abundance), as this implies that all of its member reactions were also confidently detected. A pathway with coverage = 0 is considered to less confidently detected (independent of its abundance), as this implies that some of its member reactions were not confidently detected.
+* Like pathway abundance, pathway coverage is computed for the community as a whole, as well as for each detected species and the unclassified stratum.
+Much as community-level pathway abundance is not the strict sum of species-level contributions, it is possible for a pathway to be confidently covered at the community level but never confidently detected from any single species.
+* Pathway coverage is reported for any non-zero pathway abundance computed at the community-level or for an individual stratum (species or "unclassified").
