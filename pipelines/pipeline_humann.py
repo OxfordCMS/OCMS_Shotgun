@@ -181,27 +181,36 @@ def mergeGeneFamilies(infiles, outfile):
 @merge(runHumann3, "humann3.dir/merged_metaphlan.tsv")
 def mergeMetaphlan(infiles, outfile):
     '''
-    merge metaphlan bugs list from Humann3
+    merge metaphlan bugs list from Humann3 across samples
     '''
     # find infiles with glob because file order from glob 
     # is different from infiles found with ruffus
     infiles = glob.glob("humann3.dir/*/*_humann_temp/*_metaphlan_bugs_list.tsv")   
     samples = [P.snip(os.path.basename(x), "_metaphlan_bugs_list.tsv") for x in infiles]
-    titles = "\t".join(samples)
+    # sed doesn't recognize \t as tab. need to double escape with \\
+    titles = "\\t".join(samples)
     x = glob.glob("humann3.dir/*/*_humann_temp/*_metaphlan_bugs_list.tsv")
-    print(x)
-    print(samples)
-    print(titles)
+
     statement = '''cgat combine_tables
                    --glob=humann3.dir/*/*_humann_temp/*_metaphlan_bugs_list.tsv
                    --columns 1
                    --take 3
                    -m 0
                    --log=humann3.dir/merged_metaphlan.log 
-                   | sed 1i"clade_name\t%(titles)s" >> %(outfile)s
+                   | sed 1i"clade_name\\t%(titles)s" >> %(outfile)s
                 '''
     P.run(statement)
 
+#####################################################
+#####################################################
+#####################################################
+@split(mergeMetaphlan, "humann3.dir/merged_metaphlan_*.tsv")
+def splitMetaphlan(infile, outfiles):
+    '''split merged metaphlan file by taxonomic levels
+    '''
+    
+    statement = '''python %(scriptsdir)s/split_metaphlan.py -i %(infile)s -o humann3.dir'''
+    P.run(statement)
 #####################################################
 #####################################################
 #####################################################

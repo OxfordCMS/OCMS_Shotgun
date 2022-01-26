@@ -38,6 +38,15 @@ library(DT)
 path_coverage <- read.csv("../humann3.dir/merged_pathcoverage.tsv", sep="\t")
 path_abundance <- read.csv("../humann3.dir/merged_pathabundance.tsv", sep="\t")
 gene_abundance <- read.csv("../humann3.dir/merged_genefamilies.tsv", sep="\t")
+taxa_abundance <- list()
+iter_file <- list.files("../humann3.dir/", pattern = "merged_metaphlan_.*\\.tsv")
+for(i in 1:length(iter_file)) {
+  curr_level <- gsub("merged_metaphlan_", "", iter_file[i])
+  curr_level <- gsub(".tsv", "", curr_level)
+  curr_file <- file.path("../humann3.dir", iter_file[i])
+  taxa_abundance[[curr_level]] <- read.csv(curr_file, sep="\t")
+}
+
 ```
 
 ## Pipeline parameters
@@ -85,8 +94,8 @@ n_gene_family <- length(unique_gene_family)
 
 # summarise pathways observed
 pathway <- path_coverage$pathway
-pathway <- unique(pathway[!grepl("\\|g__", pathway)])
-n_pathway <- length(pathway)
+unique_pathway <- unique(pathway[!grepl("\\|g__", pathway)])
+n_pathway <- length(unique_pathway)
 ```
 
 Data set contains: 
@@ -96,9 +105,40 @@ Data set contains:
 * **Number of gene families:** `r n_gene_family` unique gene families
 * **Number of pathways:** `r n_pathway` unique pathways
 
-Unique species observed:
-```{r species}
-DT::datatable(data.frame(species=unique_species))
+## Unique taxa observed {.tabset}
+### Kingdom
+```{r taxa-kingdom}
+DT::datatable(taxa_abundance$kingdom)
+```
+
+### Phylum
+```{r taxa-phylum}
+DT::datatable(taxa_abundance$phylum)
+```
+
+### Class
+```{r taxa-class}
+DT::datatable(taxa_abundance$class)
+```
+
+### Order
+```{r taxa-order}
+DT::datatable(taxa_abundance$order)
+```
+
+### Family
+```{r taxa-family}
+DT::datatable(taxa_abundance$family)
+```
+
+### Genus
+```{r taxa-genus}
+DT::datatable(taxa_abundance$genus)
+```
+
+### Species
+```{r taxa-species}
+DT::datatable(taxa_abundance$species)
 ```
 
 ## Gene Families: 
@@ -143,7 +183,7 @@ p_gene_community <- ggplot(pdata, aes(y = gene_family, x = abundance_RPK)) +
 p_gene_community
 ```
 
-# Pathway Coverage
+## Pathway Coverage
 From Humann3 manual:
 
 * Pathway coverage provides an alternative description of the presence (1) and absence (0) of pathways in a community, independent of their quantitative abundance.
@@ -153,3 +193,81 @@ From Humann3 manual:
 * Like pathway abundance, pathway coverage is computed for the community as a whole, as well as for each detected species and the unclassified stratum.
 Much as community-level pathway abundance is not the strict sum of species-level contributions, it is possible for a pathway to be confidently covered at the community level but never confidently detected from any single species.
 * Pathway coverage is reported for any non-zero pathway abundance computed at the community-level or for an individual stratum (species or "unclassified").
+
+### Community
+Showing top 50 pathways at the community level. Box plots depict interquartile range of samples.
+
+```{r pathcov-community}
+avg_path_coverage <- path_coverage %>%
+  filter(pathway %in% unique_pathway) %>%
+  gather('sample_name', 'coverage', -pathway) %>%
+  group_by(pathway) %>%
+  mutate(avg_coverage = mean(coverage)) 
+
+avg_path <- avg_path_coverage %>% 
+  distinct(pathway, avg_coverage)
+path_to_plot <- avg_path %>%
+  ungroup() %>%
+  arrange(desc(avg_coverage)) %>%
+  slice(1:50) %>%
+  pull(pathway)
+
+pdata <- avg_path_coverage %>% 
+  filter(pathway %in% path_to_plot) %>%
+  ungroup() %>%
+  mutate(pathway = fct_reorder(pathway, avg_coverage))
+
+p_pathcov_community <- ggplot(pdata, aes(y = pathway, x = coverage)) +
+  stat_boxplot(fill=NA) +
+  theme_bw(12)
+```
+
+```{r pathcov-community-plot, fig.height=18/2.54, fig.width=15/2.54}
+p_pathcov_community
+```
+
+## Pathway Abundance
+From Humann3 manual:
+
+* This file details the abundance of each pathway in the community as a function of the abundances of the pathway's component reactions, with each reaction's abundance computed as the sum over abundances of genes catalyzing the reaction.
+* Pathway abundance is computed once at the community level and again for each species (plus the "unclassified" stratum) using community- and species-level gene abundances along with the structure of the pathway.
+* The pathways are ordered by decreasing abundance with pathways for each species also sorted by decreasing abundance. Pathways with zero abundance are not included in the file.
+* Pathway abundance is proportional to the number of complete "copies" of the pathway in the community. Thus, for a simple linear pathway RXN1â†’RXN2â†’RXN3â†’RXN4, if RXN1 is 10 times as abundant as RXNs 2-4, the pathway abundance will be driven by the abundances of RXNs 2-4.
+* Unlike gene abundance, a pathway's community-level abundance is not necessarily the sum of its stratified abundance values. For example, continuing with the simple linear pathway example introduced above, if the abundances of RXNs 1-4 are [5, 5, 10, 10] in Species_A and [10, 10, 5, 5] in Species_B, HUMAnN 3.0 would report that Species_A and Species_B each contribute 5 complete copies of the pathway. However, at the community level, the reaction totals are [15, 15, 15, 15], and thus HUMAnN 3.0 would report 15 complete copies.
+* In greater detail, the abundance for each pathway is a recursive computation of abundances of sub-pathways with paths resolved to abundances based on the relationships and abundances of the reactions contained in each. Each path, the smallest portion of a pathway or sub-pathway which can't be broken down into sub-pathways, has an abundance that is the max or harmonic mean of the reaction abundances depending on the relationships of these reactions. Optional reactions are only added to the overall abundance if their abundance is greater than the harmonic mean of the required reactions.
+* Gap filling allows for a single required reaction to have a zero abundance. For all pathways, the required reaction with the lowest abundance is replaced with the abundance of the required reaction with the second lowest abundance.
+* By default, HUMAnN 3.0 uses MetaCyc pathway definitions and MinPath to identify a parsimonious set of pathways which explain observed reactions in the community.
+* To account for non-linearity in the conversion of gene copy number to pathway copy number, we define a "compression constant" (k) equal to the total pathway abundance divided by the total abundance of genes that contributed to pathways. The "UNMAPPED" value reported in the pathway abundance table is equal to the total number of unmapped reads scaled by k (making it more comparable with pathway abundance values). Similarly, we define an "UNINTEGRATED" abundance for 1) the community, 2) each identified species, and 3) the "unclassified" stratum equal to the total abundance of genes in that level that did not contribute to pathways (scaled by k).
+* "UNINTEGRATED" does not appear for stratifications with no detected pathways.
+
+### Community
+Showing top 50 pathways at the community level. Box plots depict interquartile range of samples.
+
+```{r pathabund-community}
+avg_path_abund <- path_abundance %>%
+  filter(pathway %in% unique_pathway) %>%
+  gather('sample_name', 'abundance', -pathway) %>%
+  group_by(pathway) %>%
+  mutate(avg_abundance = mean(abundance)) 
+
+avg_path <- avg_path_abund %>% 
+  distinct(pathway, avg_abundance)
+path_to_plot <- avg_path %>%
+  ungroup() %>%
+  arrange(desc(avg_abundance)) %>%
+  slice(1:50) %>%
+  pull(pathway)
+
+pdata <- avg_path_abund %>% 
+  filter(pathway %in% path_to_plot) %>%
+  ungroup() %>%
+  mutate(pathway = fct_reorder(pathway, avg_abundance))
+
+p_pathabund_community <- ggplot(pdata, aes(y = pathway, x = abundance)) +
+  stat_boxplot(fill=NA) +
+  theme_bw(12)
+```
+
+```{r pathabund-community-plot, fig.height=18/2.54, fig.width=15/2.54}
+p_pathabund_community
+```
