@@ -1,0 +1,6 @@
+The original file in this location TruSeq_all.fa was provided by Sai Leck on July 11 2018.
+It is the fasta file used for adapter removal in the Weinstock/Adams processing pipeline.
+
+This has been edited to work with Trimmomatic Palendromic settings:
+
+TruSeq_all_palendromic.fa

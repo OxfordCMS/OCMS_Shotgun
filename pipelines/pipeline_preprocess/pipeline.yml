@@ -1,0 +1,114 @@
+################################################################
+#
+# Pipeline pipeline_mwgs_preprocess.py configuration file
+# Add pipeline specific options into separate sections
+#
+################################################################
+## general options
+
+# Project name
+projectname: Preprocess mWGS Samples
+
+# Copyright statement
+copyright: Jethro Johnson
+
+# The short X.Y version.
+version: 0.1
+
+# The full version, including alpha/beta/rc tags.
+release: 0.1
+
+# phred format
+phred_format: 33
+
+location_fastq: 1
+
+################################################################
+# Removal of duplicate reads
+################################################################
+cdhit:
+
+    # If yes, will remove exact duplicates
+    dedup: 1
+
+    # Additional options to be passed to cd-hit-dup
+    options: ''
+
+    run_options: -pe shmem 2
+
+################################################################
+# Trimming of adapters
+################################################################
+trimmomatic:
+
+    jar_path:
+
+    n_threads: 4
+
+    # Location of contaminants file
+    # NexteraPE-PE.fa, TruSeq2-PE.fa, TruSeq3-PE-2.fa, TruSeq3-PE.fa
+    # TruSeq2-SE.fa, TruSeq3-SE.fa
+    adapters: 
+
+    # Number of mismatches tolerated in seed alignment of adapter sequence (16 bases)
+    seed_mismatches: 3
+
+    # Identity threshold for palendromic match
+    score_palendromic: 30
+
+    # Identity threshold for simple clipping
+    score_simple: 10
+
+    min_adapter_len: 8
+
+    # Whether to keep both reads if readthrough is detected
+    keep_both_reads: true
+
+    # Minimum quality before trimming 5'
+    quality_leading: 25
+
+    # Minumum quality before trimming 3'
+    quality_trailing: 25
+
+    # Minimum length for surviving read
+    minlen: 36
+
+    # qsub options
+    run_options:
+
+################################################################
+# Removal of host contamination
+################################################################
+bmtagger:
+
+    keep_pairs:
+
+    bitmask: /projects/johnsj/mirror/genomes/bmfilter/mm10.bitmask
+
+    srprism: /projects/johnsj/mirror/genomes/srprism/mm10.srprism
+
+    run_options: -l mem=20gb,walltime=12:00:00,nodes=1:ppn=4
+
+################################################################
+# Masking or removal of repetitive sequence
+################################################################
+dust:
+
+    # If yes, discard low complexity regions rather than softmask them
+    discard_low_complexity: 1
+
+    # Otherwise will use all available
+    threads: 4
+
+    # 0.0001 mask homopolymers, 0.75 recommended
+    entropy: 0.75
+
+    # A comma-separated list of additional options
+    # If bbmask, set window=64 to emulate dustmasker
+    options: Xmx40g
+
+    run_options: -l mem=40gb,walltime=04:00:00,nodes=1:ppn=4
+
+
+
+
