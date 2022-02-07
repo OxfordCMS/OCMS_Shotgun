@@ -34,14 +34,14 @@ cdhit:
     # Additional options to be passed to cd-hit-dup
     options: ''
 
-    run_options: -pe shmem 2
+    run_options: -pe shmem 4
 
 ################################################################
 # Trimming of adapters
 ################################################################
 trimmomatic:
 
-    jar_path:
+    jar_path: $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar
 
     n_threads: 4
 
@@ -74,7 +74,7 @@ trimmomatic:
     minlen: 36
 
     # qsub options
-    run_options:
+    run_options: -pe shmem 4
 
 ################################################################
 # Removal of host contamination

@@ -161,8 +161,7 @@ def removeDuplicates(fastq1, outfile):
                          " rm -f %(tmpf1)s &&"
                          " rm -f %(tmpf2)s &&"
                          " rm -f %(cluster_file)s")
-            cluster_options=PARAMS['cdhit_run_options']
-            P.run(statement)
+            P.run(statement, job_options=PARAMS['cdhit_run_options'])
         else:
             symlnk(fastq1, outfile)
             symlnk(fastq2, outfile2)
@@ -185,8 +184,8 @@ def removeDuplicates(fastq1, outfile):
                          " gzip %(logfile)s &&"
                          " rm -f %(tmpf1)s &&"
                          " rm -f %(cluster_file)s")
-            cluster_options=PARAMS['cdhit_run_options']
-            P.run()      
+
+            P.run(statement, job_options=PARAMS['cdhit_run_options'])      
         else:
             symlnk(fastq1, outfile)        
 
@@ -235,8 +234,7 @@ def removeAdapters(fastq1, outfile1):
                      "  > %(outf_singletons)s &&"
                      " rm -f %(outf1_singletons)s && rm -f %(outf2_singletons)s")
 
-        cluster_options = PARAMS['trimmomatic_run_options']
-        P.run()
+        P.run(statement, job_options = PARAMS['trimmomatic_run_options'])
 
     else:
         logfile = P.snip(outfile1, '.fastq.1.gz') + '.trim.log'
@@ -261,8 +259,8 @@ def removeAdapters(fastq1, outfile1):
                      " &> %(logfile2)s &&"
                      " gzip -f %(logfile)s")
 
-        cluster_options = PARAMS['trimmomatic_run_options']
-        P.run()
+        P.run(statement, job_options = PARAMS['trimmomatic_run_options'])
+
 
 
 @follows(mkdir('reads_hostRemoved.dir'))
