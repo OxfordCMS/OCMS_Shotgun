@@ -59,7 +59,8 @@ from cgatcore import pipeline as P
 
 # load options from the config file
 PARAMS = P.get_parameters(
-    ["pipeline.yml"])
+    ["%s/pipeline.yml" % os.path.splitext(__file__)[0],
+     "pipeline.yml"])
 
 #get all files within the directory to process
 SEQUENCEFILES = ("*fastq.gz")
