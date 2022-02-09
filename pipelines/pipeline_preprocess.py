@@ -29,6 +29,8 @@ bbduk
 source /well/kir/config/modules.sh
 module load CD-HIT/4.8.1-GCC-9.3.0
 module load CD-HIT-auxtools/4.8.1-GCC-9.3.0
+module load bmtagger/3.101-gompi-2020a
+
 
 Code
 ====
@@ -276,8 +278,14 @@ def removeHostContamination(fastq1, outfile):
     # Whether to keep pair if a read is identified as host.
     if PARAMS['bmtagger_keep_pairs']:
         keep_pairs = True
+        E.info("BMTagger: reads with a pair identified as host will be"
+               " discarded")
     else:
         keep_pairs = False
+        E.info("BMTagger: reads with a pair identified as host will be"
+               " kept as singletons (assuming they are not also identified"
+               " as host)")
+
     
     if IS_PAIRED:
         fastq2 = P.snip(fastq1, '.1.gz') + '.2.gz'
@@ -340,8 +348,8 @@ def removeHostContamination(fastq1, outfile):
                               " rm -rf %(tmpdir2)s %(tmpf3)s")
 
             statement = " && ".join([statement1, statement2])
-            cluster_options = PARAMS['bmtagger_run_options']
-            P.run()
+
+            P.run(statement, job_options = PARAMS['bmtagger_run_options'])
             
         # Drop host contaminated reads
         # A hack due to the fact that BMTagger truncates fastq identifiers
@@ -369,8 +377,9 @@ def removeHostContamination(fastq1, outfile):
                      " --fastq-drop2 %(fastq2_host)s"
                      " --fastq-drop3 %(fastq3_host)s"
                      " &>> %(outfile)s.log")
-        P.run()
 
+        P.run(statement)
+        
         os.unlink(to_remove_paired)
         os.unlink(to_remove_singletons)
 
@@ -398,8 +407,8 @@ def removeHostContamination(fastq1, outfile):
                          "  &>> %(outfile)s.log &&"
                          " cat %(outf_host_stub)s_%(n)s >> %(to_remove)s"
                          " rm -rf %(tmpdir1)s %(tmpf)s %(outf_host_stub)s_%(n)s")
-            cluster_options = PARAMS['bmtagger_run_options']
-            P.run()
+
+            P.run(statement, job_options = PARAMS['bmtagger_run_options'])
             
 
         # Drop host contaminated reads
@@ -414,7 +423,7 @@ def removeHostContamination(fastq1, outfile):
                      " --fastq-out1 %(outfile)s"
                      " --fastq-drop1 %(fastq_host)s"
                      " &>> %(outfile)s.log")
-        P.run()
+        P.run(statement)
         
         os.unlink(to_remove)
 
@@ -475,8 +484,8 @@ def maskLowComplexity(fastq1, outfile):
                 statement2 = (" touch %(outfile3)s  %(out_disc3)s")
 
             statement = " && ".join([statement1, statement2])
-            cluster_options=PARAMS['dust_run_options']
-            P.run()
+            
+            P.run(statement, job_options=PARAMS['dust_run_options'])
 
         else:
             statement1 = ("bbmask.sh"
@@ -511,8 +520,8 @@ def maskLowComplexity(fastq1, outfile):
                 statement2 = (" touch %(outfile3)s")
 
             statement = " && ".join([statement1, statement2])
-            cluster_options=PARAMS['dust_run_options']
-            P.run()
+
+            P.run(statement, job_options=PARAMS['dust_run_options'])
 
         # Renaming files because of bbmap idiosyncracies
         of1 = P.snip(outfile1, '.fq.gz') + '.gz'
@@ -544,8 +553,8 @@ def maskLowComplexity(fastq1, outfile):
                          " lowercase=t"
                          " %(bb_options)s"
                          " &> %(outfile)s.log")
-            cluster_options=PARAMS['dust_run_options']
-            P.run()
+
+            P.run(statement, job_options=PARAMS['dust_run_options'])
 
         else:
             statement = ("bbmask.sh"
@@ -556,8 +565,8 @@ def maskLowComplexity(fastq1, outfile):
                          " lowercase=t"
                          " %(bb_options)s"
                          " &> %(outfile.log")
-            cluster_options=PARAMS['dust_run_options']
-            P.run()
+
+            P.run(statement, job_options=PARAMS['dust_run_options'])
 
         os.rename(outfile1, outfile)
         if PARAMS['dust_discard_low_complexity']:
@@ -579,8 +588,8 @@ def countInputReads(infile, outfile):
     statement = ("zcat %(infile)s |"
                  " awk '{n+=1;} END {printf(n/4);}'"
                  " > %(outfile)s")
-    cluster_options = "-l walltime=04:00:00,mem=2GB,nodes=1:ppn=1"
-    P.run()
+
+    P.run(statement)
 
 
 @follows(countInputReads)
@@ -593,8 +602,8 @@ def countOutputReads(infile, outfile):
     statement = ("zcat %(infile)s |"
                  " awk '{n+=1;} END {printf(n/4);}'"
                  " > %(outfile)s")
-    cluster_options = "-l walltime=04:00:00,mem=2GB,nodes=1:ppn=1"
-    P.run()
+
+    P.run(statement)
 
 
 @collate([countInputReads, countOutputReads],
@@ -612,7 +621,7 @@ def collateReadCounts(infiles, outfile):
                  " --log=%(outfile)s.log"
                  " %(infiles)s"
                  " > %(outfile)s")
-    P.run()
+    P.run(statement)
 
     
 @merge(collateReadCounts, 'processing_summary.tsv')

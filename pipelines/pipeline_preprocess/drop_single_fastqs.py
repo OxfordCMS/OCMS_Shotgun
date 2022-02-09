@@ -16,9 +16,9 @@ Will iterate over the fastq and drop any entries in the file.
 '''
 
 
-import CGAT.Experiment as E
-import CGAT.IOTools as IOTools
-import CGAT.Fastq as Fastq
+import cgatcore.experiment as E
+import cgatcore.iotools as IOTools
+import cgat.Fastq as Fastq
 
 import pandas as pd
 
