@@ -3,10 +3,12 @@ humann3:
     db_nucleotide: /path/to/chocophlan/database/directory 
     db_protein: /path/to/uniref/database/directory
     
-    nthreads: 4
+    nthreads: 1
 
     # additional humann3 options
     options: ''
+
+    run_options: -pe shmem 2
 
 report:
     # prefix to use for publishing the report from this pipeline
