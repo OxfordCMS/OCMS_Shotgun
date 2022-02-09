@@ -19,11 +19,11 @@ module load Pandoc/2.13
 module load X11/20200222-GCCcore-9.3.0
 ```
 
-If need to concatenate paired-end reads, can run concatenate_fastq.py in scripts/
+If need to concatenate paired-end reads, can run concatenate_fastq.py in OCMS_Sandbox/Py_utility
 ```
 # will concatenate paired-end fastqs based on file name
 ## example: sample1.fastq.1.gz sample1.fastq.2.gz
-python /path/to/OCMS_Shotgun/scripts/concatenate_fastq.py
+python /path/to/OCMS_Sandbox/Py_utility/concatenate_fastq.py make full -p10 -v5
 ```
 
 Run pipeline_humann.py in working directory containing fastq files
