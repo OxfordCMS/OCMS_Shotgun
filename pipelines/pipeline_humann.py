@@ -35,6 +35,18 @@ Requirements
 ------------
 
 
+Dependencies
+============
+Bowtie2
+DIAMOND
+R
+Pandoc
+
+module load Bowtie2/2.4.1-GCC-9.3.0
+module load DIAMOND/0.9.36-GCC-9.3.0
+module load R/4.0.0-foss-2020a
+module load R-bundle-Bioconductor/3.11-foss-2020a-R-4.0.0
+module load Pandoc/2.13
 
 Pipeline output
 ===============
@@ -110,7 +122,7 @@ def runHumann3(infile, outfile):
                    --threads %(nthreads)i
                    %(options)s; 
                 '''
-    P.run(statement)
+    P.run(statement, job_options=PARAMS.get('humann3_run_options'))
 
 ########################################################
 ########################################################
