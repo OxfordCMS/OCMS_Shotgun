@@ -175,7 +175,7 @@ def removeDuplicates(fastq1, outfile):
         
         to_filter = PARAMS['preprocess_dedup']
         if to_filter:
-            tmpf1 = P.getTempFilename('.')
+            tmpf1 = P.get_temp_filename('.')
             statement = ("zcat %(fastq1)s > %(tmpf1)s"
                          " cd-hit-dup"
                          "  -i %(tmpf1)s"
@@ -291,8 +291,8 @@ def removeHostContamination(fastq1, outfile):
         fastq2 = P.snip(fastq1, '.1.gz') + '.2.gz'
         fastq3 = P.snip(fastq1, '.1.gz') + '.3.gz'
         
-        to_remove_paired = P.getTempFilename('.')            
-        to_remove_singletons = P.getTempFilename('.')
+        to_remove_paired =  P.get_temp_filename('.')            
+        to_remove_singletons = P.get_temp_filename('.')
         
         # In some cases, it may be desirable to screen against multiple hosts.
         indexes = zip(PARAMS['bmtagger_bitmask'].split(','),
@@ -302,12 +302,12 @@ def removeHostContamination(fastq1, outfile):
             bitmask, srprism = indexes
 
             # Screen the paired reads, then singletons
-            tmpdir1 = P.getTempDir('.')
-            tmpdir2 = P.getTempDir('.')
+            tmpdir1 = P.get_temp_dir('.')
+            tmpdir2 = P.get_temp_dir('.')
             
-            tmpf1 = P.getTempFilename('.')
-            tmpf2 = P.getTempFilename('.')
-            tmpf3 = P.getTempFilename('.')
+            tmpf1 = P.get_temp_filename('.')
+            tmpf2 = P.get_temp_filename('.')
+            tmpf3 = P.get_temp_filename('.')
     
             # bmtagger truncates fasta headers...  sed 's/[[:space:]]\+/__/g'
             # It won't accept... sed 's|[[:space:]].*$|/1|'
@@ -329,7 +329,7 @@ def removeHostContamination(fastq1, outfile):
                           "  %(outf_host_stub)s_paired%(n)s")
 
             # Screen the singletons
-            if IOTools.openFile(fastq3).read(1):
+            if IOTools.open_file(fastq3).read(1):
                 statement2 = ("zcat %(fastq3)s > %(tmpf3)s &&"
                               " bmtagger.sh"
                               "  -b %(bitmask)s"
@@ -387,14 +387,14 @@ def removeHostContamination(fastq1, outfile):
     else:
         indexes = zip(PARAMS['bmtagger_bitmask'].split(','),
                       PARAMS['bmtagger_srprism'].split(','))
-        to_remove = P.getTempFilename('.')
+        to_remove = P.get_temp_filename('.')
         
         for n, indexes in enumerate(indexes, 1):
             n = str(n)
             bitmask, srprism = indexes
             # Screen the singletons
-            tmpdir1 = P.getTempDir('.')
-            tmpf = P.getTempFilename('.')
+            tmpdir1 = P.get_temp_dir('.')
+            tmpf = P.get_temp_filename('.')
             
             statement = ("zcat %(fastq1)s > %(tmpf)s &&"
                          " bmtagger.sh"
@@ -471,7 +471,7 @@ def maskLowComplexity(fastq1, outfile):
                           "  threads=%(dust_threads)s"
                           "  %(bb_options)s"
                           "  &> %(outfile)s.log")
-            if IOTools.openFile(fastq3).read(1):
+            if IOTools.open_file(fastq3).read(1):
                 statement2 = (" bbduk.sh"
                               "  in=%(fastq3)s"
                               "  out=%(outfile3)s"
@@ -506,7 +506,7 @@ def maskLowComplexity(fastq1, outfile):
                           "  lowercase=t"
                           "  %(bb_options)s"
                           "  &>> %(outfile)s.log")
-            if IOTools.openFile(fastq3).read(1):           
+            if IOTools.open_file(fastq3).read(1):           
                 statement2 = (" bbmask.sh"
                               "  in=%(fastq3)s"
                               "  out=%(outfile3)s"
@@ -628,7 +628,7 @@ def collateReadCounts(infiles, outfile):
 def summarizeReadCounts(infiles, outfile):
     '''Calculate the number of reads lost at each step for each sample'''
 
-    with IOTools.openFile(outfile, 'w') as outf:
+    with IOTools.open_file(outfile, 'w') as outf:
         outf.write("sample_id\tinput_reads\toutput_reads\tduplicates\t"
                    "adapter_contamination\thost\tlow_complexity\t"
                    "duplicates_percent\tadapters_percent\thost_percent\t"
