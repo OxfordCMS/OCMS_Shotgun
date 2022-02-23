@@ -40,17 +40,17 @@ def main(argv=None):
     parser.add_option("--fastq-out1", dest="fq_out1")
     parser.add_option("--fastq-drop1", dest="fq_dropped1")
 
-    (options, args) = E.Start(parser)
+    (options, args) = E.start(parser)
 
-    reads_to_remove = IOTools.openFile(options.to_remove_singletons).readlines()
+    reads_to_remove = IOTools.open_file(options.to_remove_singletons).readlines()
     reads_to_remove = set([x.strip() for x in reads_to_remove])
 
-    fastq_out = IOTools.openFile(options.fq_out1, 'w')
-    fastq_host = IOTools.openFile(options.fq_dropped1, 'w')
+    fastq_out = IOTools.open_file(options.fq_out1, 'w')
+    fastq_host = IOTools.open_file(options.fq_dropped1, 'w')
 
     reads = 0
     dropped_reads = 0
-    for read in Fastq.iterate(IOTools.openFile(fastq1)):
+    for read in Fastq.iterate(IOTools.open_file(fastq1)):
         reads += 1
         if read.identifier.split()[0] in reads_to_remove:
             fastq_host.write("@%s\n%s\n+\n%s\n" %

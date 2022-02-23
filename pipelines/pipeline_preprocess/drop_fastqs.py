@@ -51,29 +51,31 @@ def main(argv=None):
     parser.add_option("--fastq-drop2", dest="fq_dropped2")
     parser.add_option("--fastq-drop3", dest="fq_dropped3")
 
-    (options, args) = E.Start(parser)
+    (options, args) = E.start(parser)
 
     # Fetch the reads to remove
-    pairs_to_remove = IOTools.openFile(options.to_remove_paired).readlines()
+    pairs_to_remove = IOTools.open_file(options.to_remove_paired).readlines()
     pairs_to_remove = set([x.strip() for x in pairs_to_remove])
+
+    print(pairs_to_remove)
     
-    singles_to_remove = IOTools.openFile(options.to_remove_singletons).readlines()
+    singles_to_remove = IOTools.open_file(options.to_remove_singletons).readlines()
     singles_to_remove = set([x.strip() for x in singles_to_remove])
 
     # open the outfiles
-    fastq1_out = IOTools.openFile(options.fq_out1, 'w')
-    fastq2_out = IOTools.openFile(options.fq_out2, 'w')
-    fastq3_out = IOTools.openFile(options.fq_out3, 'w')
+    fastq1_out = IOTools.open_file(options.fq_out1, 'w')
+    fastq2_out = IOTools.open_file(options.fq_out2, 'w')
+    fastq3_out = IOTools.open_file(options.fq_out3, 'w')
 
-    fastq1_host = IOTools.openFile(options.fq_dropped1, 'w')
-    fastq2_host = IOTools.openFile(options.fq_dropped2, 'w')
-    fastq3_host = IOTools.openFile(options.fq_dropped3, 'w')
+    fastq1_host = IOTools.open_file(options.fq_dropped1, 'w')
+    fastq2_host = IOTools.open_file(options.fq_dropped2, 'w')
+    fastq3_host = IOTools.open_file(options.fq_dropped3, 'w')
 
     dropped_pairs = 0
     pairs = 0
     # Drop the paired reads
-    for read1, read2 in zip(Fastq.iterate(IOTools.openFile(options.fastq1)),
-                            Fastq.iterate(IOTools.openFile(options.fastq2))):
+    for read1, read2 in zip(Fastq.iterate(IOTools.open_file(options.fastq1)),
+                            Fastq.iterate(IOTools.open_file(options.fastq2))):
         pairs +=1
         
         # bmtagger truncates fastq headers at space and won't accept
@@ -81,8 +83,11 @@ def main(argv=None):
         # are chucked.
         r1_id = read1.identifier.split()[0]
         r2_id = read2.identifier.split()[0]
+        
+        print(r1_id)
+        print(r2_id)
 
-        if r1_id in pairs_to_remove:
+        if r1_id in pairs_to_remove or r2_id in pairs_to_remove:
             # Both are host
             fastq1_host.write("@%s\n%s\n+\n%s\n" %
                               (read1.identifier,
@@ -106,7 +111,7 @@ def main(argv=None):
     # Drop singletons
     singletons = 0
     dropped_singletons = 0
-    for read in Fastq.iterate(IOTools.openFile(options.fastq3)):
+    for read in Fastq.iterate(IOTools.open_file(options.fastq3)):
         singletons += 1
         if read.identifier.split()[0] in singles_to_remove:
             fastq3_host.write("@%s\n%s\n+\n%s\n" %
