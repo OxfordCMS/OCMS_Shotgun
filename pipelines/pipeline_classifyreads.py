@@ -106,7 +106,7 @@ def classifyReadsWithKraken2(infile, outfile):
                    %(options)s; 
                    gzip %(prefix)s.classified.tsv %(prefix)s.abundance.tsv
                 '''
-    P.run(statement)
+    P.run(statement, job_options=PARAMS['kraken2_run_options'])
 
 ########################################################
 ########################################################

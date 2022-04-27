@@ -3,6 +3,7 @@ kraken2:
     nthreads: 6
     job_mem: 10
     options: ''
+    run_options: ''
 
 report:
 
