@@ -1,0 +1,124 @@
+<tool name="deadapt"
+      threads="4"
+      walltime="60:00:00"
+      exit_if_exists="out_1, out_2, out_3"
+      exit_test_logic="and"
+      tool_config_prefix="tool-deadapt">
+      <module>python/2.7.3</module>
+      <module>flexbar</module>      
+
+      <option name="adapter" command_text="-a" value="/data/slek/bin/TruSeq_all.fa" />
+      <option name="phred" command_text="-q" value="20" />
+      <option name="minlen" command_text="-m" value="35" />
+      <option name="loglevel" command_text="-l" value="ALL" />
+      <option name="format" command_text="-f" value="sanger" />
+      <option name="end" command_text="-ae" value="ANY" />
+      <file id="prefix" based_on="in_1" pattern="(.*)_DD.*" replace="\1" />
+      <file id="bmo" based_on="prefix" append="_BMT_SCREEN_AB.OUT" />
+
+      <file id="fqrf" based_on="prefix" append="_DD_RF.fastq" temp="True" />
+      <file id="farf" based_on="prefix" append="_DD_RF.fasta" temp="True" />
+      <file id="precl" based_on="prefix" append="_DD_RF_CLEAN" />
+      <file id="fqrfcl" based_on="prefix" append="_DD_RF_CLEAN.fastq" temp="True" />
+      <file id="logpe" based_on="prefix" append="_TRIM_PE.LOG" temp="True" />
+      <file id="logse" based_on="prefix" append="_TRIM_SE.LOG" temp="True" />
+      <file id="pretr" based_on="prefix" append="_DD_RF_CLEAN_TRIM" />
+      <file id="pretrse" based_on="prefix" append="_DD_RF_CLEAN_TRIM_SE" />
+      <file id="rdlog" based_on="prefix" append="_READS_COUNT.LOG" />
+
+      <file id="tr1fq" based_on="prefix" append="_DD_RF_CLEAN_TRIM_1.fastq" temp="True" />
+      <file id="tr2fq" based_on="prefix" append="_DD_RF_CLEAN_TRIM_2.fastq" temp="True" />
+      <file id="trsefq" based_on="prefix" append="_DD_RF_CLEAN_TRIM_SE.fastq" />
+      <file id="trfq" based_on="prefix" append="_DD_RF_CLEAN_TRIM.fastq" />
+       
+
+      <file id="trse1fq" based_on="prefix" append="_DD_RF_CLEAN_TRIM_1_single.fastq" temp="True" />
+      <file id="trse2fq" based_on="prefix" append="_DD_RF_CLEAN_TRIM_2_single.fastq" temp="True" />
+
+      <file id="tr1fa" based_on="prefix" append="_DD_RF_CLEAN_TRIM_1.fasta" />
+      <file id="tr2fa" based_on="prefix" append="_DD_RF_CLEAN_TRIM_2.fasta" />
+      <file id="trsefa" based_on="prefix" append="_DD_RF_CLEAN_TRIM_SE.fasta" />
+
+      <file id="trse1fa" based_on="prefix" append="_DD_RF_CLEAN_TRIM_1_single.fasta" temp="True" />
+      <file id="trse2fa" based_on="prefix" append="_DD_RF_CLEAN_TRIM_2_single.fasta" temp="True" />
+
+
+      <command program="cat">
+        {in_4} {in_5} | sort | uniq > {bmo}
+      </command>
+
+      <command program="python /data/slek/bin/extract_syn_seq.pyc ">
+        {fqrf} {bmo} {precl} >> {rdlog}
+      </command>
+
+      <command program="flexbar">
+        -r {in_1} -p {in_2} {adapter} {phred} {minlen} {loglevel} {format} {end} -t {pretr} -s > {logpe} 
+      </command>
+      
+      <command program="flexbar">
+        -r {in_3} {adapter} {phred} {minlen} {loglevel} {format} {end} -t {pretrse} -s > {logse} 
+      </command>
+
+      <command program="echo">
+        Adapters_Removal PE Reads >> {rdlog}      
+      </command>
+      
+      <command program="tail">
+        -30 {logpe} | grep written >> {rdlog}      
+      </command>
+      
+      <command program="tail">
+        -30 {logpe} | grep Discard | sed 's/overall//' >> {rdlog}      
+      </command>
+
+      <command program="echo">
+        Adapters_Removal SE Reads >> {rdlog}      
+      </command>
+      
+      <command program="tail">
+        -30 {logse} | grep written >> {rdlog}      
+      </command>
+
+      <command program="tail">
+        -30 {logse} | grep Discard | sed 's/overall//' >> {rdlog}      
+      </command>
+
+      <command program="/data/slek/bin/shuffle_pair_fastq.pl "> 
+        {tr1fq} {tr2fq} {trfq} 
+      </command>      
+
+      <command program="python /data/slek/bin/fastq2fasta.pyc "> 
+        {tr1fq} {tr1fa} 
+      </command>
+
+      <command program="python /data/slek/bin/fastq2fasta.pyc "> 
+        {tr2fq} {tr2fa} 
+      </command>
+
+      <command program="python /data/slek/bin/fastq2fasta.pyc "> 
+        {trsefq} {trsefa} 
+      </command>
+
+      <command program="python /data/slek/bin/fastq2fasta.pyc "> 
+        {trse1fq} {trse1fa} 
+      </command>
+
+      <command program="python /data/slek/bin/fastq2fasta.pyc "> 
+        {trse2fq} {trse2fa} 
+      </command>
+
+      <command program="cat"> 
+        {trse1fa} {trse2fa} >> {trsefa}
+      </command>
+
+      <command program="cat"> 
+        {trse1fq} {trse2fq} >> {trsefq}
+      </command>
+
+      <!--rm all temp files-->
+      <command program="rm -v">
+        {in_1} {in_2} {in_3}
+      </command>
+
+
+</tool>

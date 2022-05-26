@@ -1,0 +1,86 @@
+<tool name="dehostFinal"
+      threads="4"
+      walltime="20:00:00"
+      exit_if_exists="out_1, out_2, out_3"
+      exit_test_logic="and"
+      tool_config_prefix="tool-dehostFinal">
+      <module>python/2.7.3</module>      
+
+      <file id="prefix" based_on="in_1" pattern="(.*)_DD.*" replace="\1" />
+      <file id="bmope" based_on="prefix" append="_BMT_SCREEN_AB_PE.OUT" />
+      <file id="bmose" based_on="prefix" append="_BMT_SCREEN_AB_SE.OUT" />
+      <file id="rdlog" based_on="prefix" append="_READS_COUNT.LOG" />
+      <file id="precl1" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK.clean.final" />
+      <file id="precl1se" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK.clean.final_SE.fasta" temp="True"/>
+      <file id="precl2se" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK_SE.merged.clean.final.fasta" temp="True"/>
+      <file id="finalse" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK.clean.final_3.fasta" />
+
+      <file id="finalsefq" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK.clean.final_3.fastq" />
+      <file id="b4finalse" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK.clean.final_se.fastq" temp="True"/>
+      <file id="finalpe1" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK.clean.final_1.fasta" />
+      <file id="fcleanpe" based_on="prefix" append="_FINAL_CLEAN_PE.FOF" />
+      <file id="fcleanse" based_on="prefix" append="_FINAL_CLEAN_SE.FOF" />
+      <file id="trsefq" based_on="prefix" append="_DD_RF_CLEAN_TRIM_SE.fastq" />
+      <file id="trfq" based_on="prefix" append="_DD_RF_CLEAN_TRIM.fastq" />
+
+
+      <command program="cat">
+        {in_3} {in_5} | sort | uniq > {bmope}
+      </command>
+
+      <command program="cat">
+        {in_4} {in_6} | sort | uniq > {bmose}
+      </command>
+
+      <command program="python /data/slek/bin/extract_syn_seq.pyc ">
+        {in_1} {bmope} {precl1} >> {rdlog}
+      </command>
+
+      <command program="python /data/slek/bin/extract_seq.pyc "> 
+        {in_2} {bmose} {precl2se} >> {rdlog}
+      </command>
+
+      <command program="cat">
+        {precl2se} {precl1se} >> {finalse}
+      </command>
+
+      <command program="grep ">
+        '>' {finalpe1} | sed 's/>//' > {fcleanpe}
+      </command>
+
+      <command program="grep ">
+        '>' {finalse} | sed 's/>//' > {fcleanse}
+      </command>
+
+      <command program="python /data/slek/bin/extract_clean_fq_pe.pyc ">
+        {trfq} {fcleanpe} {fcleanse} {precl1}
+      </command>
+
+      <command program="python /data/slek/bin/extract_clean_fq_se.pyc ">
+        {trsefq} {fcleanse} {b4finalse}
+      </command>
+
+      <command program="cat">
+        {b4finalse} >> {finalsefq}
+      </command>
+
+      <command program="">
+        pre=`basename {prefix}`
+      </command>
+
+      <command program="/data/slek/bin/scrub_stats.sh">
+        $pre
+      </command>
+
+      <command program="rm -v">
+        {in_1} {in_2} {b4finalse} {precl1se} {precl2se} {trfq} {trsefq}
+      </command> 
+
+      <command program="">
+        chmod 444 {prefix}*.*;
+        gzip -q {prefix}*.*
+      </command>
+ 
+
+
+</tool>
