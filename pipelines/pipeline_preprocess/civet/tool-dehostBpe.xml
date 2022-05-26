@@ -1,0 +1,23 @@
+<tool name="dehostBpe"
+      threads="4"
+      walltime="60:00:00"
+      exit_if_exists="out_1"
+      tool_config_prefix="tool-dehostBpe">
+      <module>ncbi-blast</module>      
+      <module>bmfilter</module>      
+
+      <option name="bitmask" command_text="-b" value="/data/weinstocklab/DBS/hspb/hspb.fna.bitmask" />
+      <option name="srprism" command_text="-x" value="/data/weinstocklab/DBS/hspb/hspb.fna.srprism" />
+      <file id="prefix" based_on="in_1" pattern="(.*)_DD.*" replace="\1" />
+      <dir id="tmpdbpe" based_on="prefix" append="_TEMP_BPE" />
+
+      <command program="/data/slek/bin/bmtagger_se.sh">
+        {bitmask} {srprism} -T {tmpdbpe} -q 0 -1 {in_1} -o {out_1}
+      </command>
+
+      <command program="rm -rfv">
+        {tmpdbpe}
+      </command>
+
+
+</tool>

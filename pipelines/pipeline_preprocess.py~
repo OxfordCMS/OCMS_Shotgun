@@ -1,7 +1,7 @@
 """
-================================
-Preprocess shotgun sequence data
-================================
+===========================
+Preprocess mWGS data
+===========================
 
 
 Overview
@@ -12,26 +12,11 @@ preprocessing mWGS reads:
 
 1) Remove identical duplicates on the assumption that they are PCR dups. 
 2) Trim adapters 
-3) Optionally remove rRNA reads (for metatranscriptome)
-4) Remove host reads 
-5) Either softmask or remove low complexity
+3) Remove host reads
+4) Either softmask or remove low complexity
 
-
-Dependencies
-============
-
-cdhit-dup
-trimmomatic
-sortmeRNA
-bmtagger
-bbduk
-
-source /well/kir/config/modules.sh
-module load CD-HIT/4.8.1-GCC-9.3.0
-module load CD-HIT-auxtools/4.8.1-GCC-9.3.0
-module load bmtagger/3.101-gompi-2020a
-module load Trimmomatic/0.39-Java-11
-module load BBMap/38.90-GCC-9.3.0
+module load bio/cdhit
+module load bio/bbmap
 
 Code
 ====
@@ -51,10 +36,8 @@ import distutils
 import pandas as pd
 
 
-import PreProcess as pp
-
 # load options from the config file
-PARAMS = P.get_parameters(
+PARAMS = P.getParameters(
     ["%s/pipeline.yml" % os.path.splitext(__file__)[0],
      "pipeline.yml"])
 
@@ -166,11 +149,11 @@ def removeDuplicates(fastq1, outfile):
                          " rm -f %(tmpf1)s &&"
                          " rm -f %(tmpf2)s &&"
                          " rm -f %(cluster_file)s")
-            P.run(statement, job_options=PARAMS['cdhit_run_options'])
+            cluster_options=PARAMS['cdhit_run_options']
+            P.run(statement)
         else:
-            E.warn('Deduplication step is being skipped for: %s' % fastq1)
             symlnk(fastq1, outfile)
-            symlnk(fastq2, outfile2 + '.gz')
+            symlnk(fastq2, outfile2)
 
     else:
         outfile1 = P.snip(outfile, '.gz') 
@@ -179,7 +162,7 @@ def removeDuplicates(fastq1, outfile):
         
         to_filter = PARAMS['preprocess_dedup']
         if to_filter:
-            tmpf1 = P.get_temp_filename('.')
+            tmpf1 = P.getTempFilename('.')
             statement = ("zcat %(fastq1)s > %(tmpf1)s"
                          " cd-hit-dup"
                          "  -i %(tmpf1)s"
@@ -190,10 +173,9 @@ def removeDuplicates(fastq1, outfile):
                          " gzip %(logfile)s &&"
                          " rm -f %(tmpf1)s &&"
                          " rm -f %(cluster_file)s")
-
-            P.run(statement, job_options=PARAMS['cdhit_run_options'])      
+            cluster_options=PARAMS['cdhit_run_options']
+            P.run()      
         else:
-            E.warn('Deduplication step is being skipped for: %s' % fastq1)
             symlnk(fastq1, outfile)        
 
 ###############################################################################
@@ -241,7 +223,8 @@ def removeAdapters(fastq1, outfile1):
                      "  > %(outf_singletons)s &&"
                      " rm -f %(outf1_singletons)s && rm -f %(outf2_singletons)s")
 
-        P.run(statement, job_options = PARAMS['trimmomatic_run_options'])
+        cluster_options = PARAMS['trimmomatic_run_options']
+        P.run()
 
     else:
         logfile = P.snip(outfile1, '.fastq.1.gz') + '.trim.log'
@@ -266,75 +249,32 @@ def removeAdapters(fastq1, outfile1):
                      " &> %(logfile2)s &&"
                      " gzip -f %(logfile)s")
 
-        P.run(statement, job_options = PARAMS['trimmomatic_run_options'])
+        cluster_options = PARAMS['trimmomatic_run_options']
+        P.run()
 
-
-###############################################################################
-# Remove Contamination
-###############################################################################
-@follows(mkdir('reads_rrnaRemoved.dir'))
-@transform(removeAdapters,
-           regex('.+/(.+)_deadapt.fastq.1.gz'),
-           r'reads_rrnaRemoved.dir/\1_rRNAremoved.fastq.1.gz')
-def removeRibosomalRNA(fastq1, outfile):
-    '''Remove ribosomal RNA using sortMeRNA'''
-    
-
-    if PARAMS['data_type'] == 'metatranscriptome':
-        tool = pp.runSortMeRNA(fastq1, 
-                               outfile, 
-                               **{**PARAMS, 
-                                  **{'fn_suffix': '_deadapt.' + FASTQ1_SUFFIX}})
-        tool.run(**PARAMS)
-    else:
-        assert PARAMS['data_type'] == 'metagenome', \
-            'Unrecognised data type: {}'.format(PARAMS['data_type'])
-        
-        inf1 = fastq1
-        inf2 = P.snip(inf1, '.fastq.1.gz') + '.fastq.2.gz'
-        inf3 = P.snip(inf1, '.fastq.1.gz') + '.fastq.3.gz'
-
-        outf1 = outfile
-        outf2 = P.snip(outf1, '.fastq.1.gz') + '.fastq.2.gz'
-        outf3 = P.snip(outf1, '.fastq.1.gz') + '.fastq.3.gz'
-
-        symlink(inf1, outf1)
-        if os.path.exists(inf2):
-            symlink(inf2, outf2)
-        if os.path.exists(inf3):
-            symlink(inf3, outf3)
-
-    
 
 @follows(mkdir('reads_hostRemoved.dir'))
-@transform(removeRibosomalRNA,
-           regex('.+/(.+)_rRNAremoved.fastq.1.gz'),
+@transform(removeAdapters,
+           regex('.+/(.+)_deadapt.fastq.1.gz'),
            r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
-def removeHost(fastq1, outfile):
+def removeHostContamination(fastq1, outfile):
     '''Remove host contamination using bmtagger'''
 
     outf_host = P.snip(outfile, '_dehost.fastq.1.gz') + '_host.txt'
     outf_host_stub = P.snip(outf_host, '.txt') + '_toremove'
 
-    # Currently disabled. Has no effect. See drop_fastq.py
-    # # Whether to keep pair if a read is identified as host.
-    # if PARAMS['bmtagger_keep_pairs']:
-    #     keep_pairs = True
-    #     E.info("BMTagger: reads with a pair identified as host will be"
-    #            " discarded")
-    # else:
-    #     keep_pairs = False
-    #     E.info("BMTagger: reads with a pair identified as host will be"
-    #            " kept as singletons (assuming they are not also identified"
-    #            " as host)")
-
+    # Whether to keep pair if a read is identified as host.
+    if PARAMS['bmtagger_keep_pairs']:
+        keep_pairs = True
+    else:
+        keep_pairs = False
     
     if IS_PAIRED:
         fastq2 = P.snip(fastq1, '.1.gz') + '.2.gz'
         fastq3 = P.snip(fastq1, '.1.gz') + '.3.gz'
         
-        to_remove_paired =  P.get_temp_filename('.')            
-        to_remove_singletons = P.get_temp_filename('.')
+        to_remove_paired = P.getTempFilename('.')            
+        to_remove_singletons = P.getTempFilename('.')
         
         # In some cases, it may be desirable to screen against multiple hosts.
         indexes = zip(PARAMS['bmtagger_bitmask'].split(','),
@@ -344,12 +284,12 @@ def removeHost(fastq1, outfile):
             bitmask, srprism = indexes
 
             # Screen the paired reads, then singletons
-            tmpdir1 = P.get_temp_dir('.')
-            tmpdir2 = P.get_temp_dir('.')
+            tmpdir1 = P.getTempDir('.')
+            tmpdir2 = P.getTempDir('.')
             
-            tmpf1 = P.get_temp_filename('.')
-            tmpf2 = P.get_temp_filename('.')
-            tmpf3 = P.get_temp_filename('.')
+            tmpf1 = P.getTempFilename('.')
+            tmpf2 = P.getTempFilename('.')
+            tmpf3 = P.getTempFilename('.')
     
             # bmtagger truncates fasta headers...  sed 's/[[:space:]]\+/__/g'
             # It won't accept... sed 's|[[:space:]].*$|/1|'
@@ -371,7 +311,7 @@ def removeHost(fastq1, outfile):
                           "  %(outf_host_stub)s_paired%(n)s")
 
             # Screen the singletons
-            if IOTools.open_file(fastq3).read(1):
+            if IOTools.openFile(fastq3).read(1):
                 statement2 = ("zcat %(fastq3)s > %(tmpf3)s &&"
                               " bmtagger.sh"
                               "  -b %(bitmask)s"
@@ -390,12 +330,11 @@ def removeHost(fastq1, outfile):
                               " rm -rf %(tmpdir2)s %(tmpf3)s")
 
             statement = " && ".join([statement1, statement2])
-
-            P.run(statement, job_options = PARAMS['bmtagger_run_options'])
+            cluster_options = PARAMS['bmtagger_run_options']
+            P.run()
             
         # Drop host contaminated reads
         # A hack due to the fact that BMTagger truncates fastq identifiers
-        # TO DO: Look at bmtagger/.../bin/extract_fullseq
         drop_script = os.path.join(os.path.splitext(__file__)[0],
                                    'drop_fastqs.py')
         
@@ -420,9 +359,8 @@ def removeHost(fastq1, outfile):
                      " --fastq-drop2 %(fastq2_host)s"
                      " --fastq-drop3 %(fastq3_host)s"
                      " &>> %(outfile)s.log")
+        P.run()
 
-        P.run(statement)
-        
         os.unlink(to_remove_paired)
         os.unlink(to_remove_singletons)
 
@@ -430,14 +368,14 @@ def removeHost(fastq1, outfile):
     else:
         indexes = zip(PARAMS['bmtagger_bitmask'].split(','),
                       PARAMS['bmtagger_srprism'].split(','))
-        to_remove = P.get_temp_filename('.')
+        to_remove = P.getTempFilename('.')
         
         for n, indexes in enumerate(indexes, 1):
             n = str(n)
             bitmask, srprism = indexes
             # Screen the singletons
-            tmpdir1 = P.get_temp_dir('.')
-            tmpf = P.get_temp_filename('.')
+            tmpdir1 = P.getTempDir('.')
+            tmpf = P.getTempFilename('.')
             
             statement = ("zcat %(fastq1)s > %(tmpf)s &&"
                          " bmtagger.sh"
@@ -450,8 +388,8 @@ def removeHost(fastq1, outfile):
                          "  &>> %(outfile)s.log &&"
                          " cat %(outf_host_stub)s_%(n)s >> %(to_remove)s"
                          " rm -rf %(tmpdir1)s %(tmpf)s %(outf_host_stub)s_%(n)s")
-
-            P.run(statement, job_options = PARAMS['bmtagger_run_options'])
+            cluster_options = PARAMS['bmtagger_run_options']
+            P.run()
             
 
         # Drop host contaminated reads
@@ -466,16 +404,13 @@ def removeHost(fastq1, outfile):
                      " --fastq-out1 %(outfile)s"
                      " --fastq-drop1 %(fastq_host)s"
                      " &>> %(outfile)s.log")
-        P.run(statement)
+        P.run()
         
         os.unlink(to_remove)
 
 
-###############################################################################
-# Mask or Remove Low-complexity sequence
-###############################################################################
 @follows(mkdir('reads_dusted.dir'))
-@transform(removeHost,
+@transform(removeHostContamination,
            regex('.+/(.+)_dehost.fastq.1.gz'),
            r'reads_dusted.dir/\1_masked.fastq.1.gz')
 def maskLowComplexity(fastq1, outfile):
@@ -517,7 +452,7 @@ def maskLowComplexity(fastq1, outfile):
                           "  threads=%(dust_threads)s"
                           "  %(bb_options)s"
                           "  &> %(outfile)s.log")
-            if IOTools.open_file(fastq3).read(1):
+            if IOTools.openFile(fastq3).read(1):
                 statement2 = (" bbduk.sh"
                               "  in=%(fastq3)s"
                               "  out=%(outfile3)s"
@@ -530,8 +465,8 @@ def maskLowComplexity(fastq1, outfile):
                 statement2 = (" touch %(outfile3)s  %(out_disc3)s")
 
             statement = " && ".join([statement1, statement2])
-            
-            P.run(statement, job_options=PARAMS['dust_run_options'])
+            cluster_options=PARAMS['dust_run_options']
+            P.run()
 
         else:
             statement1 = ("bbmask.sh"
@@ -552,7 +487,7 @@ def maskLowComplexity(fastq1, outfile):
                           "  lowercase=t"
                           "  %(bb_options)s"
                           "  &>> %(outfile)s.log")
-            if IOTools.open_file(fastq3).read(1):           
+            if IOTools.openFile(fastq3).read(1):           
                 statement2 = (" bbmask.sh"
                               "  in=%(fastq3)s"
                               "  out=%(outfile3)s"
@@ -566,8 +501,8 @@ def maskLowComplexity(fastq1, outfile):
                 statement2 = (" touch %(outfile3)s")
 
             statement = " && ".join([statement1, statement2])
-
-            P.run(statement, job_options=PARAMS['dust_run_options'])
+            cluster_options=PARAMS['dust_run_options']
+            P.run()
 
         # Renaming files because of bbmap idiosyncracies
         of1 = P.snip(outfile1, '.fq.gz') + '.gz'
@@ -599,8 +534,8 @@ def maskLowComplexity(fastq1, outfile):
                          " lowercase=t"
                          " %(bb_options)s"
                          " &> %(outfile)s.log")
-
-            P.run(statement, job_options=PARAMS['dust_run_options'])
+            cluster_options=PARAMS['dust_run_options']
+            P.run()
 
         else:
             statement = ("bbmask.sh"
@@ -611,8 +546,8 @@ def maskLowComplexity(fastq1, outfile):
                          " lowercase=t"
                          " %(bb_options)s"
                          " &> %(outfile.log")
-
-            P.run(statement, job_options=PARAMS['dust_run_options'])
+            cluster_options=PARAMS['dust_run_options']
+            P.run()
 
         os.rename(outfile1, outfile)
         if PARAMS['dust_discard_low_complexity']:
@@ -632,28 +567,28 @@ def maskLowComplexity(fastq1, outfile):
 def countInputReads(infile, outfile):
     
     statement = ("zcat %(infile)s |"
-                 " awk '{n+=1;} END {printf(n/4\"\\n\");}'"
+                 " awk '{n+=1;} END {printf(n/4);}'"
                  " > %(outfile)s")
-
-    P.run(statement)
+    cluster_options = "-l walltime=04:00:00,mem=2GB,nodes=1:ppn=1"
+    P.run()
 
 
 @follows(countInputReads)
-@transform([removeDuplicates, removeAdapters, removeRibosomalRNA,
-            removeHost, maskLowComplexity],
+@transform([removeDuplicates, removeAdapters,
+            removeHostContamination, maskLowComplexity],
            regex('.+/(.+).fastq.1.gz'),
            r'read_count_summary.dir/\1.nreads')
 def countOutputReads(infile, outfile):
     '''Count the number of reads in the output files'''    
     statement = ("zcat %(infile)s |"
-                 " awk '{n+=1;} END {printf(n/4\"\\n\");}'"
+                 " awk '{n+=1;} END {printf(n/4);}'"
                  " > %(outfile)s")
-
-    P.run(statement)
+    cluster_options = "-l walltime=04:00:00,mem=2GB,nodes=1:ppn=1"
+    P.run()
 
 
 @collate([countInputReads, countOutputReads],
-         regex('(.+)_(input|deduped|deadapt|dehost|rRNAremoved|masked).nreads'),
+         regex('(.+)_(input|deduped|deadapt|dehost|masked).nreads'),
          r'\1_read_count_summary.tsv')
 def collateReadCounts(infiles, outfile):
     '''Collate read counts for each sample'''
@@ -667,18 +602,18 @@ def collateReadCounts(infiles, outfile):
                  " --log=%(outfile)s.log"
                  " %(infiles)s"
                  " > %(outfile)s")
-    P.run(statement)
+    P.run()
 
     
 @merge(collateReadCounts, 'processing_summary.tsv')
 def summarizeReadCounts(infiles, outfile):
     '''Calculate the number of reads lost at each step for each sample'''
 
-    with IOTools.open_file(outfile, 'w') as outf:
+    with IOTools.openFile(outfile, 'w') as outf:
         outf.write("sample_id\tinput_reads\toutput_reads\tduplicates\t"
-                   "adapter_contamination\trRNA\thost\tlow_complexity\t"
-                   "duplicates_percent\tadapters_percent\trrna_percent\t"
-                   "host_percent\tlow_complexity_perc\tremaining_percent\n")
+                   "adapter_contamination\thost\tlow_complexity\t"
+                   "duplicates_percent\tadapters_percent\thost_percent\t"
+                   "low_complexity_perc\tremaining_percent\n")
         for infile in infiles:
             sample_id = P.snip(os.path.basename(infile),
                                '_read_count_summary.tsv')
@@ -687,35 +622,30 @@ def summarizeReadCounts(infiles, outfile):
             df = pd.read_table(infile, index_col=0, header=None)
             deadapt = df.loc['deadapt', 1]
             deduped = df.loc['deduped', 1]
-            rrna = df.loc['rRNAremoved', 1]
             dehost = df.loc['dehost', 1]
             masked = df.loc['masked', 1]
             input_reads = df.loc['input', 1]
             
             lost_dup = input_reads - deduped
             lost_adapt = deduped - deadapt
-            lost_rrna = deadapt - rrna
-            lost_host = rrna - dehost
+            lost_host = deadapt - dehost
             lost_mask = dehost - masked
 
             lost_dup_perc = round(lost_dup/float(input_reads) * 100, 2)
             lost_adapt_perc = round(lost_adapt/float(input_reads) * 100, 2)
-            lost_rrna_perc = round(lost_rrna/float(input_reads) * 100, 2)
             lost_host_perc = round(lost_host/float(input_reads) * 100, 2)
             lost_mask_perc = round(lost_mask/float(input_reads) * 100, 2)
             output_perc = round(masked/float(input_reads) * 100, 2)
-
-            outf.write('\t'.join(map(str, [sample_id, input_reads, masked, 
-                                           lost_dup, lost_adapt, lost_rrna, 
-                                           lost_host, lost_mask, lost_dup_perc, 
-                                           lost_adapt_perc, lost_rrna_perc, 
-                                           lost_host_perc, lost_mask_perc, 
+            
+            outf.write('\t'.join(map(str, [sample_id, input_reads, masked,
+                                           lost_dup, lost_adapt,
+                                           lost_host, lost_mask,
+                                           lost_dup_perc,
+                                           lost_adapt_perc,
+                                           lost_host_perc,
+                                           lost_mask_perc,
                                            output_perc])) + '\n')
             
-
-@follows(summarizeReadCounts)
-def full():
-    pass
 
 def main(argv=None):
     if argv is None:
