@@ -166,7 +166,9 @@ def removeDuplicates(fastq1, outfile):
                          " rm -f %(tmpf1)s &&"
                          " rm -f %(tmpf2)s &&"
                          " rm -f %(cluster_file)s")
-            P.run(statement, job_options=PARAMS['cdhit_run_options'])
+            P.run(statement,
+                  job_options=PARAMS['cdhit_cluster_options'],
+                  job_threads=PARAMS['cdhit_threads'])
         else:
             E.warn('Deduplication step is being skipped for: %s' % fastq1)
             symlnk(fastq1, outfile)
@@ -191,7 +193,9 @@ def removeDuplicates(fastq1, outfile):
                          " rm -f %(tmpf1)s &&"
                          " rm -f %(cluster_file)s")
 
-            P.run(statement, job_options=PARAMS['cdhit_run_options'])      
+            P.run(statement,
+                  job_options=PARAMS['cdhit_cluster_options'],
+                  job_threads=PARAMS['cdhit_threads'])      
         else:
             E.warn('Deduplication step is being skipped for: %s' % fastq1)
             symlnk(fastq1, outfile)        

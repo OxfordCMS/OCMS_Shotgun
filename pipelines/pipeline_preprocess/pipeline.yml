@@ -38,7 +38,9 @@ cdhit:
     # Additional options to be passed to cd-hit-dup
     options: ''
 
-    run_options: -pe shmem 4
+    threads: 4    
+
+    cluster_options: -pe shmem 4
 
 ################################################################
 # Trimming of adapters
