@@ -84,15 +84,26 @@ trimmomatic:
 # Removal of host contamination
 ################################################################
 sortmerna:
-    tmp:
 
+    # Options for removing contaminant rRNA
     index: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_indexes/
 
     reference: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/rfam-5.8s-database-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/rfam-5s-database-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-arc-16s-id95.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-arc-23s-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-bac-16s-id90.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-bac-23s-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-euk-18s-id95.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-euk-28s-id98.fasta 
 
+    options: ''
+
+    # Options for classfiying rRNA
+    otu_index: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/16S_indexes/
+
+    otu_reference: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/16S_databases/GTDB_bac-arc_ssu_r86.fasta
+
+    otu_options: --id 0.97 --coverage 0.97 --de_novo_otu True  --otu_map True
+
+    # Generic options
     threads: 12
 
     run_options: -pe shmem 12
+
 
 
 bmtagger:

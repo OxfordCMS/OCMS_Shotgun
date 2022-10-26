@@ -275,6 +275,7 @@ def removeAdapters(fastq1, outfile1):
 @follows(mkdir('reads_rrnaRemoved.dir'))
 @transform(removeAdapters,
            regex('.+/(.+)_deadapt.fastq.1.gz'),
+#           regex('.+/(WTCHG_796112_72785254)_deadapt.fastq.1.gz'),
            r'reads_rrnaRemoved.dir/\1_rRNAremoved.fastq.1.gz')
 def removeRibosomalRNA(fastq1, outfile):
     '''Remove ribosomal RNA using sortMeRNA'''
@@ -304,7 +305,51 @@ def removeRibosomalRNA(fastq1, outfile):
         if os.path.exists(inf3):
             symlink(inf3, outf3)
 
+
+@follows(mkdir('reads_rrnaClassified.dir'))
+@transform(removeAdapters,
+           regex('.+/(.+)_deadapt.fastq.1.gz'),
+#           regex('.+/(WTCHG_796112_72785254)_deadapt.fastq.1.gz'),
+           r'reads_rrnaClassified.dir/\1_otu_map.txt')
+def classifyRibosomalRNA(fastq1, outfile):
+
+    assert PARAMS['data_type'] == 'metatranscriptome', \
+        "Can't run rRNA classification on mWGS data..."
+
+    tool = pp.createSortMeRNAOTUs(fastq1, 
+                                  outfile, 
+                                  **{**PARAMS, 
+                                     **{'fn_suffix': '_deadapt.' + FASTQ1_SUFFIX}})
+    tool.run(**PARAMS)
+
+
+@transform(classifyRibosomalRNA, suffix('_map.txt'), 's.tsv.gz')
+def summarizeRibosomalRNAClassification(infile, outfile):
+    '''Count the number of reads mapping to each taxon'''
     
+    sample_id = P.snip(infile, '_otu_map.txt', strip_path=True)
+    
+    with IOTools.open_file(outfile, 'w') as outf:
+        outf.write('taxonomy\t%s\n' % sample_id)
+        for otu in IOTools.open_file(infile):
+            taxonomy = otu.split()[0]
+            reads = otu.split()[1:]
+            outf.write(taxonomy + '\t' + str(len(reads)) + '\n')
+
+
+
+@merge(summarizeRibosomalRNAClassification,
+       'reads_rrnaClassified.dir/metatranscriptome_otus.tsv.gz')
+def combineRNAClassification(infiles, outfile):
+    '''Combine output of sortmerna read classification'''
+
+    infiles = ' '.join(infiles)
+
+    statement = ("cgat combine_tables"
+                 "  --log=%(outfile)s.log"
+                 "  %(infiles)s |"
+                 " gzip > %(outfile)s")
+    P.run(statement, to_cluster=False)
 
 @follows(mkdir('reads_hostRemoved.dir'))
 @transform(removeRibosomalRNA,
