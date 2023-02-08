@@ -108,6 +108,9 @@ def runHumann3(infile, outfile):
     '''
     prefix = P.snip(os.path.basename(outfile), "_pathcoverage.tsv")
     
+    job_mem = PARAMS.get("humann3_memory")
+    job_threads = PARAMS.get("humann3_threads")
+
     db_nucleotide = PARAMS.get("humann3_db_nucleotide")
     db_protein = PARAMS.get('humann3_db_protein')
     search_mode = PARAMS.get('humann3_search_mode')
@@ -243,7 +246,7 @@ def build_report():
     P.run(statement)
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows("mergePathCoverage", "mergePathAbundance", "mergeGeneFamilies")
+@follows("mergePathCoverage", "mergePathAbundance", "mergeGeneFamilies", "splitMetaphlan)
 def full():
     pass
 
