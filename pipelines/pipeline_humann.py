@@ -246,7 +246,7 @@ def build_report():
     P.run(statement)
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows("mergePathCoverage", "mergePathAbundance", "mergeGeneFamilies", "splitMetaphlan)
+@follows("mergePathCoverage", "mergePathAbundance", "mergeGeneFamilies", "splitMetaphlan")
 def full():
     pass
 
