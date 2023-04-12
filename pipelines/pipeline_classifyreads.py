@@ -28,12 +28,13 @@ Input files
 
 fastq files that are in the format .fastq.1.gz and .fastq.2.gz.
 
-Requirements
+Dependencies
 ------------
+kraken2
+bracken
 
-
-Requirements:
-
+module load Kraken2/2.0.9-beta-gompi-2020a-Perl-5.30.2
+module load Bracken/2.6.0-GCCcore-9.3.0
 
 Pipeline output
 ===============

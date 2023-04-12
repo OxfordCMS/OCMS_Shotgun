@@ -4,6 +4,12 @@ kraken2:
     job_mem: 10
     options: ''
     run_options: ''
+    
+braken:
+    db:
+    kreport:
+    read_len:
+    classification_level:
 
 report:
 
