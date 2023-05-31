@@ -38,9 +38,12 @@ cdhit:
     # Additional options to be passed to cd-hit-dup
     options: ''
 
-    threads: 4    
+    # Cluster options
+    # while cd-hit is multi-threaded, it seems cd-hit-dup isn't
+    threads: 1    
 
-    cluster_options: -pe shmem 4
+    memory: 125G
+
 
 ################################################################
 # Trimming of adapters
@@ -79,8 +82,11 @@ trimmomatic:
     # Minimum length for surviving read
     minlen: 36
 
-    # qsub options
-    run_options: -pe shmem 4
+    # Cluster options
+    threads = 4
+
+    memory = 20G
+
 
 ################################################################
 # Removal of host contamination
@@ -104,7 +110,7 @@ sortmerna:
     # Generic options
     threads: 12
 
-    run_options: -pe shmem 12
+    memory: 60G
 
 
 
@@ -118,7 +124,12 @@ bmtagger:
 
     srprism: /gpfs3/well/johnson/shared/mirror/genome/bmtagger/srprism/hg38.srprism
 
-    run_options: -pe shmem 12 -q long.qc@@long.hga
+   
+    # Cluster options  
+    threads: 1
+
+    memory: 25G
+
 
 
 ################################################################
@@ -139,8 +150,10 @@ dust:
     # If bbmask, set window=64 to emulate dustmasker
     options: Xmx40g
 
-    run_options: -pe shmem 4
-
+    # Cluster options
+    threads: 4
+   
+    memory: 40G   
 
 
 

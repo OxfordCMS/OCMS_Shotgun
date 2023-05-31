@@ -81,7 +81,7 @@ class matchReference(object):
     def run(self, *args, **PARAMS):
         
         # Custom command to run reference matching tool.
-        statement, run_options = self.buildStatement(**PARAMS)
+        statement, run_options, run_threads, run_memory = self.buildStatement(**PARAMS)
 
         # Logging
         runfiles = '\t'.join([os.path.basename(x) for x in (self.fastn1, \
@@ -89,12 +89,17 @@ class matchReference(object):
                                                             self.fastn3) if x])
         E.info("Running sortMeRNA for files: {}".format(runfiles))
 
-        P.run(statement, job_options=run_options)
+        P.run(statement, 
+              job_options=run_options,
+              job_threads=run_threads,
+              job_memory=run_memory)
 
         # Post process results into generic output for downstream tasks.
         statement = self.postProcess(**PARAMS)
         if statement:
-            P.run(statement, run_options)
+            print(statement)
+            print(run_options)
+#            P.run(statement, run_options)
 
 
 
@@ -123,8 +128,9 @@ class runSortMeRNA(matchReference):
         
         """
 
-        run_options = PARAMS["sortmerna_run_options"]
+        run_options = PARAMS.get(["sortmerna_cluster_options"], '')
         threads = PARAMS["sortmerna_threads"]
+        memory = PARAMS["sortmerna_memory"]
         sortmerna_options = self.sortmerna_options
 
         # A comma separated list of references
@@ -206,7 +212,7 @@ class runSortMeRNA(matchReference):
             statement = " && ".join([statement, 
                                      "rm -rf %(tmpf)s" % locals()])
 
-        return statement, run_options
+        return statement, run_options, threads, memory
 
     def postProcess(self, *args, **PARAMS):
         ''' Rename files output by sortmeRNA to appropriate suffix

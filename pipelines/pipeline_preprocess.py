@@ -167,8 +167,9 @@ def removeDuplicates(fastq1, outfile):
                          " rm -f %(tmpf2)s &&"
                          " rm -f %(cluster_file)s")
             P.run(statement,
-                  job_options=PARAMS['cdhit_cluster_options'],
-                  job_threads=PARAMS['cdhit_threads'])
+                  job_options=PARAMS.get(['cdhit_cluster_options'], ''),
+                  job_threads=PARAMS['cdhit_threads'], 
+                  job_memory=PARAMS['cdhit_memory'])
         else:
             E.warn('Deduplication step is being skipped for: %s' % fastq1)
             symlnk(fastq1, outfile)
@@ -194,8 +195,9 @@ def removeDuplicates(fastq1, outfile):
                          " rm -f %(cluster_file)s")
 
             P.run(statement,
-                  job_options=PARAMS['cdhit_cluster_options'],
-                  job_threads=PARAMS['cdhit_threads'])      
+                  job_options=PARAMS.get(['cdhit_cluster_options'], ''),
+                  job_threads=PARAMS['cdhit_threads'],
+                  job_memory=PARAMS['cdhit_memory'])      
         else:
             E.warn('Deduplication step is being skipped for: %s' % fastq1)
             symlnk(fastq1, outfile)        
@@ -245,7 +247,10 @@ def removeAdapters(fastq1, outfile1):
                      "  > %(outf_singletons)s &&"
                      " rm -f %(outf1_singletons)s && rm -f %(outf2_singletons)s")
 
-        P.run(statement, job_options = PARAMS['trimmomatic_run_options'])
+        P.run(statement, 
+              job_options=PARAMS.get(['trimmomatic_cluster_options'], ''),
+              job_threads=PARAMS['trimmomatic_threads'],
+              job_memory=PARAMS['trimmomatic_memory'])
 
     else:
         logfile = P.snip(outfile1, '.fastq.1.gz') + '.trim.log'
@@ -270,7 +275,10 @@ def removeAdapters(fastq1, outfile1):
                      " &> %(logfile2)s &&"
                      " gzip -f %(logfile)s")
 
-        P.run(statement, job_options = PARAMS['trimmomatic_run_options'])
+        P.run(statement, 
+              job_options=PARAMS.get(['trimmomatic_cluster_options'], ''),
+              job_threads=PARAMS['trimmomatic_threads'],
+              job_memory=PARAMS['trimmomatic_memory'])
 
 
 ###############################################################################
@@ -278,8 +286,8 @@ def removeAdapters(fastq1, outfile1):
 ###############################################################################
 @follows(mkdir('reads_rrnaRemoved.dir'))
 @transform(removeAdapters,
-           regex('.+/(.+)_deadapt.fastq.1.gz'),
-#           regex('.+/(WTCHG_796112_72785254)_deadapt.fastq.1.gz'),
+#           regex('.+/(.+)_deadapt.fastq.1.gz'),
+           regex('.+/(CMS020_090b)_deadapt.fastq.1.gz'),
            r'reads_rrnaRemoved.dir/\1_rRNAremoved.fastq.1.gz')
 def removeRibosomalRNA(fastq1, outfile):
     '''Remove ribosomal RNA using sortMeRNA'''
@@ -295,19 +303,19 @@ def removeRibosomalRNA(fastq1, outfile):
         assert PARAMS['data_type'] == 'metagenome', \
             'Unrecognised data type: {}'.format(PARAMS['data_type'])
         
-        inf1 = fastq1
-        inf2 = P.snip(inf1, '.fastq.1.gz') + '.fastq.2.gz'
-        inf3 = P.snip(inf1, '.fastq.1.gz') + '.fastq.3.gz'
+        # inf1 = fastq1
+        # inf2 = P.snip(inf1, '.fastq.1.gz') + '.fastq.2.gz'
+        # inf3 = P.snip(inf1, '.fastq.1.gz') + '.fastq.3.gz'
 
-        outf1 = outfile
-        outf2 = P.snip(outf1, '.fastq.1.gz') + '.fastq.2.gz'
-        outf3 = P.snip(outf1, '.fastq.1.gz') + '.fastq.3.gz'
+        # outf1 = outfile
+        # outf2 = P.snip(outf1, '.fastq.1.gz') + '.fastq.2.gz'
+        # outf3 = P.snip(outf1, '.fastq.1.gz') + '.fastq.3.gz'
 
-        symlink(inf1, outf1)
-        if os.path.exists(inf2):
-            symlink(inf2, outf2)
-        if os.path.exists(inf3):
-            symlink(inf3, outf3)
+        # symlink(inf1, outf1)
+        # if os.path.exists(inf2):
+        #     symlink(inf2, outf2)
+        # if os.path.exists(inf3):
+        #     symlink(inf3, outf3)
 
 
 @follows(mkdir('reads_rrnaClassified.dir'))
@@ -440,7 +448,10 @@ def removeHost(fastq1, outfile):
 
             statement = " && ".join([statement1, statement2])
 
-            P.run(statement, job_options = PARAMS['bmtagger_run_options'])
+            P.run(statement, 
+                  job_options=PARAMS.get(['bmtagger_cluster_options'], ''),
+                  job_threads=PARAMS['bmtagger_threads'],
+                  job_memory=PARAMS['bmtagger_memory'])
             
         # Drop host contaminated reads
         # A hack due to the fact that BMTagger truncates fastq identifiers
@@ -500,7 +511,10 @@ def removeHost(fastq1, outfile):
                          " cat %(outf_host_stub)s_%(n)s >> %(to_remove)s"
                          " rm -rf %(tmpdir1)s %(tmpf)s %(outf_host_stub)s_%(n)s")
 
-            P.run(statement, job_options = PARAMS['bmtagger_run_options'])
+            P.run(statement, 
+                  job_options=PARAMS.get(['bmtagger_cluster_options'], ''),
+                  job_threads=PARAMS['bmtagger_threads'],
+                  job_memory=PARAMS['bmtagger_memory'])
             
 
         # Drop host contaminated reads
@@ -580,7 +594,10 @@ def maskLowComplexity(fastq1, outfile):
 
             statement = " && ".join([statement1, statement2])
             
-            P.run(statement, job_options=PARAMS['dust_run_options'])
+            P.run(statement, 
+                  job_options=PARAMS.get(['dust_cluster_options'], ''),
+                  job_threads=PARAMS['dust_threads'],
+                  job_memory=PARAMS['dust_memory'])
 
         else:
             statement1 = ("bbmask.sh"
@@ -616,7 +633,11 @@ def maskLowComplexity(fastq1, outfile):
 
             statement = " && ".join([statement1, statement2])
 
-            P.run(statement, job_options=PARAMS['dust_run_options'])
+            P.run(statement, 
+                  job_options=PARAMS.get(['dust_cluster_options'], ''),
+                  job_threads=PARAMS['dust_threads'],
+                  job_memory=PARAMS['dust_memory'])
+
 
         # Renaming files because of bbmap idiosyncracies
         of1 = P.snip(outfile1, '.fq.gz') + '.gz'
@@ -649,7 +670,10 @@ def maskLowComplexity(fastq1, outfile):
                          " %(bb_options)s"
                          " &> %(outfile)s.log")
 
-            P.run(statement, job_options=PARAMS['dust_run_options'])
+            P.run(statement, 
+                  job_options=PARAMS.get(['dust_cluster_options'], ''),
+                  job_threads=PARAMS['dust_threads'],
+                  job_memory=PARAMS['dust_memory'])
 
         else:
             statement = ("bbmask.sh"
@@ -661,7 +685,10 @@ def maskLowComplexity(fastq1, outfile):
                          " %(bb_options)s"
                          " &> %(outfile.log")
 
-            P.run(statement, job_options=PARAMS['dust_run_options'])
+            P.run(statement, 
+                  job_options=PARAMS.get(['dust_cluster_options'], ''),
+                  job_threads=PARAMS['dust_threads'],
+                  job_memory=PARAMS['dust_memory'])
 
         os.rename(outfile1, outfile)
         if PARAMS['dust_discard_low_complexity']:
