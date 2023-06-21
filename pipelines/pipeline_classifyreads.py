@@ -92,7 +92,7 @@ def classifyReadsWithKraken2(infile, outfile):
     prefix = P.snip(outfile, ".abundance.tsv.gz")
     
     db = PARAMS.get("kraken2_db")
-    nthreads = PARAMS.get("kraken2_nthreads")
+    job_threads = PARAMS.get("kraken2_job_threads")
     job_memory = PARAMS.get("kraken2_job_mem")
     options = PARAMS.get("kraken2_options")
     statement = '''kraken2
@@ -102,12 +102,12 @@ def classifyReadsWithKraken2(infile, outfile):
                    --paired
                    --report %(prefix)s.abundance.tsv
                    --use-names
-                   --threads %(nthreads)s
+                   --threads %(job_threads)s
                    --gzip-compressed %(p1)s %(p2)s
                    %(options)s; 
                    gzip %(prefix)s.classified.tsv %(prefix)s.abundance.tsv
                 '''
-    P.run(statement, job_options=PARAMS['kraken2_run_options'])
+    P.run(statement)
 
 ########################################################
 ########################################################

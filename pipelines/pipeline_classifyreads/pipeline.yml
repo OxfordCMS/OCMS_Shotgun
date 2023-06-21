@@ -1,15 +1,8 @@
 kraken2:
-    db: /gfs/mirror/kraken2/kraken2-microbial-fatfree
-    nthreads: 6
-    job_mem: 10
+    db: ~/mirror/kraken2/kraken2-microbial-fatfree
+    job_threads: 6
+    job_mem: 10G
     options: ''
-    run_options: ''
-    
-braken:
-    db:
-    kreport:
-    read_len:
-    classification_level:
 
 report:
 
