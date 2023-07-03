@@ -119,7 +119,7 @@ def classifyReadsWithKraken2(infile, outfile):
 ########################################################
 ########################################################
 # get output files of classifyReadsWithKraken2
-def generateParallelParams():
+def generate_parallel_params():
     levels = ['species','genus','family','class','order','phylum','domain']
     params = []
     # get output files from classifyReadsWithKraken2
@@ -137,35 +137,10 @@ def generateParallelParams():
             
     return params
 
-def checkBrackenLevels():
-    
-    expected_files = generateParallelParams()
-    expected_files = [x[1] for x in expected_files]
-    missing_files = [f for f in expected_files if not os.path.exists(f)]
-    
-    print("++++++++++++++++++++++++++++++++++++++++++")
-    print('expected_files')
-    print(expected_files)
-    print("missing_files")
-    print(missing_files)
-    if missing_files:
-        raise Exception("Abundance file not found:\n%s" % '\n'.join(missing_files))
-    return True
-#    # check that all all levels are 
-#    level = ['species','genus','family','order','class','phylum','domain']
-#    for l in level:
-#        try:
-#            open(infile)
-#    # check output produced at all levels
-#    check = [os.path.exists(x) for x in outfiles]
-#    if not all(check):
-#        missing_file = [x for x in outfiles if not os.path.exists(x)]
-#        raise FileNotFoundError("Abundance file not found:\n%s" % "\n".join(missing_file))
             
 @follows(mkdir("bracken.dir"))
 #@subdivide(classifyReadsWithKraken2, regex(r"kraken2.dir/(.*).k2.report.tsv"), [r"bracken.dir/\1.species.abundance.tsv", r"bracken.dir/\1.genus.abundance.tsv", r"bracken.dir/\1.family.abundance.tsv",r"bracken.dir/\1.order.abundance.tsv",r"bracken.dir/\1.class.abundance.tsv",r"bracken.dir/\1.phylum.abundance.tsv",r"bracken.dir/\1.domain.abundance.tsv"])
-@parallel(generateParallelParams())
-@posttask(checkBrackenLevels())
+@parallel(generate_parallel_params())
 def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
@@ -217,8 +192,25 @@ def runBracken(infile, outfile):
 #    '''
 #    for outfile in outfiles:
 #        runBracken(infile, outfile)
-    
 
+def files_to_check():
+    expected_files = generate_parallel_params()
+    expected_files = [x[1] for x in expected_files]
+    return expected_files
+@merge(files_to_check(), "bracken.dir/.sentinel.check")
+def checkBrackenLevels(expected_files, outfile):
+    
+    missing_files = [f for f in expected_files if not os.path.exists(f)]
+    
+    print("++++++++++++++++++++++++++++++++++++++++++")
+    print('expected_files')
+    print(expected_files)
+    print("missing_files")
+    print(missing_files)
+    if missing_files:
+        raise Exception("Abundance file not found:\n%s" % '\n'.join(missing_files))
+    else:
+        open(outfile, 'a').close()
 
 ########################################################
 ########################################################
@@ -227,6 +219,7 @@ def runBracken(infile, outfile):
 ########################################################
 ########################################################
 ########################################################
+@follows(checkBrackenLevels)
 @collate(runBracken, regex(r"bracken.dir/(.*).([a-z]+).abundance.tsv"),[r"bracken.dir/\2.merged_abundances.tsv"])
 def mergeBracken(infiles, outfile):
     '''
