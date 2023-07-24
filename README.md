@@ -5,7 +5,19 @@
 * pipeline_classifyreads.py - Classify reads from paired-end fastq files using kraken2
 * pipeline_humann.py - functional profiling of fastq file using humann3
 
-### Running pipeline_humann.py on BMRC
+## pipeline_classifyreads.py
+Uses Kraken2 to classify paired-end reads
+Uses Bracken to estimate abundances at every taxonomic level
+Uses Taxonkit to generate a taxonomy file listing taxonomic lineage in mpa style
+
+Taxonkit requires NCBI taxonomy files, which can be downloaded from the [NCBI FTP](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz). Path to directory of taxonomy files is specified in the `taxdump` parameter in the yml. 
+
+Since `runBracken` performs Bracken on all taxonomic levels (species, genus, family, order, class, phylum, domain) in parallel, it is beneficial to run that step with 7 times the usual number of processors (while being mindful of the number of jobs). For example, if we have 5 samples
+```
+python ~/devel/OCMS_Shotgun/pipelines/pipeline_classifyreads.py runBracken -v5 -p35
+```
+
+## Running pipeline_humann.py on BMRC
 Set up environment on BMRC with
 
 ```
