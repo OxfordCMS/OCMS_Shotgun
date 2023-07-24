@@ -118,12 +118,11 @@ def classifyReadsWithKraken2(infile, outfile):
 ########################################################
 ########################################################
 ########################################################
-# get output files of classifyReadsWithKraken2
+# use output of classifyReadsWithKraken2 to generate list 
+# of bracken inputs and outputs for every taxononmic level    
 def generate_parallel_params():
-    levels = ['species','genus','family','class','order','phylum','domain']
-    params = []
-    # get output files from classifyReadsWithKraken2
     kraken_outfiles = glob.glob("kraken2.dir/*.k2.report.tsv")
+    levels = ['species','genus','family','class','order','phylum','domain']
     
     for kraken_outfile in kraken_outfiles:
         # generate output files for each taxonomic level
@@ -131,16 +130,14 @@ def generate_parallel_params():
         bracken_outfiles = [sample_name.replace(".k2.report.tsv","." + x + ".abundance.tsv") for x in levels]
         bracken_outfiles = [os.path.join("bracken.dir", x) for x in bracken_outfiles]
         
-        for bo in bracken_outfiles:
-            entry = [kraken_outfile, bo]
-            params.append(entry)
-            
-    return params
+        for bracken_outfile in bracken_outfiles:
+            yield kraken_outfile, bracken_outfile
+    
 
-            
+                                
+@follows(classifyReadsWithKraken2)
 @follows(mkdir("bracken.dir"))
-#@subdivide(classifyReadsWithKraken2, regex(r"kraken2.dir/(.*).k2.report.tsv"), [r"bracken.dir/\1.species.abundance.tsv", r"bracken.dir/\1.genus.abundance.tsv", r"bracken.dir/\1.family.abundance.tsv",r"bracken.dir/\1.order.abundance.tsv",r"bracken.dir/\1.class.abundance.tsv",r"bracken.dir/\1.phylum.abundance.tsv",r"bracken.dir/\1.domain.abundance.tsv"])
-@parallel(generate_parallel_params())
+@files(generate_parallel_params)
 def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
@@ -157,10 +154,8 @@ def runBracken(infile, outfile):
     # taxonomic level
     level = P.snip(outfile, ".abundance.tsv")
     level = level.split(".")[-1]
-    
-    # sentinel file name
-    sentinel = ".sentinel.%s.%s" % (prefix, level)
-    
+    level_param = level[0].capitalize()
+        
     # check if sentinel file exists
     if os.path.exists(os.path.join("bracken.dir", sentinel)):
         return
@@ -180,33 +175,23 @@ def runBracken(infile, outfile):
                    -o bracken.dir/%(prefix)s.%(level)s.abundance.tsv
                    -w bracken.dir/%(prefix)s.%(level)s.k2b.report.tsv
                    -r %(read_len)s
-                   -l S
-                   %(options)s; touch bracken.dir/%(sentinel)s
+                   -l %(level_param)s
+                   %(options)s
                     '''
     P.run(statement)
 
-
-#def runBrackenAllLevels(infile, outfiles):
-#    '''
-#    run Bracken on each taxonomic level
-#    '''
-#    for outfile in outfiles:
-#        runBracken(infile, outfile)
-
+# check all backen at all taxonomic levels has been run
 def files_to_check():
-    expected_files = generate_parallel_params()
+    expected_files = [x for x in list(generate_parallel_params())]
     expected_files = [x[1] for x in expected_files]
     return expected_files
+
+@follows(runBracken)
 @merge(files_to_check(), "bracken.dir/.sentinel.check")
 def checkBrackenLevels(expected_files, outfile):
     
     missing_files = [f for f in expected_files if not os.path.exists(f)]
     
-    print("++++++++++++++++++++++++++++++++++++++++++")
-    print('expected_files')
-    print(expected_files)
-    print("missing_files")
-    print(missing_files)
     if missing_files:
         raise Exception("Abundance file not found:\n%s" % '\n'.join(missing_files))
     else:
@@ -220,31 +205,57 @@ def checkBrackenLevels(expected_files, outfile):
 ########################################################
 ########################################################
 @follows(checkBrackenLevels)
-@collate(runBracken, regex(r"bracken.dir/(.*).([a-z]+).abundance.tsv"),[r"bracken.dir/\2.merged_abundances.tsv"])
+@collate(runBracken, regex(r"bracken.dir/.*\.(.+).abundance.tsv"),r"bracken.dir/\1.merged_abundances.tsv")
 def mergeBracken(infiles, outfile):
     '''
     merge sample results from bracken
     '''
-    sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*.abundance.tsv")]
+    level = P.snip(os.path.basename(outfile), ".merged_abundances.tsv")
+    level = level.split(".")[-1]
+
+    sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
+    sample_names = [P.snip(x, "." + level) for x in sample_names]
     titles = ",".join([x for x in sample_names])
-    #titles = "taxonomy_id" + "," + titles
-    
     
     statement = '''  cgat combine_tables
-                    --glob=bracken.dir/*abundance.tsv
+                    --glob=bracken.dir/*%(level)s.abundance.tsv
                     --skip-titles
                     --header-names=%(titles)s
                     -m 0
                     -k 6
                     -c 1,2
-                    --log=bracken.dir/merged_abundances.log > %(outfile)s
-                    
+                    --log=bracken.dir/%(level)s.merged_abundances.log > %(outfile)s                
+                '''
+    P.run(statement)
+
+########################################################
+########################################################
+########################################################
+# taxonomy table
+########################################################
+########################################################
+########################################################
+@follows(mkdir("taxonomy.dir"))
+@transform(mergeBracken, regex(r"bracken.dir/(.*).merged_abundances.tsv"), r"taxonomy.dir/\1.mpa_taxonomy.tsv")
+def translateTaxonomy(infile, outfile):
+    '''
+    translate kraken2 output to mpa-style taxonomy table 
+    with full taxonomic names across all levels
+    '''
+    taxdump = PARAMS.get("bracken_taxdump")
+    job_threads = PARAMS.get("bracken_job_threads")
+    job_memory = PARAMS.get("bracken_job_mem")
+
+    statement = ''' python %(scriptsdir)s/bracken2mpataxonomy.py
+                   --mergedbracken %(infile)s
+                   --translatedout %(outfile)s
+                   --taxdatadir %(taxdump)s;
                 '''
     P.run(statement)
 
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows(mergeBracken)
+@follows(translateTaxonomy)
 def full():
     pass
 

@@ -1,5 +1,6 @@
 kraken2:
     db: ~/mirror/kraken2/kraken2-microbial-fatfree
+    taxdump: ~/mirror/ncbi_taxonomy/taxdump_20230706
     job_threads: 6
     job_mem: 10G
     options: ''
