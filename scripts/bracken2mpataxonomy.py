@@ -80,7 +80,7 @@ def formName(name):
             formnames.append(levs[i]+namestr.replace(" ","_"))
         else:
             formnames.append(levs[i]+"unassigned")
-    return("|".join(formnames))
+    return(";".join(formnames))
 
 #reformat to mpa style
 for i in taxonkit:
