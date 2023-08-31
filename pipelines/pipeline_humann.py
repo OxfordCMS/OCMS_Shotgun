@@ -65,6 +65,7 @@ Code
 import sys
 import os
 import glob
+import re
 from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
@@ -100,32 +101,39 @@ PARAMS["reportdir"] = reportdir
 ########################################################
 
 @follows(mkdir("humann3.dir"))
-@transform(SEQUENCEFILES, 
-           SEQUENCEFILES_REGEX, 
-           r"humann3.dir/\1/\1_pathcoverage.tsv")
+@transform(SEQUENCEFILES, SEQUENCEFILES_REGEX, r"humann3.dir/\1/\1_pathcoverage.tsv.gz")
 def runHumann3(infile, outfile):
     '''functional profile with humann3
     '''
-    prefix = P.snip(os.path.basename(outfile), "_pathcoverage.tsv")
+    prefix = P.snip(os.path.basename(outfile), "_pathcoverage.tsv.gz")
+    outpath = os.path.dirname(os.path.abspath(outfile))
     
-    job_mem = PARAMS.get("humann3_memory")
-    job_threads = PARAMS.get("humann3_threads")
+    job_mem = PARAMS.get("humann3_job_mem")
+    job_threads = PARAMS.get("humann3_job_threads")
 
+    db_metaphlan_path = PARAMS.get("humann3_db_metaphlan_path")
+    db_metaphlan_id = PARAMS.get("humann3_db_metaphlan_id")
     db_nucleotide = PARAMS.get("humann3_db_nucleotide")
     db_protein = PARAMS.get('humann3_db_protein')
     search_mode = PARAMS.get('humann3_search_mode')
-    job_memory = PARAMS.get("humann3_job_memory")
-    nthreads = PARAMS.get("humann3_nthreads")
     options = PARAMS.get("humann3_options")
     statement = '''humann
                    --input %(infile)s
                    --output humann3.dir/%(prefix)s
                    --nucleotide-database %(db_nucleotide)s
                    --protein-database %(db_protein)s
-                   --threads %(nthreads)i
-                   %(options)s; 
-                '''
-    P.run(statement, job_options=PARAMS.get('humann3_run_options'))
+                   --metaphlan-options "--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s"
+                   %(options)s;
+                   gzip %(outpath)s/%(prefix)s_pathcoverage.tsv;
+                   gzip %(outpath)s/%(prefix)s_pathabundance.tsv; 
+                   gzip %(outpath)s/%(prefix)s_genefamilies.tsv;
+                   gzip %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv;
+                   mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv.gz %(outpath)s;
+                   tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp;
+                   rm -r %(outpath)s/%(prefix)s_humann_temp
+                   '''
+
+    P.run(statement)
 
 ########################################################
 ########################################################
@@ -139,18 +147,27 @@ def mergePathAbundance(infiles, outfile):
     '''
     merge the results from Humann3
     '''
+    
+    infiles_path = [re.sub("pathcoverage", "pathabundance", f) for f in infiles]
+    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
+    infiles_path = [os.path.abspath(f) for f in infiles_path]
+    infiles_path = " ".join(infiles_path)
+    outfiles_path = " ".join(outfiles_path)
+
     # find infiles with glob because file order from glob 
     # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_pathcoverage.tsv")    
-    samples = [P.snip(os.path.basename(x), "_pathcoverage.tsv") for x in infiles]
+    infiles = glob.glob("humann3.dir/*/*_pathabundance.tsv.gz")
+    samples = [P.snip(os.path.basename(x), "_pathabundance.tsv.gz") for x in infiles]
     titles = ",".join(samples)    
-    statement = '''cgat combine_tables
+    statement = '''gunzip %(infiles_path)s;
+                   cgat combine_tables
                    --glob=humann3.dir/*/*_pathabundance.tsv
                    --header-names=%(titles)s
                    -m 0
                    -c 1
                    --log=humann3.dir/merged_pathabundance.log
-                   | sed '1s/bin/pathway/' >> %(outfile)s 
+                   | sed '1s/bin/pathway/' >> %(outfile)s;
+                   gzip %(outfiles_path)s 
                 '''
     P.run(statement)
 
@@ -159,18 +176,25 @@ def mergePathCoverage(infiles, outfile):
     '''
     merge the results from Humann3
     '''
-    # find infiles with glob because file order from glob 
+    infiles_path = [os.path.abspath(f) for f in infiles]
+    infiles_path = " ".join(infiles_path)
+    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles]
+    outfiles_path = " ".join(outfiles_path)
+    
+# find infiles with glob because file order from glob 
     # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_pathcoverage.tsv")
-    samples = [P.snip(os.path.basename(x), "_pathcoverage.tsv") for x in infiles]
+    infiles = glob.glob("humann3.dir/*/*_pathcoverage.tsv.gz")
+    samples = [P.snip(os.path.basename(x), "_pathcoverage.tsv.gz") for x in infiles]
     titles = ",".join(samples)
-    statement = '''cgat combine_tables
+    statement = '''gunzip %(infiles_path)s; 
+                   cgat combine_tables
                    --glob=humann3.dir/*/*_pathcoverage.tsv
                    --header-names=%(titles)s
                    -m 0
                    -c 1
                    --log=humann3.dir/merged_pathcoverage.log
-                   | sed '1s/bin/pathway/' >> %(outfile)s
+                   | sed '1s/bin/pathway/' >> %(outfile)s;
+                   gzip %(outfiles_path)s
                 '''
     P.run(statement)
 
@@ -179,18 +203,26 @@ def mergeGeneFamilies(infiles, outfile):
     '''
     merge the results from Humann3
     '''
+    infiles_path = [re.sub("pathcoverage", "genefamilies", f) for f in infiles]
+    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
+    infiles_path = [os.path.abspath(f) for f in infiles_path]
+    infiles_path = " ".join(infiles_path)
+    outfiles_path = " ".join(outfiles_path)
+    
     # find infiles with glob because file order from glob 
     # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_pathcoverage.tsv")   
-    samples = [P.snip(os.path.basename(x), "_pathcoverage.tsv") for x in infiles]
+    infiles = glob.glob("humann3.dir/*/*_genefamilies.tsv.gz")   
+    samples = [P.snip(os.path.basename(x), "_genefamilies.tsv.gz") for x in infiles]
     titles = ",".join(samples)
-    statement = '''cgat combine_tables
+    statement = '''gunzip %(infiles_path)s; 
+                   cgat combine_tables
                    --glob=humann3.dir/*/*_genefamilies.tsv
                    --header-names=%(titles)s
                    -m 0
                    -c 1
                    --log=humann3.dir/merged_genefamilies.log 
-                   | sed '1s/bin/gene_family/' >> %(outfile)s
+                   | sed '1s/bin/gene_family/' >> %(outfile)s;
+                   gzip %(outfiles_path)s
                 '''
     P.run(statement)
 
@@ -199,21 +231,29 @@ def mergeMetaphlan(infiles, outfile):
     '''
     merge metaphlan bugs list from Humann3 across samples
     '''
+    infiles_path = [re.sub("pathcoverage", "metaphlan_bugs_list", f) for f in infiles]
+    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
+    infiles_path = [os.path.abspath(f) for f in infiles_path]
+    infiles_path = " ".join(infiles_path)
+    outfiles_path = " ".join(outfiles_path)
+
     # find infiles with glob because file order from glob 
     # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_humann_temp/*_metaphlan_bugs_list.tsv")   
-    samples = [P.snip(os.path.basename(x), "_metaphlan_bugs_list.tsv") for x in infiles]
+    infiles = glob.glob("humann3.dir/*/*_metaphlan_bugs_list.tsv.gz")   
+    samples = [P.snip(os.path.basename(x), "_metaphlan_bugs_list.tsv.gz") for x in infiles]
     # sed doesn't recognize \t as tab. need to double escape with \\
     titles = "\\t".join(samples)
-    x = glob.glob("humann3.dir/*/*_humann_temp/*_metaphlan_bugs_list.tsv")
+    x = glob.glob("humann3.dir/*/*_metaphlan_bugs_list.tsv")
 
-    statement = '''cgat combine_tables
-                   --glob=humann3.dir/*/*_humann_temp/*_metaphlan_bugs_list.tsv
+    statement = '''gunzip %(infiles_path)s;
+                   cgat combine_tables
+                   --glob=humann3.dir/*/*_metaphlan_bugs_list.tsv
                    --columns 1
                    --take 3
                    -m 0
                    --log=humann3.dir/merged_metaphlan.log 
-                   | sed 1i"clade_name\\t%(titles)s" >> %(outfile)s
+                   | sed 1i"clade_name\\t%(titles)s" >> %(outfile)s;
+                   gzip %(outfiles_path)s
                 '''
     P.run(statement)
 
@@ -227,11 +267,12 @@ def splitMetaphlan(infile, outfiles):
     
     statement = '''python %(scriptsdir)s/split_metaphlan.py -i %(infile)s -o humann3.dir'''
     P.run(statement)
+
 #####################################################
 #####################################################
 #####################################################
-@follows("mergePathCoverage", 
-         "mergePathAbundance", 
+@follows("mergePathAbundance",
+         "mergePathCoverage", 
          "mergeGeneFamilies",
          mkdir("report.dir"))
 def build_report():
@@ -246,7 +287,7 @@ def build_report():
     P.run(statement)
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows("mergePathCoverage", "mergePathAbundance", "mergeGeneFamilies", "splitMetaphlan")
+@follows("runHumann3", "mergePathCoverage", "mergePathAbundance", "mergeGeneFamilies", "splitMetaphlan")
 def full():
     pass
 
