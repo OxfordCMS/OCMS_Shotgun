@@ -1,17 +1,17 @@
 humann3:
+
     # database settings
+    db_metaphlan_path: /path/to/metaphlan/database/directory
+    db_metaphlan_id: mpa_v31_CHOCOPhlAn_201901
     db_nucleotide: /path/to/chocophlan/database/directory 
     db_protein: /path/to/uniref/database/directory
-    
-    nthreads: 1
 
     # additional humann3 options
-    options: pipelines/pipeline_preprocess.py
-
-    memory: 40
-    threads: 4
-
-    run_options:
+    options: ""
+    
+    # job options
+    job_mem: 40G
+    job_threads: 4
 
 report:
     # prefix to use for publishing the report from this pipeline
