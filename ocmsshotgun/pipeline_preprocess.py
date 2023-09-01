@@ -62,58 +62,13 @@ import ocmsshotgun.PreProcess as pp
 
 # load options from the config file
 PARAMS = P.get_parameters(
-    ["pipeline.yml"])
+    ["%s/pipeline.yml" % os.path.splitext(__file__)[0],
+     "pipeline.yml"])
 
 
 ###############################################################################
 # Utility functions
 ###############################################################################
-# determine the location of input files (reads)
-#try:
-#    PARAMS["location_fastq"]
-#except KeyError:
-#    DATADIR = "."
-#else:
-#    if PARAMS["location_fastq"] == 0:
-#        DATADIR = "."
-#    elif PARAMS["location_fastq"] == 1:
-#        DATADIR = "input.dir"
-#    else:
-#        DATADIR = PARAMS["location_fastq"]  # not recommended practice.
-
-# Check that the input files correspond
-# (this is set up so that input file suffixes can be altered if necessary)
-FASTQ1_SUFFIX = 'fastq.1.gz'
-FASTQ2_SUFFIX = 'fastq.2.gz'
-
-#fq1_regex = re.compile('(\S+).(%s)' % FASTQ1_SUFFIX)
-#mask1 = list(map(lambda x: bool(fq1_regex.match(x)), os.listdir(DATADIR)))
-#FASTQ1S = [os.path.join(DATADIR, i) \
-#           for i in itertools.compress(os.listdir(DATADIR), mask1)]
-SEQUENCEFILES = ("*.fastq.1.gz")
-SEQUENCEFILES_REGEX = regex(r"(\S+).(fastq.1.gz")
-@transform(SEQUENCEFILES, SEQUENCEFILES_REGEX, r"\1.\2")
-def checkFastqs(infiles, outfile):
-    if sum(mask1):
-        fq2_regex = re.compile('(\S+).(%s)' % FASTQ2_SUFFIX)
-        mask2 = list(map(lambda x: bool(fq2_regex.match(x)), os.listdir(DATADIR)))
-        fastq2s = [os.path.join(DATADIR, i) \
-                   for i in itertools.compress(os.listdir(DATADIR), mask2)]
-        if sum(mask2):
-            assert sum(mask1) == sum(mask2), 'Not all input files have pairs'
-            IS_PAIRED = True
-            fq1_stubs = [fq1_regex.match(x).group(1) for x in infiles]
-            fq2_stubs = [fq2_regex.match(x).group(1) for x in fastq2s]
-            assert sorted(fq1_stubs) == sorted(fq2_stubs), \
-                "First and second read pair files do not correspond"
-        else:
-            IS_PAIRED = False
-    else:
-        raise ValueError("No input files detected... check the file suffixes"
-                         " or specify input directory location in config file")
-
-
-# Utility functions
 def connect():
     '''utility function to connect to database.
 
@@ -138,6 +93,54 @@ def symlnk(inf, outf):
             os.remove(outf)
             os.symlink(inf, outf)
 
+###############################################################################
+# determine the location of input files (reads)
+###############################################################################
+try:
+    PARAMS["location_fastq"]
+except KeyError:
+    DATADIR = "."
+else:
+    if PARAMS["location_fastq"] == 0:
+        DATADIR = "."
+    elif PARAMS["location_fastq"] == 1:
+        DATADIR = "input.dir"
+    else:
+        DATADIR = PARAMS["location_fastq"]  # not recommended practice.
+
+###############################################################################
+# Check that the input files correspond
+###############################################################################
+# (this is set up so that input file suffixes can be altered if necessary)
+FASTQ1_SUFFIX = 'fastq.1.gz'
+FASTQ2_SUFFIX = 'fastq.2.gz'
+
+fq1_regex = re.compile('(\S+).(%s)' % FASTQ1_SUFFIX)
+mask1 = list(map(lambda x: bool(fq1_regex.match(x)), os.listdir(DATADIR)))
+FASTQ1S = [os.path.join(DATADIR, i) \
+           for i in itertools.compress(os.listdir(DATADIR), mask1)]
+
+@transform(FASTQ1S,
+           regex(r'(.+).%s' % FASTQ1_SUFFIX),
+           r"\1.%s" % FASTQ1_SUFFIX)
+def checkFastqs(infiles, outfile):
+    if sum(mask1):
+        fq2_regex = re.compile('(\S+).(%s)' % FASTQ2_SUFFIX)
+        mask2 = list(map(lambda x: bool(fq2_regex.match(x)), os.listdir(DATADIR)))
+        fastq2s = [os.path.join(DATADIR, i) \
+                   for i in itertools.compress(os.listdir(DATADIR), mask2)]
+        if sum(mask2):
+            assert sum(mask1) == sum(mask2), 'Not all input files have pairs'
+            IS_PAIRED = True
+            fq1_stubs = [fq1_regex.match(x).group(1) for x in infiles]
+            fq2_stubs = [fq2_regex.match(x).group(1) for x in fastq2s]
+            assert sorted(fq1_stubs) == sorted(fq2_stubs), \
+                "First and second read pair files do not correspond"
+        else:
+            IS_PAIRED = False
+    else:
+        raise ValueError("No input files detected... check the file suffixes"
+                         " or specify input directory location in config file")
 
 ###############################################################################
 # Deduplicate
@@ -711,7 +714,7 @@ def maskLowComplexity(fastq1, outfile):
 # def plotDeadaptLengthDistribution(infile, outfile):
 #     '''Create a histogram of length distributions'''
 @follows(mkdir('read_count_summary.dir'))
-@transform(SEQUENCEFILES,
+@transform(FASTQ1S,
            regex(r'.+/(.+).%s' % FASTQ1_SUFFIX),
            r"read_count_summary.dir/\1_input.nreads")
 def countInputReads(infile, outfile):

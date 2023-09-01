@@ -21,7 +21,7 @@ release: 0.1
 # phred format
 phred_format: 33
 
-location_fastq: 1
+location_fastq: 0
 
 # Sequence data type (metatranscriptome or metagenome)
 data_type: metatranscriptome
