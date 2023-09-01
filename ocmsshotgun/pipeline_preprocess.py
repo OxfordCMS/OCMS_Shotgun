@@ -120,10 +120,15 @@ mask1 = list(map(lambda x: bool(fq1_regex.match(x)), os.listdir(DATADIR)))
 FASTQ1S = [os.path.join(DATADIR, i) \
            for i in itertools.compress(os.listdir(DATADIR), mask1)]
 
+###############################################################################
+# Deduplicate
+###############################################################################
+@follows(mkdir('reads_deduped.dir'))
 @transform(FASTQ1S,
-           regex(r'(.+).%s' % FASTQ1_SUFFIX),
-           r"\1.%s" % FASTQ1_SUFFIX)
-def checkFastqs(infiles, outfile):
+           regex(r'.+/(.+).%s' % FASTQ1_SUFFIX),
+           r"reads_deduped.dir/\1_deduped.fastq.1.gz")
+def removeDuplicates(fastq1, outfile):
+    '''Filter exact duplicates, if specified in config file'''
     if sum(mask1):
         fq2_regex = re.compile('(\S+).(%s)' % FASTQ2_SUFFIX)
         mask2 = list(map(lambda x: bool(fq2_regex.match(x)), os.listdir(DATADIR)))
@@ -132,7 +137,7 @@ def checkFastqs(infiles, outfile):
         if sum(mask2):
             assert sum(mask1) == sum(mask2), 'Not all input files have pairs'
             IS_PAIRED = True
-            fq1_stubs = [fq1_regex.match(x).group(1) for x in infiles]
+            fq1_stubs = [fq1_regex.match(x).group(1) for x in FASTQ1S]
             fq2_stubs = [fq2_regex.match(x).group(1) for x in fastq2s]
             assert sorted(fq1_stubs) == sorted(fq2_stubs), \
                 "First and second read pair files do not correspond"
@@ -141,16 +146,6 @@ def checkFastqs(infiles, outfile):
     else:
         raise ValueError("No input files detected... check the file suffixes"
                          " or specify input directory location in config file")
-
-###############################################################################
-# Deduplicate
-###############################################################################
-@follows(mkdir('reads_deduped.dir'))
-@transform(checkFastqs,
-           regex(r'.+/(.+).%s' % FASTQ1_SUFFIX),
-           r"reads_deduped.dir/\1_deduped.fastq.1.gz")
-def removeDuplicates(fastq1, outfile):
-    '''Filter exact duplicates, if specified in config file'''
 
     if IS_PAIRED:
         fastq2 = P.snip(fastq1, FASTQ1_SUFFIX) + FASTQ2_SUFFIX
@@ -179,7 +174,6 @@ def removeDuplicates(fastq1, outfile):
                          " rm -f %(tmpf2)s &&"
                          " rm -f %(cluster_file)s")
             P.run(statement,
-                  job_options=PARAMS.get(['cdhit_cluster_options'], ''),
                   job_threads=PARAMS['cdhit_threads'], 
                   job_memory=PARAMS['cdhit_memory'])
         else:
@@ -207,7 +201,6 @@ def removeDuplicates(fastq1, outfile):
                          " rm -f %(cluster_file)s")
 
             P.run(statement,
-                  job_options=PARAMS.get(['cdhit_cluster_options'], ''),
                   job_threads=PARAMS['cdhit_threads'],
                   job_memory=PARAMS['cdhit_memory'])      
         else:
@@ -260,7 +253,6 @@ def removeAdapters(fastq1, outfile1):
                      " rm -f %(outf1_singletons)s && rm -f %(outf2_singletons)s")
 
         P.run(statement, 
-              job_options=PARAMS.get(['trimmomatic_cluster_options'], ''),
               job_threads=PARAMS['trimmomatic_threads'],
               job_memory=PARAMS['trimmomatic_memory'])
 
@@ -288,7 +280,6 @@ def removeAdapters(fastq1, outfile1):
                      " gzip -f %(logfile)s")
 
         P.run(statement, 
-              job_options=PARAMS.get(['trimmomatic_cluster_options'], ''),
               job_threads=PARAMS['trimmomatic_threads'],
               job_memory=PARAMS['trimmomatic_memory'])
 
@@ -461,7 +452,6 @@ def removeHost(fastq1, outfile):
             statement = " && ".join([statement1, statement2])
 
             P.run(statement, 
-                  job_options=PARAMS.get(['bmtagger_cluster_options'], ''),
                   job_threads=PARAMS['bmtagger_threads'],
                   job_memory=PARAMS['bmtagger_memory'])
             
@@ -524,7 +514,6 @@ def removeHost(fastq1, outfile):
                          " rm -rf %(tmpdir1)s %(tmpf)s %(outf_host_stub)s_%(n)s")
 
             P.run(statement, 
-                  job_options=PARAMS.get(['bmtagger_cluster_options'], ''),
                   job_threads=PARAMS['bmtagger_threads'],
                   job_memory=PARAMS['bmtagger_memory'])
             
@@ -607,7 +596,6 @@ def maskLowComplexity(fastq1, outfile):
             statement = " && ".join([statement1, statement2])
             
             P.run(statement, 
-                  job_options=PARAMS.get(['dust_cluster_options'], ''),
                   job_threads=PARAMS['dust_threads'],
                   job_memory=PARAMS['dust_memory'])
 
@@ -646,7 +634,6 @@ def maskLowComplexity(fastq1, outfile):
             statement = " && ".join([statement1, statement2])
 
             P.run(statement, 
-                  job_options=PARAMS.get(['dust_cluster_options'], ''),
                   job_threads=PARAMS['dust_threads'],
                   job_memory=PARAMS['dust_memory'])
 
@@ -683,7 +670,6 @@ def maskLowComplexity(fastq1, outfile):
                          " &> %(outfile)s.log")
 
             P.run(statement, 
-                  job_options=PARAMS.get(['dust_cluster_options'], ''),
                   job_threads=PARAMS['dust_threads'],
                   job_memory=PARAMS['dust_memory'])
 
@@ -698,7 +684,6 @@ def maskLowComplexity(fastq1, outfile):
                          " &> %(outfile.log")
 
             P.run(statement, 
-                  job_options=PARAMS.get(['dust_cluster_options'], ''),
                   job_threads=PARAMS['dust_threads'],
                   job_memory=PARAMS['dust_memory'])
 
