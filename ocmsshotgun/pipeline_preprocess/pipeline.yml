@@ -23,6 +23,10 @@ phred_format: 33
 
 location_fastq: 1
 
+# Sequence data type (metatranscriptome or metagenome)
+data_type: metatranscriptome
+
+
 ################################################################
 # Removal of duplicate reads
 ################################################################
@@ -32,23 +36,28 @@ cdhit:
     dedup: 1
 
     # Additional options to be passed to cd-hit-dup
-    options:
+    options: ''
 
-    run_options: -pe shmem 2
+    # Cluster options
+    # while cd-hit is multi-threaded, it seems cd-hit-dup isn't
+    threads: 1    
+
+    memory: 125G
+
 
 ################################################################
 # Trimming of adapters
 ################################################################
 trimmomatic:
 
-    jar_path:
+    jar_path: $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar
 
     n_threads: 4
 
     # Location of contaminants file
     # NexteraPE-PE.fa, TruSeq2-PE.fa, TruSeq3-PE-2.fa, TruSeq3-PE.fa
     # TruSeq2-SE.fa, TruSeq3-SE.fa
-    adapters: 
+    adapters: /gpfs3/well/johnson/shared/databases/adapters/HTG_oligov2/HTG_oligov2.fa
 
     # Number of mismatches tolerated in seed alignment of adapter sequence (16 bases)
     seed_mismatches: 3
@@ -73,21 +82,55 @@ trimmomatic:
     # Minimum length for surviving read
     minlen: 36
 
-    # qsub options
-    run_options:
+    # Cluster options
+    threads: 4
+
+    memory: 20G
+
 
 ################################################################
 # Removal of host contamination
 ################################################################
+sortmerna:
+
+    # Options for removing contaminant rRNA
+    index: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_indexes/
+
+    reference: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/rfam-5.8s-database-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/rfam-5s-database-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-arc-16s-id95.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-arc-23s-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-bac-16s-id90.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-bac-23s-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-euk-18s-id95.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-euk-28s-id98.fasta 
+
+    options: ''
+
+    # Options for classfiying rRNA
+    otu_index: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/16S_indexes/
+
+    otu_reference: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/16S_databases/GTDB_bac-arc_ssu_r86.fasta
+
+    otu_options: --id 0.97 --coverage 0.97 --de_novo_otu True  --otu_map True
+
+    # Generic options
+    threads: 12
+
+    memory: 60G
+
+
+
 bmtagger:
 
-    keep_pairs:
+    # Set to true if you want to keep reads who's pair is host (currently disabled)
+    # keep_pairs: ''
 
-    bitmask: /projects/johnsj/mirror/genomes/bmfilter/mm10.bitmask
+    # Comma-separated list of genomes to screen against
+    bitmask: /gpfs3/well/johnson/shared/mirror/genome/bmtagger/bitmask/hg38.bitmask
 
-    srprism: /projects/johnsj/mirror/genomes/srprism/mm10.srprism
+    srprism: /gpfs3/well/johnson/shared/mirror/genome/bmtagger/srprism/hg38.srprism
 
-    run_options: -l mem=20gb,walltime=12:00:00,nodes=1:ppn=4
+   
+    # Cluster options  
+    threads: 1
+
+    memory: 25G
+
+
 
 ################################################################
 # Masking or removal of repetitive sequence
@@ -107,8 +150,10 @@ dust:
     # If bbmask, set window=64 to emulate dustmasker
     options: Xmx40g
 
-    run_options: -l mem=40gb,walltime=04:00:00,nodes=1:ppn=4
-
+    # Cluster options
+    threads: 4
+   
+    memory: 40G   
 
 
 

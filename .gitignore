@@ -1,0 +1,6 @@
+._*
+*~
+.ipynb*
+build/
+dist/
+ocms_shotgun.egg-info/

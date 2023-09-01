@@ -80,12 +80,12 @@ SEQUENCEFILES = ("*fastq.gz")
 
 SEQUENCEFILES_REGEX = regex(r"(\S+).(fastq.gz)")
 
-scriptsdir = os.path.dirname(os.path.abspath(__file__))
-scriptsdir = P.snip(scriptsdir, "pipelines") + "scripts"
+scriptsdir = os.path.dirname(os.path.abspath(__file__)) + "/scripts"
 PARAMS["scriptsdir"] = scriptsdir
 
 reportdir = os.path.dirname(os.path.abspath(__file__))
-reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd")
+reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_humann")
+reportfile = os.path.join(reportdir, "pipeline_humann3_report.Rmd")
 PARAMS["reportdir"] = reportdir
 
 ########################################################
@@ -280,9 +280,9 @@ def build_report():
     render the rmarkdown report file
     '''
     # copy report template to report.dir and render report
-    statement = '''cp %(reportdir)s/pipeline_humann/report.Rmd report.dir/;
-                   cd report.dir/;
-                   R -e "rmarkdown::render('report.Rmd', output_file='report.html')";
+    statement = '''cd report.dir/;
+                   cp %(reportfile)s .;
+                   R -e "rmarkdown::render('pipeline_humann3_report.Rmd', output_file='pipeline_humann3_report.html')";
                    cd ../'''
     P.run(statement)
 # ---------------------------------------------------

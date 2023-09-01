@@ -68,8 +68,7 @@ SEQUENCEFILES = ("*.fastq.1.gz")
 SEQUENCEFILES_REGEX = regex(
     r"(\S+).(fastq.1.gz)")
 
-scriptsdir = os.path.dirname(os.path.abspath(__file__))
-scriptsdir = P.snip(scriptsdir, "pipelines") + "scripts"
+scriptsdir = os.path.dirname(os.path.abspath(__file__)) + "/scripts"
 PARAMS["scriptsdir"] = scriptsdir
 
 ########################################################
