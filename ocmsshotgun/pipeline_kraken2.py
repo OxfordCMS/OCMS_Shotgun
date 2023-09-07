@@ -135,7 +135,7 @@ def generate_parallel_params():
     for kraken_outfile in kraken_outfiles:
         # generate output files for each taxonomic level
         sample_name = os.path.basename(kraken_outfile)
-        bracken_outfiles = [sample_name.replace(".k2.report.tsv",".%s.abundance.tsv" % x) for x in levels]
+        bracken_outfiles = [sample_name.replace(".k2.report.tsv",".abundance.%s.tsv" % x) for x in levels]
         bracken_outfiles = [os.path.join("bracken.dir", x) for x in bracken_outfiles]
         
         for bracken_outfile in bracken_outfiles:
@@ -151,17 +151,15 @@ def runBracken(infile, outfile):
     convert read classifications into abundance with Bracken
     '''
     # get sample name
-    prefix = P.snip(os.path.basename(outfile), ".abundance.tsv")
-    pattern = r"(.*)\.(species|genus|family|class|order|phylum|domain)$"
-    match = re.search(pattern, prefix)
+    pattern = r"(.*)\.abundance\.(species|genus|family|class|order|phylum|domain)\.tsv$"
+    match = re.search(pattern, os.path.basename(outfile))
     try:
         prefix = match.group(1)
     except:
         raise Exception("Sample name not found with regex of outfile")
     
     # taxonomic level
-    level = P.snip(outfile, ".abundance.tsv")
-    level = level.split(".")[-1]
+    level = match.group(2)
     level_param = level[0].capitalize()
         
     # check if sentinel file exists
@@ -180,8 +178,8 @@ def runBracken(infile, outfile):
     statement = '''bracken 
                    -d %(db)s
                    -i %(infile)s
-                   -o bracken.dir/%(prefix)s.%(level)s.abundance.tsv
-                   -w bracken.dir/%(prefix)s.%(level)s.k2b.report.tsv
+                   -o bracken.dir/%(prefix)s.abundance.%(level)s.tsv
+                   -w bracken.dir/%(prefix)s.k2b.report.%(level)s.tsv
                    -l %(level_param)s
                    %(options)s
                     '''
@@ -212,26 +210,26 @@ def checkBrackenLevels(expected_files, outfile):
 ########################################################
 ########################################################
 @follows(checkBrackenLevels)
-@collate(runBracken, regex(r"bracken.dir/.*\.(.+).abundance.tsv"),r"bracken.dir/\1.merged_abundances.tsv")
+@collate(runBracken, regex(r"bracken.dir/.*abundance\.(.+).tsv"),r"bracken.dir/merged_abundances.\1.tsv")
 def mergeBracken(infiles, outfile):
     '''
     merge sample results from bracken
     '''
-    level = P.snip(os.path.basename(outfile), ".merged_abundances.tsv")
-    level = level.split(".")[-1]
-
-    sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
-    sample_names = [P.snip(x, "." + level) for x in sample_names]
+    pattern = r"(.*)\.abundance\.(species|genus|family|class|order|phylum|domain)\.tsv$"
+    match = re.search(pattern, os.path.basename(infiles[0]))
+    level = match.group(2)
+    
+    sample_names = [P.snip(os.path.basename(x), ".abundance.%s.tsv" % level) for x in glob.glob("bracken.dir/*.abundance.%s.tsv" % level)]
     titles = ",".join([x for x in sample_names])
     
     statement = '''  cgat combine_tables
-                    --glob=bracken.dir/*%(level)s.abundance.tsv
+                    --glob=bracken.dir/*abundance.%(level)s.tsv
                     --skip-titles
                     --header-names=%(titles)s
                     -m 0
                     -k 6
                     -c 1,2
-                    --log=bracken.dir/%(level)s.merged_abundances.log > %(outfile)s                
+                    --log=bracken.dir/merged_abundances.%(level)s.log > %(outfile)s                
                 '''
     P.run(statement)
 
@@ -243,7 +241,7 @@ def mergeBracken(infiles, outfile):
 ########################################################
 ########################################################
 @follows(mkdir("taxonomy.dir"))
-@transform(mergeBracken, regex(r"bracken.dir/(.*).merged_abundances.tsv"), r"taxonomy.dir/\1.mpa_taxonomy.tsv")
+@transform(mergeBracken, regex(r"bracken.dir/merged_abundances.(.*).tsv"), r"taxonomy.dir/mpa_taxonomy.\1.tsv")
 def translateTaxonomy(infile, outfile):
     '''
     translate kraken2 output to mpa-style taxonomy table 
