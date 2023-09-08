@@ -82,8 +82,7 @@ if os.path.exists("pipeline_classifyreads.yml"):
     os.remove("pipeline_temp.yml")
 else :
     PARAMS = P.get_parameters(
-        ["%s/pipeline.yml" % os.path.splitext(__file__)[0],
-         "pipeline.yml"])
+        ["pipeline.yml"])
 
 #get all files within the directory to process
 SEQUENCEFILES = ("*fastq.gz")
