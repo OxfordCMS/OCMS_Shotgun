@@ -92,9 +92,11 @@ def main(argv=None):
     else:
         # run pipeline from commandline
         statement = " ".join(args.cmd)
+        statement = "ocms_shotgun " + statement
 
         # pass flags to run statement
-        statement = "ocms_shotgun " + statement + " " + args.cgatflags
+        if args.cgatflags is not None:
+            statement = statement + " " + args.cgatflags
         
         # run ocms_shotgun
         os.system(statement)
