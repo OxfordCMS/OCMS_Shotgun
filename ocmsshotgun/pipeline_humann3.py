@@ -66,14 +66,24 @@ import sys
 import os
 import glob
 import re
+import yaml
 from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 
 # load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline.yml" % os.path.splitext(__file__)[0],
-     "pipeline.yml"])
+if os.path.exists("pipeline_classifyreads.yml"):
+    with open("pipeline_classifyreads.yml", "r") as yml:
+        PARAMS_CLASSIFYREADS = yaml.safe_load(yml)
+    # write relevant parameters to temporary yml
+    with open("pipeline_temp.yml", "w") as temp:
+        yaml.dump(PARAMS_CLASSIFYREADS.get("pipeline_humann3"), temp)
+    PARAMS = P.get_parameters("pipeline_temp.yml")
+    os.remove("pipeline_temp.yml")
+else :
+    PARAMS = P.get_parameters(
+        ["%s/pipeline.yml" % os.path.splitext(__file__)[0],
+         "pipeline.yml"])
 
 #get all files within the directory to process
 SEQUENCEFILES = ("*fastq.gz")
