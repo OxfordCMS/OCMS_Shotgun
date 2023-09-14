@@ -18,19 +18,23 @@ def main(argv=None):
 
     path = os.path.join(os.path.abspath(os.path.dirname(__file__)))
     paths = [path, os.path.abspath(__file__)[:-3]]
-    
+    paths.append(os.path.join(path, "scripts"))
+
     if len(argv) == 1 or argv[1] == "--help" or argv[1] == "-h":
         print((globals()["__doc__"]))
+    else:
+        command = argv[1]
+        pipeline = "pipeline_{}".format(command)
+        
+        if not os.path.exists(os.path.join(path, pipeline + ".py")):
+            pipeline = command
 
-    command = argv[1]
-    pipeline = "pipeline_{}".format(command)
-    
-    # remove 'ocms_shotgun' from sys.argv
-    del sys.argv[0]
+        # remove 'ocms_shotgun' from sys.argv
+        del sys.argv[0]
 
-    (file, pathname, description) = imp.find_module(pipeline, paths)
-    module = imp.load_module(pipeline, file, pathname, description)
-    module.main(sys.argv)
+        (file, pathname, description) = imp.find_module(pipeline, paths)
+        module = imp.load_module(pipeline, file, pathname, description)
+        module.main(sys.argv)
     
 
 if __name__ == "__main__":

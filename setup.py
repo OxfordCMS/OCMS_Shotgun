@@ -15,7 +15,8 @@ setup(
     platforms=["any"],
     keywords="shotgun, metagenomics",
     url="https://github.com/OxfordCMS/OCMS_Shotgun",
-    packages=find_packages("./") + find_packages("./ocmsshotgun/"),
+    #packages=find_packages("./") + find_packages("./ocmsshotgun/"),
+    packages=find_packages(),
     entry_points={
         'console_scripts': ['ocms_shotgun = ocmsshotgun.ocms_shotgun:main']
     },

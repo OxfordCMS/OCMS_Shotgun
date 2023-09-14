@@ -1,2 +1,3 @@
+include ocmsshotgun/modules/*.py
 include ocmsshotgun/scripts/*.py
 include ocmsshotgun/pipeline_*/pipeline.yml
