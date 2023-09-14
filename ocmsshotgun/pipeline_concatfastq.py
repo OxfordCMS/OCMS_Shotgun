@@ -1,5 +1,5 @@
 '''
-concatenate_fastq.py
+pipeline_concatfastq.py
 ====================
 
 :Author: Sandi Yen
@@ -8,7 +8,7 @@ concatenate_fastq.py
 Overview
 ========
 
-This script concatenates fastq files of paired-end reads into one fastq file. It's written as a pipeline so paired-end fastqs can be processed as a job.
+This pipeline concatenates fastq files of paired-end reads into one fastq file. It's written as a pipeline so paired-end fastqs can be processed as a job.
 
 Usage
 =====
@@ -17,7 +17,7 @@ Pipeline that takes in all fastq.*.gz files in current directory and concatenate
 
 Example::
 
-    ocms concatenate_fastq make full
+    ocms_shotgun concatfastq make full
 
 
 Configuration
@@ -51,11 +51,9 @@ Code
 
 import sys
 import os
-import re
-import glob
-from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P 
+import ocmsshotgun.modules.ConcatFastq as CF
 
 # get all sequence files within directory to process
 SEQUENCEFILES = ("*fastq.*gz")
@@ -78,17 +76,13 @@ SEQUENCEFILES_REGEX = regex(r"(\S+)\.(fastq.*gz)")
          SEQUENCEFILES_REGEX,
          r"concat_fastq.dir/\1.fastq.gz")
 
-def concatenate_fastq(infiles, outfile):
+def concatFastq(infiles, outfile):
     """Expects paired end fastq files to be in format fastq.1.gz, fastq.2.gz
     """
 
-    infiles = ' '.join(infiles)
-    tempfile = os.path.splitext(outfile)[0]
-    # concatenate files together
-    statement = '''zcat %(infiles)s >> %(tempfile)s && gzip %(tempfile)s'''
-    P.run(statement)
+    CF.concatFastq.run(infiles, outfile)
 
-@follows(concatenate_fastq)
+@follows(concatFastq)
 def full():
     pass
 
