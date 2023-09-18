@@ -58,7 +58,7 @@ import distutils
 import pandas as pd
 
 
-import ocmsshotgun.PreProcess as pp
+import ocmsshotgun.modules.PreProcess as pp
 
 # set up params
 (PARAMS, FASTQ1S, FASTQ1_SUFFIX, FASTQ2_SUFFIX) = pp.utility.params_setup()
@@ -72,7 +72,7 @@ import ocmsshotgun.PreProcess as pp
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
-    pp.cdhit(fastq1, outfile).run(fastq1, outfile, **PARAMS)
+    pp.cdhit(fastq1, outfile, **PARAMS).run(fastq1, outfile, **PARAMS)
 
 ###############################################################################
 # Remove Adapters
@@ -84,7 +84,7 @@ def removeDuplicates(fastq1, outfile):
 def removeAdapters(fastq1, outfile1):
     '''Remove adapters using Trimmomatic'''
 
-    pp.trimmomatic(fastq1, outfile1).run(fastq1, outfile1, **PARAMS)
+    pp.trimmomatic(fastq1, outfile1, **PARAMS).run(fastq1, outfile1, **PARAMS)
 
 
 ###############################################################################
@@ -175,7 +175,7 @@ def combineRNAClassification(infiles, outfile):
 def removeHost(fastq1, outfile):
     '''Remove host contamination using bmtagger'''
 
-    pp.bmtagger(fastq1, outfile).run(fastq1, outfile, **PARAMS)
+    pp.bmtagger(fastq1, outfile, **PARAMS).run(fastq1, outfile, **PARAMS)
 
 
 ###############################################################################
@@ -195,7 +195,7 @@ def maskLowComplexity(fastq1, outfile):
     within a sliding window. Ranges from 0: mask nothing, 0.0001: mask
     homopolymers, 1: mask everything.
     '''
-    pp.bbTools(fastq1, outfile).run(fastq1, outfile, **PARAMS)
+    pp.bbTools(fastq1, outfile, **PARAMS).run(fastq1, outfile, **PARAMS)
 
 ###############################################################################
 # Summary Metrics

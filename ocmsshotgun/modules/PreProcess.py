@@ -77,8 +77,6 @@ def removeContaminants(in_fastn, out_fastn, method, **PARAMS):
 
     method.run(in_fastn, out_fastn, method, **PARAMS)
 
-(PARAMS, FASTQ1S, FASTQ1_SUFFIX, FASTQ2_SUFFIX) = utility.params_setup()
-
 class matchReference(object):
     """
     Base class for generating run statements to match mWGS reads to 
@@ -93,7 +91,7 @@ class matchReference(object):
     fn_suffix - option to pass something other than .fastq.1.gz
     """
 
-    def __init__(self, fastn1, outfile):
+    def __init__(self, fastn1, outfile, **PARAMS):
         self.outdir = os.path.dirname(outfile)
 
         self.fastn1 = fastn1
@@ -128,9 +126,9 @@ class matchReference(object):
         
 class cdhit(matchReference):
 
-    def __init__(self, fastn1, outfile):
+    def __init__(self, fastn1, outfile, **PARAMS):
         # initialize inherited attributes
-        super().__init__(fastn1, outfile)
+        super().__init__(fastn1, outfile, **PARAMS)
 
     def run(self, fastq1, outfile, *args, **PARAMS):
         '''Filter exact duplicates, if specified in config file'''
@@ -196,9 +194,9 @@ class cdhit(matchReference):
 
 class trimmomatic(matchReference):
 
-    def __init__(self, fastn1, outfile):
+    def __init__(self, fastn1, outfile, **PARAMS):
         # initialize inherited attributes
-        super().__init__(fastn1, outfile)
+        super().__init__(fastn1, outfile, **PARAMS)
 
     def run(self, fastq1, outfile1, *args, **PARAMS):
         '''Remove adapters using Trimmomatic'''
@@ -274,7 +272,7 @@ class runSortMeRNA(matchReference):
     """
 
     def __init__(self, fastn1, outfile, **PARAMS):
-        super().__init__(fastn1, outfile)
+        super().__init__(fastn1, outfile, **PARAMS)
         self.sortmerna_options = PARAMS['sortmerna_options']
         self.sortmerna_index = PARAMS['sortmerna_index']
         self.sortmerna_reference = PARAMS['sortmerna_reference']
@@ -433,7 +431,7 @@ class createSortMeRNAOTUs(runSortMeRNA):
     """
 
     def __init__(self, fastn1, outfile, **PARAMS):
-        super().__init__(fastn1, outfile)
+        super().__init__(fastn1, outfile, **PARAMS)
         self.sortmerna_options = PARAMS['sortmerna_otu_options']
         self.sortmerna_index = PARAMS['sortmerna_otu_index']
         self.sortmerna_reference = PARAMS['sortmerna_otu_reference']
@@ -482,9 +480,9 @@ class createSortMeRNAOTUs(runSortMeRNA):
 
 class bmtagger(matchReference):
 
-    def __init__(self, fastn1, outfile):
+    def __init__(self, fastn1, outfile, **PARAMS):
         # initialize inherited attributes
-        super().__init__(fastn1, outfile)
+        super().__init__(fastn1, outfile, **PARAMS)
 
     def run(fastq1, outfile, **PARAMS):
         '''Remove host contamination using bmtagger'''
@@ -654,9 +652,9 @@ class bmtagger(matchReference):
             os.unlink(to_remove)
 
 class bbtools(matchReference):
-    def __init__(self, fastn1, outfile):
+    def __init__(self, fastn1, outfile, **PARAMS):
         # initialize inherited attributes
-        super().__init__(fastn1, outfile)
+        super().__init__(fastn1, outfile, **PARAMS)
 
     def run(fastq1, outfile, **PARAMS):
         '''Either softmask low complexity regions, or remove reads with a large
