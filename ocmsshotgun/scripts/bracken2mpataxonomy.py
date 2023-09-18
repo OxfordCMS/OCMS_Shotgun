@@ -39,17 +39,17 @@ def main(argv=None):
         row = i.split("\t")
         if row[0] == 'bin':
             continue
-            match = re.search(pattern, row[0])
+        match = re.search(pattern, row[0])
         if match:
             taxid = match.group(2)
             readname = "%s taxid %s" % (match.group(1), taxid)
 
-        #readname = row[1]
-        #taxid = row[2]
-        readnames.append(readname)
-        taxids.append(taxid)
-        if taxid not in uniqueids:
-            uniqueids.append(taxid)
+            #readname = row[1]
+            #taxid = row[2]
+            readnames.append(readname)
+            taxids.append(taxid)
+            if taxid not in uniqueids:
+                uniqueids.append(taxid)
     infile.close()
     
     #dictionary to store found ids
