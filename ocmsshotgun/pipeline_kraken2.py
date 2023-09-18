@@ -60,6 +60,8 @@ from ruffus import *
 from cgatcore import pipeline as P
 import ocmsshotgun.modules.Kraken2 as K
 
+PARAMS = P.get_parameters("pipeline.yml")
+
 #get all files within the directory to process
 SEQUENCEFILES = ("*.fastq.1.gz")
 
@@ -79,7 +81,7 @@ SEQUENCEFILES_REGEX = regex(
 def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
-    K.kraken2.run(infile, outfile)
+    K.kraken2.run(infile, outfile, **PARAMS)
 
 ########################################################
 ########################################################
@@ -98,7 +100,7 @@ def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
     '''
-    K.bracken.run(infile, outfile)
+    K.bracken.run(infile, outfile, **PARAMS)
 
 # check all backen at all taxonomic levels has been run
 @follows(runBracken)
@@ -120,7 +122,23 @@ def mergeBracken(infiles, outfile):
     '''
     merge sample results from bracken
     '''
-    K.bracken.merge(infiles, outfile)
+    level = P.snip(os.path.basename(outfile), ".tsv")
+    level = level.split(".")[-1]
+
+    sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
+    sample_names = [P.snip(x, "." + level) for x in sample_names]
+    titles = ",".join([x for x in sample_names])
+    
+    statement = '''  cgat combine_tables
+                    --glob=bracken.dir/*.abundance.%(level)s.tsv
+                    --skip-titles
+                    --header-names=%(titles)s
+                    -m 0
+                    -k 6
+                    -c 1,2
+                    --log=bracken.dir/merged_abundances.%(level)s.log > %(outfile)s                
+                '''
+    P.run(statement)
 
 ########################################################
 ########################################################
@@ -136,7 +154,16 @@ def translateTaxonomy(infile, outfile):
     translate kraken2 output to mpa-style taxonomy table 
     with full taxonomic names across all levels
     '''
-    K.bracken.translate(infile, outfile)
+    taxdump = PARAMS.get("bracken_taxdump")
+    job_threads = PARAMS.get("bracken_job_threads")
+    job_memory = PARAMS.get("bracken_job_mem")
+
+    statement = ''' ocms_shotgun bracken2mpataxonomy
+                   --mergedbracken %(infile)s
+                   --translatedout %(outfile)s
+                   --taxdatadir %(taxdump)s;
+                '''
+    P.run(statement)
 
 # ---------------------------------------------------
 # Generic pipeline tasks

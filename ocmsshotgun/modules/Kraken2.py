@@ -9,11 +9,9 @@ from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 
-PARAMS = P.get_parameters("pipeline.yml")
-
 class kraken2():
     
-    def run(infile, outfile):
+    def run(infile, outfile, **PARAMS):
         '''classify reads with kraken2
         '''
         # Note that at the moment I only deal with paired-end
@@ -81,7 +79,7 @@ class utility():
 
 class bracken():
 
-    def run(infile, outfile):
+    def run(infile, outfile, **PARAMS):
         '''
         convert read classifications into abundance with Bracken
         '''
@@ -119,43 +117,3 @@ class bracken():
                     %(options)s
                     '''
         P.run(statement)
-
-
-    
-    def merge(infiles, outfile):
-        '''
-        merge sample results from bracken
-        '''
-        pattern = r"(.*)\.abundance\.(species|genus|family|class|order|phylum|domain)\.tsv$"
-        match = re.search(pattern, os.path.basename(infiles[0]))
-        level = match.group(2)
-    
-        sample_names = [P.snip(os.path.basename(x), ".abundance.%s.tsv" % level) for x in glob.glob("bracken.dir/*.abundance.%s.tsv" % level)]
-        titles = ",".join([x for x in sample_names])
-    
-        statement = '''  cgat combine_tables
-                    --glob=bracken.dir/*abundance.%(level)s.tsv
-                    --skip-titles
-                    --header-names=%(titles)s
-                    -m 0
-                    -k 6
-                    -c 1,2
-                    --log=bracken.dir/merged_abundances.%(level)s.log > %(outfile)s
-                    '''
-        P.run(statement)
-
-    def translate(infile, outfile):
-        '''
-        translate kraken2 output to mpa-style taxonomy table 
-        with full taxonomic names across all levels
-        '''
-        taxdump = PARAMS.get("bracken_taxdump")
-        job_threads = PARAMS.get("bracken_job_threads")
-        job_memory = PARAMS.get("bracken_job_mem")
-
-        statement = ['ocms_shotgun bracken2mpataxonomy',
-                   '--mergedbracken %s' % infile,
-                   '--translatedout %s' % outfile,
-                   '--taxdatadir %s;' % taxdump]
-        
-        subprocess.run(statement, shell=True)
