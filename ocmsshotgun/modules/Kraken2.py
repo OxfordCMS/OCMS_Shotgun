@@ -64,7 +64,7 @@ class kraken2(matchReference):
     def __init__(self, fastn1, outfile, **PARAMS):
         super().__init__(fastn1, outfile, **PARAMS)
 
-    def run(self, infile, outfile, *args, **PARAMS):
+    def run(self, infile, outfile, **PARAMS):
         '''classify reads with kraken2
         '''
         
