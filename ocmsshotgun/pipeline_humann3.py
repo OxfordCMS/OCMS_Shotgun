@@ -66,36 +66,20 @@ import sys
 import os
 import glob
 import re
-import yaml
+import subprocess
 from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
+import ocmsshotgun.modules.Humann3 as H
 
 # load options from the config file
-if os.path.exists("pipeline_classifyreads.yml"):
-    with open("pipeline_classifyreads.yml", "r") as yml:
-        PARAMS_CLASSIFYREADS = yaml.safe_load(yml)
-    # write relevant parameters to temporary yml
-    with open("pipeline_temp.yml", "w") as temp:
-        yaml.dump(PARAMS_CLASSIFYREADS.get("pipeline_humann3"), temp)
-    PARAMS = P.get_parameters("pipeline_temp.yml")
-    os.remove("pipeline_temp.yml")
-else :
-    PARAMS = P.get_parameters(
-        ["pipeline.yml"])
+PARAMS = P.get_parameters(
+    ["pipeline.yml"])
 
 #get all files within the directory to process
 SEQUENCEFILES = ("*fastq.gz")
 
 SEQUENCEFILES_REGEX = regex(r"(\S+).(fastq.gz)")
-
-scriptsdir = os.path.dirname(os.path.abspath(__file__)) + "/scripts"
-PARAMS["scriptsdir"] = scriptsdir
-
-reportdir = os.path.dirname(os.path.abspath(__file__))
-reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_humann")
-reportfile = os.path.join(reportdir, "pipeline_humann3_report.Rmd")
-PARAMS["reportdir"] = reportdir
 
 ########################################################
 ########################################################
@@ -114,35 +98,7 @@ PARAMS["reportdir"] = reportdir
 def runHumann3(infile, outfile):
     '''functional profile with humann3
     '''
-    prefix = P.snip(os.path.basename(outfile), "_pathcoverage.tsv.gz")
-    outpath = os.path.dirname(os.path.abspath(outfile))
-    
-    job_mem = PARAMS.get("humann3_job_mem")
-    job_threads = PARAMS.get("humann3_job_threads")
-
-    db_metaphlan_path = PARAMS.get("humann3_db_metaphlan_path")
-    db_metaphlan_id = PARAMS.get("humann3_db_metaphlan_id")
-    db_nucleotide = PARAMS.get("humann3_db_nucleotide")
-    db_protein = PARAMS.get('humann3_db_protein')
-    search_mode = PARAMS.get('humann3_search_mode')
-    options = PARAMS.get("humann3_options")
-    statement = '''humann
-                   --input %(infile)s
-                   --output humann3.dir/%(prefix)s
-                   --nucleotide-database %(db_nucleotide)s
-                   --protein-database %(db_protein)s
-                   --metaphlan-options "--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s"
-                   %(options)s;
-                   gzip %(outpath)s/%(prefix)s_pathcoverage.tsv;
-                   gzip %(outpath)s/%(prefix)s_pathabundance.tsv; 
-                   gzip %(outpath)s/%(prefix)s_genefamilies.tsv;
-                   gzip %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv;
-                   mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv.gz %(outpath)s;
-                   tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp;
-                   rm -r %(outpath)s/%(prefix)s_humann_temp
-                   '''
-
-    P.run(statement)
+    H.humann3.run(infile, outfile, **PARAMS)
 
 ########################################################
 ########################################################
@@ -151,6 +107,7 @@ def runHumann3(infile, outfile):
 ########################################################
 ########################################################
 ########################################################
+@follows(runHumann3)
 @merge(runHumann3, "humann3.dir/merged_pathabundance.tsv")
 def mergePathAbundance(infiles, outfile):
     '''
@@ -274,7 +231,7 @@ def splitMetaphlan(infile, outfiles):
     '''split merged metaphlan file by taxonomic levels
     '''
     
-    statement = '''python %(scriptsdir)s/split_metaphlan.py -i %(infile)s -o humann3.dir'''
+    statement = '''ocms_shotgun split_metaphlan -i %(infile)s -o humann3.dir'''
     P.run(statement)
 
 #####################################################
@@ -283,16 +240,22 @@ def splitMetaphlan(infile, outfiles):
 @follows("mergePathAbundance",
          "mergePathCoverage", 
          "mergeGeneFamilies",
+         "splitMetaphlan",
          mkdir("report.dir"))
 def build_report():
     '''
     render the rmarkdown report file
     '''
+    reportdir = os.path.dirname(os.path.abspath(__file__))
+    reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_humann3")
+    reportfile = os.path.join(reportdir, "pipeline_humann3_report.Rmd")
+
     # copy report template to report.dir and render report
-    statement = '''cd report.dir/;
+    statement = '''cd report.dir;
                    cp %(reportfile)s .;
                    R -e "rmarkdown::render('pipeline_humann3_report.Rmd', output_file='pipeline_humann3_report.html')";
-                   cd ../'''
+                   cd ../
+                '''
     P.run(statement)
 # ---------------------------------------------------
 # Generic pipeline tasks

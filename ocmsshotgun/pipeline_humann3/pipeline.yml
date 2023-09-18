@@ -1,10 +1,10 @@
 humann3:
 
     # database settings
-    db_metaphlan_path: /path/to/metaphlan/database/directory
+    db_metaphlan_path: /well/kir/mirror/metaphlan3/metaphlan_databases_3.1
     db_metaphlan_id: mpa_v31_CHOCOPhlAn_201901
-    db_nucleotide: /path/to/chocophlan/database/directory 
-    db_protein: /path/to/uniref/database/directory
+    db_nucleotide: /well/kir/mirror/humann3/chocophlan 
+    db_protein: /well/kir/mirror/humann3/uniref/uniref90
 
     # additional humann3 options
     options: ""
