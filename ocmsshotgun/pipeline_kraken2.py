@@ -81,7 +81,7 @@ SEQUENCEFILES_REGEX = regex(
 def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
-    K.kraken2.run(infile, outfile, **PARAMS)
+    K.kraken2(infile, outfile, **PARAMS).run(infile, outfile, **PARAMS)
 
 ########################################################
 ########################################################
