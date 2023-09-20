@@ -107,7 +107,7 @@ def runHumann3(infile, outfile):
 ########################################################
 ########################################################
 ########################################################
-@follows(runhumann3)
+@follows(runHumann3)
 @merge(runHumann3, "humann3.dir/merged_pathcoverage.tsv")
 def mergePathCoverage(infiles, outfile):
     '''
