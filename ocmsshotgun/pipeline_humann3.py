@@ -107,7 +107,35 @@ def runHumann3(infile, outfile):
 ########################################################
 ########################################################
 ########################################################
-@follows(runHumann3)
+@follows(runhumann3)
+@merge(runHumann3, "humann3.dir/merged_pathcoverage.tsv")
+def mergePathCoverage(infiles, outfile):
+    '''
+    merge the results from Humann3
+    '''
+    infiles_path = [os.path.abspath(f) for f in infiles]
+    infiles_path = " ".join(infiles_path)
+    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles]
+    outfiles_path = " ".join(outfiles_path)
+    
+# find infiles with glob because file order from glob 
+    # is different from infiles found with ruffus
+    infiles = glob.glob("humann3.dir/*/*_pathcoverage.tsv.gz")
+    samples = [P.snip(os.path.basename(x), "_pathcoverage.tsv.gz") for x in infiles]
+    titles = ",".join(samples)
+    statement = '''gunzip %(infiles_path)s; 
+                   cgat combine_tables
+                   --glob=humann3.dir/*/*_pathcoverage.tsv
+                   --header-names=%(titles)s
+                   -m 0
+                   -c 1
+                   --log=humann3.dir/merged_pathcoverage.log
+                   | sed '1s/bin/pathway/' >> %(outfile)s;
+                   gzip %(outfiles_path)s
+                '''
+    P.run(statement)
+
+@follows(mergePathCoverage)
 @merge(runHumann3, "humann3.dir/merged_pathabundance.tsv")
 def mergePathAbundance(infiles, outfile):
     '''
@@ -137,33 +165,8 @@ def mergePathAbundance(infiles, outfile):
                 '''
     P.run(statement)
 
-@merge(runHumann3, "humann3.dir/merged_pathcoverage.tsv")
-def mergePathCoverage(infiles, outfile):
-    '''
-    merge the results from Humann3
-    '''
-    infiles_path = [os.path.abspath(f) for f in infiles]
-    infiles_path = " ".join(infiles_path)
-    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles]
-    outfiles_path = " ".join(outfiles_path)
-    
-# find infiles with glob because file order from glob 
-    # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_pathcoverage.tsv.gz")
-    samples = [P.snip(os.path.basename(x), "_pathcoverage.tsv.gz") for x in infiles]
-    titles = ",".join(samples)
-    statement = '''gunzip %(infiles_path)s; 
-                   cgat combine_tables
-                   --glob=humann3.dir/*/*_pathcoverage.tsv
-                   --header-names=%(titles)s
-                   -m 0
-                   -c 1
-                   --log=humann3.dir/merged_pathcoverage.log
-                   | sed '1s/bin/pathway/' >> %(outfile)s;
-                   gzip %(outfiles_path)s
-                '''
-    P.run(statement)
 
+@follows(mergePathCoverage)
 @merge(runHumann3, "humann3.dir/merged_genefamilies.tsv")
 def mergeGeneFamilies(infiles, outfile):
     '''
@@ -177,8 +180,8 @@ def mergeGeneFamilies(infiles, outfile):
     
     # find infiles with glob because file order from glob 
     # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_genefamilies.tsv.gz")   
-    samples = [P.snip(os.path.basename(x), "_genefamilies.tsv.gz") for x in infiles]
+    infiles = glob.glob("humann3.dir/*/*_genefamilies.tsv")   
+    samples = [P.snip(os.path.basename(x), "_genefamilies.tsv") for x in infiles]
     titles = ",".join(samples)
     statement = '''gunzip %(infiles_path)s; 
                    cgat combine_tables
@@ -192,6 +195,7 @@ def mergeGeneFamilies(infiles, outfile):
                 '''
     P.run(statement)
 
+@follows(mergePathCoverage)
 @merge(runHumann3, "humann3.dir/merged_metaphlan.tsv")
 def mergeMetaphlan(infiles, outfile):
     '''
@@ -205,8 +209,8 @@ def mergeMetaphlan(infiles, outfile):
 
     # find infiles with glob because file order from glob 
     # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_metaphlan_bugs_list.tsv.gz")   
-    samples = [P.snip(os.path.basename(x), "_metaphlan_bugs_list.tsv.gz") for x in infiles]
+    infiles = glob.glob("humann3.dir/*/*_metaphlan_bugs_list.tsv")   
+    samples = [P.snip(os.path.basename(x), "_metaphlan_bugs_list.tsv") for x in infiles]
     # sed doesn't recognize \t as tab. need to double escape with \\
     titles = "\\t".join(samples)
     x = glob.glob("humann3.dir/*/*_metaphlan_bugs_list.tsv")
@@ -226,6 +230,7 @@ def mergeMetaphlan(infiles, outfile):
 #####################################################
 #####################################################
 #####################################################
+@follows(mergeMetaphlan)
 @split(mergeMetaphlan, "humann3.dir/merged_metaphlan_*.tsv")
 def splitMetaphlan(infile, outfiles):
     '''split merged metaphlan file by taxonomic levels
