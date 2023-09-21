@@ -16,7 +16,7 @@ class utility():
 
         PARAMS = P.get_parameters(
             ["pipeline.yml"])
-        print(PARAMS)
+        
         # determine the location of input files (reads)
         try:
             PARAMS["location_fastq"]
@@ -55,7 +55,7 @@ class utility():
             raise ValueError("No input files detected... check the file suffixes"
                              " or specify input directory location in config file")
 
-        return PARAMS, FASTQ1S, FASTQ1_SUFFIX, FASTQ2_SUFFIX
+        return PARAMS, FASTQ1S, FASTQ1_SUFFIX
 
     def symlnk(inf, outf):
         try:

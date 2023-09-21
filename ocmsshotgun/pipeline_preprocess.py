@@ -61,8 +61,11 @@ import pandas as pd
 import ocmsshotgun.modules.PreProcess as pp
 
 # set up params
-(PARAMS, FASTQ1S, FASTQ1_SUFFIX, FASTQ2_SUFFIX) = pp.utility.params_setup()
-
+if os.path.exists("pipeline.yml"):
+    (PARAMS, FASTQ1S, FASTQ1_SUFFIX) = pp.utility.params_setup()
+else:
+    FASTQ1S = None
+    FASTQ1_SUFFIX = None
 ###############################################################################
 # Deduplicate
 ###############################################################################
