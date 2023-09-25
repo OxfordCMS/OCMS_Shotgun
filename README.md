@@ -108,6 +108,7 @@ ocms_shotgun preprocess make full -p 20 -v 5
 ### Output
 ```
 ```
+
 ## Pipeline Kraken2
 Uses Kraken2 to classify paired-end reads
 Uses Bracken to estimate abundances at every taxonomic level
@@ -205,6 +206,8 @@ module load DIAMOND/2.0.15-GCC-9.3.0
 module load Pandoc/2.13
 module load X11/20200222-GCCcore-9.3.0
 module load GLPK/4.65-GCCcore-9.3.0
+module load R/4.2.1-foss-2020a-bare
+
 ```
 
 ### Configuration
@@ -219,6 +222,7 @@ Humann3 takes in single end reads. If you have paired-end reads, paired-ends nee
 
 ### Pipeline tasks
 
+```
 Task = "mkdir('humann3.dir')   before pipeline_humann3.runHumann3 "
 Task = 'pipeline_humann3.runHumann3'
 Task = 'pipeline_humann3.mergePathCoverage'
@@ -226,6 +230,7 @@ Task = 'pipeline_humann3.mergePathAbundance'
 Task = 'pipeline_humann3.mergeGeneFamilies'
 Task = 'pipeline_humann3.mergeMetaphlan'
 Task = 'pipeline_humann3.splitMetaphlan'
+```
 
 ### Run pipeline_humann3
 Set number of jobs `-p` to number of samples.
@@ -234,5 +239,36 @@ Set number of jobs `-p` to number of samples.
 ocms_shotgun humann3 make full -p 20 -v 5
 ```
 
-* pipeline_classifyreads.py - Classify reads from paired-end fastq files using kraken2
-* pipeline_humann3.py - functional profiling of fastq file using humann3
+### Output
+Humann3 outputs for each sample are in their respective sample directories under `humann.dir`.
+Humann3 outputs are automatically compressed once they are created. Metaphlan taxa abundances (`<sample>_metaphlan_bugs_list.tsv.gz` are moved out of the temporary direcory created by Humann3 and compressed. Metaphlan taxa abundances are split according by taxonomic levels. Each of the Humann3 outputs for all samples are merged into their respective files `merged_genefamilies.tsv`, `merged_pathabundance.tsv`, `merged_pathcoverage.tsv`, `merged_metaphlan.tsv`.
+
+```
+humann.dir/
+    |- sample1/
+    |- sample2/
+    ...
+    |- samplen/
+        |- samplen_genefamilies.tsv.gz
+	|- samplen_pathabundance.tsv.gz
+	|- samplen_pathcoverage.tsv.gz
+	|- samplen_metaphlan_bugs_list.tsv.gz
+	|- samplen_humann_temp.tar.gz
+    |- merged_genefamilies.tsv
+    |- merged_metaphlan.tsv
+    |- merged_metaphlan_class.tsv
+    |- merged_metaphlan_family.tsv
+    |- merged_metaphlan_genus.tsv
+    |- merged_metaphlan_order.tsv
+    |- merged_metaphlan_phylum.tsv
+    |- merged_metaphlan_species.tsv
+    |- merged_pathabundance.tsv
+    |- merged_pathcoverage.tsv
+```
+
+### Report
+Generate a report on humann3 results
+
+```
+ocms_shotgun humann3 make build_report
+```
