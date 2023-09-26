@@ -55,7 +55,7 @@ class utility():
             raise ValueError("No input files detected... check the file suffixes"
                              " or specify input directory location in config file")
 
-        return PARAMS, FASTQ1S, FASTQ1_SUFFIX
+        return PARAMS, FASTQ1S, FASTQ1_SUFFIX, FASTQ2_SUFFIX
 
     def symlnk(inf, outf):
         try:
@@ -126,13 +126,17 @@ class matchReference(object):
         
 class cdhit(matchReference):
 
-    def __init__(self, fastn1, outfile, **PARAMS):
+    def __init__(self, fastn1, outfile, fastq1_suffix, fastq2_suffix, **PARAMS):
         # initialize inherited attributes
         super().__init__(fastn1, outfile, **PARAMS)
+        self.fastq1_suffix = fastq1_suffix
+        self.fastq2_suffix = fastq2_suffix
 
     def run(self, fastq1, outfile, *args, **PARAMS):
         '''Filter exact duplicates, if specified in config file'''
-        
+        FASTQ1_SUFFIX = self.fastq1_suffix
+        FASTQ2_SUFFIX = self.fastq2_suffix
+
         if self.fastn2:
             fastq2 = P.snip(fastq1, FASTQ1_SUFFIX) + FASTQ2_SUFFIX
             outfile1 = P.snip(outfile, '.gz') 
@@ -194,12 +198,16 @@ class cdhit(matchReference):
 
 class trimmomatic(matchReference):
 
-    def __init__(self, fastn1, outfile, **PARAMS):
+    def __init__(self, fastn1, outfile, fast1_suffix, fastq2_suffix, **PARAMS):
         # initialize inherited attributes
-        super().__init__(fastn1, outfile, **PARAMS)
+        super().__init__(fastn1, outfile,  **PARAMS)
+        self.fastq1_suffix = fastq1_suffix
+        self.fastq2_suffix = fastq2_suffix
 
     def run(self, fastq1, outfile1, *args, **PARAMS):
         '''Remove adapters using Trimmomatic'''
+        FASTQ1_SUFFIX = self.fastq1_suffix
+        FASTQ2_SUFFIX = self.fastq2_suffix
 
         if self.fastn2:
             fastq2 = P.snip(fastq1, FASTQ1_SUFFIX) + FASTQ2_SUFFIX
@@ -289,7 +297,7 @@ class runSortMeRNA(matchReference):
         
         """
         job_options = PARAMS.get("sortmerna_job_options")
-        threads = PARAMS.get("sortmerna_threads")
+        job_threads = PARAMS.get("sortmerna_job_threads")
         job_mem = PARAMS.get("sortmerna_job_mem")
         sortmerna_options = self.sortmerna_options
 
@@ -320,7 +328,7 @@ class runSortMeRNA(matchReference):
                          " --other %(out_prefix)s_unaligned" # output location of unalinged seq
                          " --readb %(tmpf_readb)s" # location of tmp file for reads
                          " --kvdb %(tmpf_kvdb)s" # location of tmp file for kv pairs
-                         " --threads %(threads)s"
+                         " --threads %(job_threads)s"
                          " --zip-out"
                          " %(sortmerna_options)" % locals())
 
@@ -344,7 +352,7 @@ class runSortMeRNA(matchReference):
                          " --kvdb %(tmpf_kvdb)s" # location of tmp file for kv pairs
                          " --paired_in" # If one read is aligned, both are output to aligned file
                          " --out2" # Output paired reads to separate files
-                         " --threads %(threads)s"
+                         " --threads %(job_threads)s"
                          " --zip-out"
                          " %(sortmerna_options)s" % locals())
 
@@ -360,7 +368,7 @@ class runSortMeRNA(matchReference):
                            " --other  %(out_prefix)s_unaligned_singleton"
                            " --readb %(tmpf_readb)s" # location of tmp file for reads
                            " --kvdb %(tmpf_kvdb)s" # location of tmp file for kv pairs
-                           " --threads %(threads)s"
+                           " --threads %(job_threads)s"
                            " --zip-out"
                            " %(sortmerna_options)s" % locals()) 
             
@@ -372,11 +380,11 @@ class runSortMeRNA(matchReference):
             statement = " && ".join([statement, 
                                      "rm -rf %(tmpf)s" % locals()])
 
-        return statement, threads, job_mem
+        return statement, job_threads, job_mem
     
     def run(self, *args, **PARAMS):
         # Custom command to run reference matching tool.
-        statement, run_threads, run_job_mem = self.buildStatement(**PARAMS)
+        (statement, job_threads, job_mem) = self.buildStatement(**PARAMS)
 
         # Logging
         runfiles = '\t'.join([os.path.basename(x) for x in (self.fastn1, \
@@ -472,6 +480,7 @@ class createSortMeRNAOTUs(runSortMeRNA):
         os.rename(tmpf_prefix + '_aligned.log', outf_prefix + '.log')
 
         # rename otu_map.txt
+        otu_file = os.path.join(self.outdir, 'otu_map.txt')
         os.rename(otu_file, outf_prefix + '_otu_map.txt')
 
         shutil.rmtree(self.outdir)

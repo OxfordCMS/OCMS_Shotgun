@@ -39,6 +39,7 @@ module load CD-HIT-auxtools/4.8.1-GCC-9.3.0
 module load bmtagger/3.101-gompi-2020a
 module load Trimmomatic/0.39-Java-11
 module load BBMap/38.90-GCC-9.3.0
+module load SortMeRNA/4.3.4
 
 Code
 ====
@@ -62,10 +63,11 @@ import ocmsshotgun.modules.PreProcess as pp
 
 # set up params
 if os.path.exists("pipeline.yml"):
-    (PARAMS, FASTQ1S, FASTQ1_SUFFIX) = pp.utility.params_setup()
+    (PARAMS, FASTQ1S, FASTQ1_SUFFIX, FASTQ2_SUFFIX) = pp.utility.params_setup()
 else:
     FASTQ1S = None
     FASTQ1_SUFFIX = None
+    FASTQ2_SUFFIX = None
 ###############################################################################
 # Deduplicate
 ###############################################################################
@@ -75,7 +77,7 @@ else:
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
-    pp.cdhit(fastq1, outfile, **PARAMS).run(fastq1, outfile, **PARAMS)
+    pp.cdhit(fastq1, outfile, FASTQ1_SUFFIX, FASTQ2_SUFFIX, **PARAMS).run(fastq1, outfile, **PARAMS)
 
 ###############################################################################
 # Remove Adapters
@@ -87,7 +89,7 @@ def removeDuplicates(fastq1, outfile):
 def removeAdapters(fastq1, outfile1):
     '''Remove adapters using Trimmomatic'''
 
-    pp.trimmomatic(fastq1, outfile1, **PARAMS).run(fastq1, outfile1, **PARAMS)
+    pp.trimmomatic(fastq1, outfile1, FASTQ1_SUFFIX, FASTQ2_SUFFIX, **PARAMS).run(fastq1, outfile1, **PARAMS)
 
 
 ###############################################################################
