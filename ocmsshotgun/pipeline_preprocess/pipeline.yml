@@ -39,10 +39,9 @@ cdhit:
     options: ''
 
     # Cluster options
-    # while cd-hit is multi-threaded, it seems cd-hit-dup isn't
-    job_threads: 1    
+    job_threads: 4    
 
-    job_mem: 125G
+    job_memory: 48G
 
 
 ################################################################
@@ -85,7 +84,7 @@ trimmomatic:
     # Cluster options
     job_threads: 4
 
-    job_mem: 20G
+    job_memory: 20G
 
 
 ################################################################
@@ -110,7 +109,7 @@ sortmerna:
     # Generic options
     job_threads: 12
 
-    job_mem: 60G
+    job_memory: 60G
 
 
 
@@ -128,7 +127,7 @@ bmtagger:
     # Cluster options  
     job_threads: 1
 
-    job_mem: 25G
+    job_memory: 25G
 
 
 
@@ -153,7 +152,7 @@ dust:
     # Cluster options
     job_threads: 4
    
-    job_mem: 40G   
+    job_memory: 40G   
 
 
 

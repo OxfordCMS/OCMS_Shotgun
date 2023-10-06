@@ -194,11 +194,11 @@ class cdhit(matchReference):
         run_options = PARAMS.get('cdhit_job_options')
         P.run(statement,
               job_threads=PARAMS['cdhit_job_threads'],
-              job_mem=PARAMS['cdhit_job_mem'])
+              job_memory=PARAMS['cdhit_job_memory'])
 
 class trimmomatic(matchReference):
 
-    def __init__(self, fastn1, outfile, fast1_suffix, fastq2_suffix, **PARAMS):
+    def __init__(self, fastn1, outfile, fastq1_suffix, fastq2_suffix, **PARAMS):
         # initialize inherited attributes
         super().__init__(fastn1, outfile,  **PARAMS)
         self.fastq1_suffix = fastq1_suffix
@@ -269,8 +269,8 @@ class trimmomatic(matchReference):
 
         run_options = PARAMS.get('trimmomatic_job_options')
         P.run(statement, 
-              threads=PARAMS['trimmomatic_job_threads'],
-              job_mem=PARAMS['trimmomatic_job_mem'])
+              job_threads=PARAMS['trimmomatic_job_threads'],
+              job_memory=PARAMS['trimmomatic_job_memory'])
 
 class runSortMeRNA(matchReference):
     """
@@ -298,7 +298,7 @@ class runSortMeRNA(matchReference):
         """
         job_options = PARAMS.get("sortmerna_job_options")
         job_threads = PARAMS.get("sortmerna_job_threads")
-        job_mem = PARAMS.get("sortmerna_job_mem")
+        job_memory = PARAMS.get("sortmerna_job_memory")
         sortmerna_options = self.sortmerna_options
 
         # A comma separated list of references
@@ -380,11 +380,11 @@ class runSortMeRNA(matchReference):
             statement = " && ".join([statement, 
                                      "rm -rf %(tmpf)s" % locals()])
 
-        return statement, job_threads, job_mem
+        return statement, job_threads, job_memory
     
     def run(self, *args, **PARAMS):
         # Custom command to run reference matching tool.
-        (statement, job_threads, job_mem) = self.buildStatement(**PARAMS)
+        (statement, job_threads, job_memory) = self.buildStatement(**PARAMS)
 
         # Logging
         runfiles = '\t'.join([os.path.basename(x) for x in (self.fastn1, \
@@ -393,14 +393,14 @@ class runSortMeRNA(matchReference):
         E.info("Running sortMeRNA for files: {}".format(runfiles))
 
         P.run(statement, 
-              threads=job_threads,
-              job_mem=job_mem)
+              job_threads=job_threads,
+              job_memory=job_memory)
 
         # Post process results into generic output for downstream tasks.
         statement = self.postProcess(**PARAMS)
         if statement:
             print(statement)
-#            P.run(statement, threads, job_mem)
+#            P.run(statement, threads, job_memory)
 
     def postProcess(self, *args, **PARAMS):
         ''' Rename files output by sortmeRNA to appropriate suffix
@@ -577,7 +577,7 @@ class bmtagger(matchReference):
 
                 P.run(statement, 
                       job_threads=PARAMS['bmtagger_job_threads'],
-                      job_mem=PARAMS['bmtagger_job_mem'])
+                      job_memory=PARAMS['bmtagger_job_memory'])
             
             # Drop host contaminated reads
             # A hack due to the fact that BMTagger truncates fastq identifiers
@@ -640,7 +640,7 @@ class bmtagger(matchReference):
                 
                 P.run(statement, 
                       job_threads=PARAMS['bmtagger_job_threads'],
-                      job_mem=PARAMS['bmtagger_job_mem'])
+                      job_memory=PARAMS['bmtagger_job_memory'])
             
 
             # Drop host contaminated reads
@@ -721,7 +721,7 @@ class bbtools(matchReference):
             
                 P.run(statement, 
                       job_threads=PARAMS['dust_job_threads'],
-                      job_mem=PARAMS['dust_job_mem'])
+                      job_memory=PARAMS['dust_job_memory'])
 
             else:
                 statement1 = ("bbmask.sh"
@@ -759,7 +759,7 @@ class bbtools(matchReference):
 
                 P.run(statement,
                       job_threads=PARAMS['dust_job_threads'],
-                      job_mem=PARAMS['dust_job_mem'])
+                      job_memory=PARAMS['dust_job_memory'])
 
 
             # Renaming files because of bbmap idiosyncracies
@@ -795,7 +795,7 @@ class bbtools(matchReference):
 
                 P.run(statement, 
                       job_threads=PARAMS['dust_job_threads'],
-                      job_mem=PARAMS['dust_job_mem'])
+                      job_memory=PARAMS['dust_job_memory'])
 
             else:
                 statement = ("bbmask.sh"
@@ -809,7 +809,7 @@ class bbtools(matchReference):
 
                 P.run(statement, 
                       job_threads=PARAMS['dust_job_threads'],
-                      job_mem=PARAMS['dust_job_mem'])
+                      job_memory=PARAMS['dust_job_memory'])
 
             os.rename(outfile1, outfile)
             if PARAMS['dust_discard_low_complexity']:
