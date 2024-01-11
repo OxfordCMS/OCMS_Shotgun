@@ -1,5 +1,5 @@
 """===========================
-pipeline_humann.py
+pipeline_humann3.py
 ===========================
 
 Overview

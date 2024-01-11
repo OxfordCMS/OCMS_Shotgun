@@ -4,9 +4,7 @@ import os
 from cgatcore import pipeline as P
 
 class humann3():
-    def run(infile, outfile, **PARAMS):
-        '''functional profile with humann3
-        '''
+    def statement(infile, outfile, **PARAMS):
         prefix = P.snip(os.path.basename(outfile), "_pathcoverage.tsv.gz")
         outpath = os.path.dirname(os.path.abspath(outfile))
         
@@ -34,5 +32,9 @@ class humann3():
                     tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp;
                     rm -r %(outpath)s/%(prefix)s_humann_temp
         '''
-
+        return statement, job_threads, job_mem
+    def run(infile, outfile, **PARAMS):
+        '''functional profile with humann3
+        '''
+        (statement, job_threads, job_mem) = self.statement(infile, outfile, **PARAMS)
         P.run(statement)

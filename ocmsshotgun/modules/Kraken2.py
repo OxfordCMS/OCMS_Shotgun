@@ -9,7 +9,7 @@ from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 
-class matchReference(object):
+class baseClass(object):
     """
     Base class for generating run statements to match mWGS reads to 
     reference sequences. Intended to work with single, paired, or
@@ -18,66 +18,47 @@ class matchReference(object):
     Some options are  assumed to be passed via kwargs, as this and 
     inherited classes are writtento work with a PARAMS dict 
     generated from a pipeline.yml config file.
-
-    ** Options:
-    fn_suffix - option to pass something other than .fastq.1.gz
-
-    
-
-
     """
 
     def __init__(self, fastn1, outfile, **PARAMS):
         self.outdir = os.path.dirname(outfile)
+        self.outfile = outfile
+        self.fastq1 = fastq1
+        self.fastq2 = None
+        self.fastq3 = None
+        self.fq1_suffix = '.fastq.1.gz'
+        self.fq2_suffix = '.fastq.2.gz'
+        self.fq3_suffix = '.fastq3.gz'
+        self.PARAMS = PARAMS
 
-        self.fastn1 = fastn1
+        # Assume that files are fastq and end in .fastq.1.gz
+        fastq2 = P.snip(self.fastq1, self.fq1_suffix) + self.fq2_suffix
 
-        # Assume that files are fastq and end .fastq.1.gz
-        if PARAMS.get('fn_suffix', None):
-            self.fn_suffix = PARAMS.get('fn_suffix')
-        else:
-            assert self.fastn1.endswith('.fastq.1.gz'), \
-                'Please supply fastn suffix using keyword fn_suffix='
-            self.fn_suffix = '.fastq.1.gz'
-
-        # Find mate pair file
-        n = self.fn_suffix.rfind('1')
-        fn2_suffix =  self.fn_suffix[:n] + '2' + self.fn_suffix[n+1:]
-        fastn2 = P.snip(self.fastn1, self.fn_suffix) + fn2_suffix
-
-        if os.path.exists(fastn2):
-            self.fastn2 = fastn2
-        else:
-            self.fastn2 = None
-
-        # Find singleton file
-        fn3_suffix =  self.fn_suffix[:n] + '3' + self.fn_suffix[n+1:]
-        fastn3 = P.snip(self.fastn1, self.fn_suffix) + fn3_suffix
-
-        if os.path.exists(fastn3):
-            assert self.fastn2, "Can't have singletons without mate pairs"
-            self.fastn3 = fastn3
-        else:
-            self.fastn3 = None
-
-class kraken2(matchReference):
-    def __init__(self, fastn1, outfile, **PARAMS):
-        super().__init__(fastn1, outfile, **PARAMS)
-
-    def run(self, infile, outfile, **PARAMS):
-        '''classify reads with kraken2
-        '''
+        if os.path.exists(fastq2):
+            self.fastq2 = fastq2
         
+        # Find singleton file
+        fastq3 = P.snip(self.fastq1, self.fq1_suffix) + self.fq3_suffix
+        self.fastq3 = fastq3
+
+        if os.path.exists(fastq3):
+            assert self.fastq2, "Can't have singletons without mate pairs"
+
+class kraken2(baseClase):
+    def __init__(self, fastq1, outfile, **PARAMS):
+        super().__init__(fastq1, outfile, **PARAMS)
+    
+    def statement(self):
         # Note that at the moment I only deal with paired-end
         # reads
         p1 = infile
         
-        prefix = P.snip(outfile, ".k2.report.tsv")
+        prefix = P.snip(self.outfile, ".k2.report.tsv")
     
-        db = PARAMS.get("kraken2_db")
-        job_threads = PARAMS.get("kraken2_job_threads")
-        job_memory = PARAMS.get("kraken2_job_mem")
-        options = PARAMS.get("kraken2_options")
+        db = self.PARAMS.get("kraken2_db")
+        job_threads = self.PARAMS.get("kraken2_job_threads")
+        job_memory = self.PARAMS.get("kraken2_job_mem")
+        options = self.PARAMS.get("kraken2_options")
     
         kraken_statement = ('kraken2',
                             '--db %(db)s',
@@ -87,7 +68,7 @@ class kraken2(matchReference):
                             '--threads %(job_threads)s')
 
         # paired end reads
-        if self.fastn2:
+        if self.fastq2:
             p2 = p1.replace(".fastq.1.gz", ".fastq.2.gz")
             statement_entry = ["--paired",
                                "--gzip-compressed %s %s" % (p1, p2)]
@@ -106,7 +87,14 @@ class kraken2(matchReference):
         
         statement = ';'.join([kraken_statement] +  statement_entry)
         
-        P.run(statement)
+        return statement job_threads, job_mem
+
+    def run(self):
+        '''classify reads with kraken2
+        '''
+        
+        (statement, job_threads, job_mem) = self.statement()
+        P.run(statement, job_threads=job_threads, job_mem=job_mem)
 
 
 class utility():
@@ -145,15 +133,17 @@ class utility():
         else:
             open(outfile, 'a').close()
 
-class bracken():
+class bracken(baseClass):
+    def __init__(self, fastq1, outfile, **PARAMS):
+        super().__init__(fastq1, outfile, **PARAMS)
 
-    def run(infile, outfile, **PARAMS):
+    def statement(self):
         '''
         convert read classifications into abundance with Bracken
         '''
         # get sample name
         pattern = r"(.*)\.abundance\.(species|genus|family|class|order|phylum|domain)\.tsv$"
-        match = re.search(pattern, os.path.basename(outfile))
+        match = re.search(pattern, os.path.basename(self.outfile))
         try:
             prefix = match.group(1)
         except:
@@ -168,11 +158,11 @@ class bracken():
         #    return
     
         # bracken parameters
-        db = PARAMS.get("bracken_db")
-        read_len = PARAMS.get("bracken_read_len")
-        job_threads = PARAMS.get("bracken_job_threads")
-        job_memory = PARAMS.get("bracken_job_mem")
-        options = PARAMS.get("bracken_options")
+        db = self.PARAMS.get("bracken_db")
+        read_len = self.PARAMS.get("bracken_read_len")
+        job_threads = self.PARAMS.get("bracken_job_threads")
+        job_memory = self.PARAMS.get("bracken_job_mem")
+        options = self.PARAMS.get("bracken_options")
 
     
         # run bracken at every taxonomic level
@@ -184,4 +174,32 @@ class bracken():
                     -l %(level_param)s
                     %(options)s
                     '''
+        return statement, job_threads, job_mem
+
+    def run(self):
+        (statement, job_threads, job_mem) = self.statement()
+        P.run(statement)
+
+class mergebracken():
+    def statement(infiles, outfile):
+        level = P.snip(os.path.basename(outfile), ".tsv")
+        level = level.split(".")[-1]
+
+        sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
+        sample_names = [P.snip(x, "." + level) for x in sample_names]
+        titles = ",".join([x for x in sample_names])
+        
+        statement = '''  cgat combine_tables
+                         --glob=bracken.dir/*.abundance.%(level)s.tsv
+                         --skip-titles
+                         --header-names=%(titles)s
+                         -m 0
+                         -k 6
+                         -c 1,2
+                         --log=bracken.dir/merged_abundances.%(level)s.log > %(outfile)s         
+                    '''
+        return statement
+    
+    def run(infiles, outfile):
+        statement = self.statement(infiles, outfile)
         P.run(statement)

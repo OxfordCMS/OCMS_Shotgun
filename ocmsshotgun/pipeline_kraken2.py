@@ -81,7 +81,7 @@ SEQUENCEFILES_REGEX = regex(
 def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
-    K.kraken2(infile, outfile, **PARAMS).run(infile, outfile, **PARAMS)
+    K.kraken2(infile, outfile, **PARAMS).run()
 
 ########################################################
 ########################################################
@@ -100,7 +100,7 @@ def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
     '''
-    K.bracken.run(infile, outfile, **PARAMS)
+    K.bracken(infile, outfile, **PARAMS).run()
 
 # check all backen at all taxonomic levels has been run
 @follows(runBracken)
@@ -122,23 +122,8 @@ def mergeBracken(infiles, outfile):
     '''
     merge sample results from bracken
     '''
-    level = P.snip(os.path.basename(outfile), ".tsv")
-    level = level.split(".")[-1]
-
-    sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
-    sample_names = [P.snip(x, "." + level) for x in sample_names]
-    titles = ",".join([x for x in sample_names])
+    K.mergebracken.run(infiles, outfile)
     
-    statement = '''  cgat combine_tables
-                    --glob=bracken.dir/*.abundance.%(level)s.tsv
-                    --skip-titles
-                    --header-names=%(titles)s
-                    -m 0
-                    -k 6
-                    -c 1,2
-                    --log=bracken.dir/merged_abundances.%(level)s.log > %(outfile)s                
-                '''
-    P.run(statement)
 
 ########################################################
 ########################################################
