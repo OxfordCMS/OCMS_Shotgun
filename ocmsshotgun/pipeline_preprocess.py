@@ -62,34 +62,33 @@ import pandas as pd
 import ocmsshotgun.modules.PreProcess as pp
 
 # set up params
-if os.path.exists("pipeline.yml"):
-    (PARAMS, FASTQ1S, FASTQ1_SUFFIX, FASTQ2_SUFFIX) = pp.utility.params_setup()
-else:
-    FASTQ1S = None
-    FASTQ1_SUFFIX = None
-    FASTQ2_SUFFIX = None
+PARAMS = P.get_parameters(["pipeline.yml"])
+
+# check that input files correspond
+FASTQ1S = pp.utility.check_input()
+
 ###############################################################################
 # Deduplicate
 ###############################################################################
 @follows(mkdir('reads_deduped.dir'))
 @transform(FASTQ1S,
-           regex(r'.+/(.+).%s' % FASTQ1_SUFFIX),
+           regex(r'.+/(.+).fastq.1.gz'),
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
-    pp.cdhit(fastq1, outfile, FASTQ1_SUFFIX, FASTQ2_SUFFIX, **PARAMS).run(fastq1, outfile, **PARAMS)
+    pp.cdhit(fastq1, outfile, **PARAMS).run()
 
 ###############################################################################
 # Remove Adapters
 ###############################################################################
 @follows(mkdir('reads_adaptersRemoved.dir'))
 @transform(removeDuplicates,
-           regex('.+/(.+)_deduped.fastq.1.gz'),
+           regex(r'.+/(.+)_deduped.fastq.1.gz'),
            r'reads_adaptersRemoved.dir/\1_deadapt.fastq.1.gz')
 def removeAdapters(fastq1, outfile1):
     '''Remove adapters using Trimmomatic'''
 
-    pp.trimmomatic(fastq1, outfile1, FASTQ1_SUFFIX, FASTQ2_SUFFIX, **PARAMS).run(fastq1, outfile1, **PARAMS)
+    pp.trimmomatic(fastq1, outfile1, **PARAMS).run()
 
 
 ###############################################################################
@@ -97,19 +96,19 @@ def removeAdapters(fastq1, outfile1):
 ###############################################################################
 @follows(mkdir('reads_rrnaRemoved.dir'))
 @transform(removeAdapters,
-#           regex('.+/(.+)_deadapt.fastq.1.gz'),
-           regex('.+/(.+)_deadapt.fastq.1.gz'),
+           regex(r'.+/(.+)_deadapt.fastq.1.gz'),
            r'reads_rrnaRemoved.dir/\1_rRNAremoved.fastq.1.gz')
 def removeRibosomalRNA(fastq1, outfile):
     '''Remove ribosomal RNA using sortMeRNA'''
     
 
     if PARAMS['data_type'] == 'metatranscriptome':
-        tool = pp.removeContaminants(fastq1, 
-                               outfile, 
-                               **{**PARAMS, 
-                                  **{'fn_suffix': '_deadapt.' + FASTQ1_SUFFIX}})
-        tool.run(**PARAMS)
+        tool = pp.runSortMeRNA(fastq1, outfile, **PARAMS)
+        tool.run()
+        tool.postProcess()
+        #pp.removeContaminants(fastq1, 
+        #                      outfile, method='sortmerna',
+        #                      **PARAMS)
     else:
         assert PARAMS['data_type'] == 'metagenome', \
             'Unrecognised data type: {}'.format(PARAMS['data_type'])
@@ -121,7 +120,7 @@ def removeRibosomalRNA(fastq1, outfile):
         outf1 = outfile
         outf2 = P.snip(outf1, '.fastq.1.gz') + '.fastq.2.gz'
         outf3 = P.snip(outf1, '.fastq.1.gz') + '.fastq.3.gz'
-
+        
         pp.utility.symlnk(inf1, outf1)
         if os.path.exists(inf2):
             pp.utility.symlnk(inf2, outf2)
@@ -131,8 +130,7 @@ def removeRibosomalRNA(fastq1, outfile):
 
 @follows(mkdir('reads_rrnaClassified.dir'))
 @transform(removeAdapters,
-           regex('.+/(.+)_deadapt.fastq.1.gz'),
-#           regex('.+/(WTCHG_796112_72785254)_deadapt.fastq.1.gz'),
+           regex(r'.+/(.+)_deadapt.fastq.1.gz'),
            r'reads_rrnaClassified.dir/\1_otu_map.txt')
 def classifyRibosomalRNA(fastq1, outfile):
 
@@ -141,10 +139,9 @@ def classifyRibosomalRNA(fastq1, outfile):
 
     tool = pp.createSortMeRNAOTUs(fastq1, 
                                   outfile, 
-                                  **{**PARAMS, 
-                                     **{'fn_suffix': '_deadapt.' + FASTQ1_SUFFIX}})
-    tool.run(**PARAMS)
-
+                                  **PARAMS)
+    tool.run()
+    
 
 @transform(classifyRibosomalRNA, suffix('_map.txt'), 's.tsv.gz')
 def summarizeRibosomalRNAClassification(infile, outfile):
@@ -180,7 +177,7 @@ def combineRNAClassification(infiles, outfile):
 def removeHost(fastq1, outfile):
     '''Remove host contamination using bmtagger'''
 
-    pp.bmtagger(fastq1, outfile, **PARAMS).run(fastq1, outfile, **PARAMS)
+    pp.bmtagger(fastq1, outfile, **PARAMS).run()
 
 
 ###############################################################################
@@ -188,7 +185,7 @@ def removeHost(fastq1, outfile):
 ###############################################################################
 @follows(mkdir('reads_dusted.dir'))
 @transform(removeHost,
-           regex('.+/(.+)_dehost.fastq.1.gz'),
+           regex(r'.+/(.+)_dehost.fastq.1.gz'),
            r'reads_dusted.dir/\1_masked.fastq.1.gz')
 def maskLowComplexity(fastq1, outfile):
     '''Either softmask low complexity regions, or remove reads with a large
@@ -200,7 +197,7 @@ def maskLowComplexity(fastq1, outfile):
     within a sliding window. Ranges from 0: mask nothing, 0.0001: mask
     homopolymers, 1: mask everything.
     '''
-    pp.bbTools(fastq1, outfile, **PARAMS).run(fastq1, outfile, **PARAMS)
+    pp.bbtools(fastq1, outfile, **PARAMS).run()
 
 ###############################################################################
 # Summary Metrics
@@ -210,7 +207,7 @@ def maskLowComplexity(fastq1, outfile):
 #     '''Create a histogram of length distributions'''
 @follows(mkdir('read_count_summary.dir'))
 @transform(FASTQ1S,
-           regex(r'.+/(.+).%s' % FASTQ1_SUFFIX),
+           regex(r'.+/(.+).fastq.1.gz'),
            r"read_count_summary.dir/\1_input.nreads")
 def countInputReads(infile, outfile):
     
@@ -224,7 +221,7 @@ def countInputReads(infile, outfile):
 @follows(countInputReads)
 @transform([removeDuplicates, removeAdapters, removeRibosomalRNA,
             removeHost, maskLowComplexity],
-           regex('.+/(.+).fastq.1.gz'),
+           regex(r'.+/(.+).fastq.1.gz'),
            r'read_count_summary.dir/\1.nreads')
 def countOutputReads(infile, outfile):
     '''Count the number of reads in the output files'''    
@@ -235,7 +232,7 @@ def countOutputReads(infile, outfile):
     P.run(statement)
 
 @collate([countInputReads, countOutputReads],
-         regex('(.+)_(input|deduped|deadapt|dehost|rRNAremoved|masked).nreads'),
+         regex(r'(.+)_(input|deduped|deadapt|dehost|rRNAremoved|masked).nreads'),
          r'\1_read_count_summary.tsv')
 def collateReadCounts(infiles, outfile):
     '''Collate read counts for each sample'''
