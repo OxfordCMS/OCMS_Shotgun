@@ -10,12 +10,12 @@ humann3:
     options: ""
     
     # job options
-    job_mem: 40G
+    job_memory: 40G
     job_threads: 4
 
 merge:
     # job options of tasks that merge humann3 outputs
-    job_mem: 8G
+    job_memory: 8G
     job_threads: 1
 
 report:

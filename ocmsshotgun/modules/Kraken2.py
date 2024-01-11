@@ -56,8 +56,6 @@ class kraken2(baseClase):
         prefix = P.snip(self.outfile, ".k2.report.tsv")
     
         db = self.PARAMS.get("kraken2_db")
-        job_threads = self.PARAMS.get("kraken2_job_threads")
-        job_memory = self.PARAMS.get("kraken2_job_mem")
         options = self.PARAMS.get("kraken2_options")
     
         kraken_statement = ('kraken2',
@@ -87,14 +85,17 @@ class kraken2(baseClase):
         
         statement = ';'.join([kraken_statement] +  statement_entry)
         
-        return statement job_threads, job_mem
+        return statement
 
     def run(self):
         '''classify reads with kraken2
         '''
         
-        (statement, job_threads, job_mem) = self.statement()
-        P.run(statement, job_threads=job_threads, job_mem=job_mem)
+        statement = self.statement()
+        P.run(statement
+              job_threads = self.PARAMS.get("kraken2_job_threads"),
+              job_memory = self.PARAMS.get("kraken2_job_mem"),
+              job_options=self.PARAMS.get('kraken2_job_options',''))
 
 
 class utility():
@@ -160,8 +161,6 @@ class bracken(baseClass):
         # bracken parameters
         db = self.PARAMS.get("bracken_db")
         read_len = self.PARAMS.get("bracken_read_len")
-        job_threads = self.PARAMS.get("bracken_job_threads")
-        job_memory = self.PARAMS.get("bracken_job_mem")
         options = self.PARAMS.get("bracken_options")
 
     
@@ -177,29 +176,8 @@ class bracken(baseClass):
         return statement, job_threads, job_mem
 
     def run(self):
-        (statement, job_threads, job_mem) = self.statement()
-        P.run(statement)
-
-class mergebracken():
-    def statement(infiles, outfile):
-        level = P.snip(os.path.basename(outfile), ".tsv")
-        level = level.split(".")[-1]
-
-        sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
-        sample_names = [P.snip(x, "." + level) for x in sample_names]
-        titles = ",".join([x for x in sample_names])
-        
-        statement = '''  cgat combine_tables
-                         --glob=bracken.dir/*.abundance.%(level)s.tsv
-                         --skip-titles
-                         --header-names=%(titles)s
-                         -m 0
-                         -k 6
-                         -c 1,2
-                         --log=bracken.dir/merged_abundances.%(level)s.log > %(outfile)s         
-                    '''
-        return statement
-    
-    def run(infiles, outfile):
-        statement = self.statement(infiles, outfile)
-        P.run(statement)
+        statement = self.statement()
+        P.run(statement,
+              job_threads = self.PARAMS.get("bracken_job_threads"),
+              job_memory = self.PARAMS.get("bracken_job_mem"),
+              job_threads=self.PARAMS.get('bracken_job_options',''))

@@ -7,10 +7,7 @@ class humann3():
     def statement(infile, outfile, **PARAMS):
         prefix = P.snip(os.path.basename(outfile), "_pathcoverage.tsv.gz")
         outpath = os.path.dirname(os.path.abspath(outfile))
-        
-        job_mem = PARAMS.get("humann3_job_mem")
-        job_threads = PARAMS.get("humann3_job_threads")
-        
+                
         db_metaphlan_path = PARAMS.get("humann3_db_metaphlan_path")
         db_metaphlan_id = PARAMS.get("humann3_db_metaphlan_id")
         db_nucleotide = PARAMS.get("humann3_db_nucleotide")
@@ -32,9 +29,14 @@ class humann3():
                     tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp;
                     rm -r %(outpath)s/%(prefix)s_humann_temp
         '''
-        return statement, job_threads, job_mem
+        return statement
+
     def run(infile, outfile, **PARAMS):
         '''functional profile with humann3
         '''
-        (statement, job_threads, job_mem) = self.statement(infile, outfile, **PARAMS)
-        P.run(statement)
+        
+        statement = self.statement(infile, outfile, **PARAMS)
+        P.run(statement,
+              job_memory=PARAMS.get("humann3_job_memory"),
+              job_threads=PARAMS.get("humann3_job_threads"),
+              job_options=PARAMS.get('humann3_job_options','')

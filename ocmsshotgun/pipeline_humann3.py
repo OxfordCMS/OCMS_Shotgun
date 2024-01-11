@@ -113,8 +113,6 @@ def mergePathCoverage(infiles, outfile):
     '''
     merge the results from Humann3
     '''
-    job_mem = PARAMS.get('merge_job_mem')
-    job_threads = PARAMS.get('merge_job_threads')
 
     infiles_path = [os.path.abspath(f) for f in infiles]
     infiles_path = " ".join(infiles_path)
@@ -136,7 +134,10 @@ def mergePathCoverage(infiles, outfile):
                    | sed '1s/bin/pathway/' >> %(outfile)s;
                    gzip %(outfiles_path)s
                 '''
-    P.run(statement)
+    P.run(statement,
+          job_memory=PARAMS.get('merge_job_mem'),
+          job_threads= PARAMS.get('merge_job_threads'),
+          job_options=PARAMS.get('merge_job_options',''))
 
 @follows(mergePathCoverage)
 @merge(runHumann3, "humann3.dir/merged_pathabundance.tsv")
@@ -144,8 +145,6 @@ def mergePathAbundance(infiles, outfile):
     '''
     merge the results from Humann3
     '''
-    job_mem = PARAMS.get('merge_job_mem')
-    job_threads = PARAMS.get('merge_job_threads')
     
     infiles_path = [re.sub("pathcoverage", "pathabundance", f) for f in infiles]
     outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
@@ -168,7 +167,10 @@ def mergePathAbundance(infiles, outfile):
                    | sed '1s/bin/pathway/' >> %(outfile)s;
                    gzip %(outfiles_path)s 
                 '''
-    P.run(statement)
+    P.run(statement,
+          job_memory=PARAMS.get('merge_job_mempry'),
+          job_threads=PARAMS.get('merge_job_threads'),
+          job_options=PARAMS.get('merge_job_options',''))
 
 
 @follows(mergePathCoverage)
@@ -177,9 +179,7 @@ def mergeGeneFamilies(infiles, outfile):
     '''
     merge the results from Humann3
     '''
-    job_mem = PARAMS.get('merge_job_mem')
-    job_threads = PARAMS.get('merge_job_threads')
-
+    
     infiles_path = [re.sub("pathcoverage", "genefamilies", f) for f in infiles]
     outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
     infiles_path = [os.path.abspath(f) for f in infiles_path]
@@ -201,7 +201,10 @@ def mergeGeneFamilies(infiles, outfile):
                    | sed '1s/bin/gene_family/' >> %(outfile)s;
                    gzip %(outfiles_path)s
                 '''
-    P.run(statement)
+    P.run(statement,
+          job_memory=PARAMS.get('merge_job_memory'),
+          job_threads=PARAMS.get('merge_job_threads'),
+          job_options=PARAMS.get('merge_job_options'.''))
 
 @follows(mergePathCoverage)
 @merge(runHumann3, "humann3.dir/merged_metaphlan.tsv")
@@ -209,9 +212,7 @@ def mergeMetaphlan(infiles, outfile):
     '''
     merge metaphlan bugs list from Humann3 across samples
     '''
-    job_mem = PARAMS.get('merge_job_mem')
-    job_threads = PARAMS.get('merge_job_threads')
-
+    
     infiles_path = [re.sub("pathcoverage", "metaphlan_bugs_list", f) for f in infiles]
     outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
     infiles_path = [os.path.abspath(f) for f in infiles_path]
@@ -236,7 +237,10 @@ def mergeMetaphlan(infiles, outfile):
                    | sed 1i"clade_name\\t%(titles)s" >> %(outfile)s;
                    gzip %(outfiles_path)s
                 '''
-    P.run(statement)
+    P.run(statement,
+          job_memory=PARAMS.get('merge_job_memory'),
+          job_threads=PARAMS.get('merge_job_threads'),
+          job_options=PARAMS.get('merge_job_options'))
 
 #####################################################
 #####################################################

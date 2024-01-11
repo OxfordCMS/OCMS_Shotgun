@@ -198,6 +198,7 @@ def maskLowComplexity(fastq1, outfile):
     homopolymers, 1: mask everything.
     '''
     pp.bbtools(fastq1, outfile, **PARAMS).run()
+    pp.bbtools(fastq1, outfile, **PARAMS).postProcess()
 
 ###############################################################################
 # Summary Metrics
@@ -251,45 +252,7 @@ def collateReadCounts(infiles, outfile):
 @merge(collateReadCounts, 'processing_summary.tsv')
 def summarizeReadCounts(infiles, outfile):
     '''Calculate the number of reads lost at each step for each sample'''
-
-    with IOTools.open_file(outfile, 'w') as outf:
-        outf.write("sample_id\tinput_reads\toutput_reads\tduplicates\t"
-                   "adapter_contamination\trRNA\thost\tlow_complexity\t"
-                   "duplicates_percent\tadapters_percent\trrna_percent\t"
-                   "host_percent\tlow_complexity_perc\tremaining_percent\n")
-        for infile in infiles:
-            sample_id = P.snip(os.path.basename(infile),
-                               '_read_count_summary.tsv')
-            E.info('Processing sample %s' % sample_id)
-            
-            df = pd.read_table(infile, index_col=0, header=None)
-            deadapt = df.loc['deadapt', 1]
-            deduped = df.loc['deduped', 1]
-            rrna = df.loc['rRNAremoved', 1]
-            dehost = df.loc['dehost', 1]
-            masked = df.loc['masked', 1]
-            input_reads = df.loc['input', 1]
-            
-            lost_dup = input_reads - deduped
-            lost_adapt = deduped - deadapt
-            lost_rrna = deadapt - rrna
-            lost_host = rrna - dehost
-            lost_mask = dehost - masked
-
-            lost_dup_perc = round(lost_dup/float(input_reads) * 100, 2)
-            lost_adapt_perc = round(lost_adapt/float(input_reads) * 100, 2)
-            lost_rrna_perc = round(lost_rrna/float(input_reads) * 100, 2)
-            lost_host_perc = round(lost_host/float(input_reads) * 100, 2)
-            lost_mask_perc = round(lost_mask/float(input_reads) * 100, 2)
-            output_perc = round(masked/float(input_reads) * 100, 2)
-
-            outf.write('\t'.join(map(str, [sample_id, input_reads, masked, 
-                                           lost_dup, lost_adapt, lost_rrna, 
-                                           lost_host, lost_mask, lost_dup_perc, 
-                                           lost_adapt_perc, lost_rrna_perc, 
-                                           lost_host_perc, lost_mask_perc, 
-                                           output_perc])) + '\n')
-            
+    pp.summariseReadCounts(infiles, outfile)
 
 @follows(summarizeReadCounts)
 def full():
