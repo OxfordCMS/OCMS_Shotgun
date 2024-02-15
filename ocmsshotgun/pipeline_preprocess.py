@@ -178,7 +178,7 @@ def removeHost(fastq1, outfile):
     '''Remove host contamination using bmtagger'''
 
     pp.bmtagger(fastq1, outfile, **PARAMS).run()
-
+    pp.bmtagger(fastq1, outfile, **PARAMS).postProcess()
 
 ###############################################################################
 # Mask or Remove Low-complexity sequence
