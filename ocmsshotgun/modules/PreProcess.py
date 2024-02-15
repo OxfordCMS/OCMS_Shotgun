@@ -86,10 +86,6 @@ class matchReference(object):
             assert self.fastq2, "Can't have singletons without mate pairs"
         
 class cdhit(matchReference):
-
-    def __init__(self, fastq1, outfile, **PARAMS):
-        # initialize inherited attributes
-        super().__init__(fastq1, outfile, **PARAMS)
         
     def buildStatement(self):
         '''Filter exact duplicates, if specified in config file'''
@@ -150,25 +146,18 @@ class cdhit(matchReference):
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)
                 utility.symlnk(fastq1, outfile)     
         
-        job_threads = self.PARAMS['cdhit_job_threads']
-        job_memory = self.PARAMS['cdhit_job_memory']
-        
-        return statement, job_threads, job_memory
+        return statement
 
     def run(self):
-        
-        run_options = self.PARAMS.get('cdhit_job_options')
-        (statement, job_threads, job_memory) = self.buildStatement()
+            
+        statement = self.buildStatement()
 
         P.run(statement,
-              job_threads=job_threads,
-              job_memory=job_memory)
+              job_threads=self.PARAMS['cdhit_job_threads'], 
+              job_memory=self.PARAMS['cdhit_job_memory'],
+              job_options=self.PARAMS.get('cdhit_job_options',''))
 
 class trimmomatic(matchReference):
-
-    def __init__(self, fastq1, outfile, **PARAMS):
-        # initialize inherited attributes
-        super().__init__(fastq1, outfile, **PARAMS)
 
     def buildStatement(self):
         '''Remove adapters using Trimmomatic'''
@@ -244,19 +233,17 @@ class trimmomatic(matchReference):
                          " MINLEN:%(trimmomatic_minlen)s"
                          " &> %(logfile2)s &&"
                          " gzip -f %(logfile)s" % locals())
-        
-        job_threads = self.PARAMS.get('trimmomatic_job_threads')
-        job_memory = self.PARAMS.get('trimmomatic_job_memory')
-        
-        return statement, job_threads, job_memory
+                
+        return statement
 
     def run(self):
+
+        statement = self.buildStatement()
         
-        run_options = self.PARAMS.get('trimmomatic_job_options')
-        (statement, job_threads, job_memory) = self.buildStatement()
         P.run(statement, 
-              job_threads = job_threads,
-              job_memory = job_memory)
+              job_threads = self.PARAMS.get('trimmomatic_job_threads'),
+              job_memory = self.PARAMS.get('trimmomatic_job_memory'),
+              job_options = self.PARAMS.get('trimmomatic_job_options', ''))
 
 
 def removeContaminants(in_fastq, out_fastq, method, **PARAMS):
@@ -294,9 +281,6 @@ class runSortMeRNA(matchReference):
         reference
         
         """
-        run_options = self.PARAMS.get("sortmerna_job_options")
-        job_threads = self.PARAMS.get("sortmerna_job_threads")
-        job_memory = self.PARAMS.get("sortmerna_job_memory")
         sortmerna_options = self.PARAMS.get("sortmerna_options")
 
         # A comma separated list of references
@@ -309,6 +293,7 @@ class runSortMeRNA(matchReference):
         tmpf_kvdb = os.path.join(tmpf, 'kvdb')
         tmpf_readb = os.path.join(tmpf, 'readb')
 
+        job_threads = self.PARAMS.get("sortmerna_job_threads")
         if not self.fastq2:
             # Run sortMeRNA for single reads
             in_fastq1 = self.fastq1
@@ -378,11 +363,12 @@ class runSortMeRNA(matchReference):
             statement = " && ".join([statement, 
                                      "rm -rf %(tmpf)s" % locals()])
 
-        return statement, job_threads, job_memory
+        return statement
     
     def run(self):
+
         # Custom command to run reference matching tool.
-        (statement, job_threads, job_memory) = self.buildStatement()
+        statement = self.buildStatement()
 
         # Logging
         runfiles = '\t'.join([os.path.basename(x) for x in (self.fastq1, \
@@ -391,8 +377,9 @@ class runSortMeRNA(matchReference):
         E.info("Running sortMeRNA for files: {}".format(runfiles))
         
         P.run(statement, 
-              job_threads=job_threads,
-              job_memory=job_memory)
+              job_threads=self.PARAMS.get("sortmerna_job_threads"),
+              job_memory=self.PARAMS.get("sortmerna_job_memory"),
+              job_options=self.PARAMS.get("sortmerna_job_options",''))
 
         
     def postProcess(self):
@@ -416,16 +403,7 @@ class runSortMeRNA(matchReference):
                       outf_prefix + '_rRNAremoved'+self.fq2_suffix)
 
         # rename fastq3 files
-        if not self.sortmerna_skip_singletons and IOTools.open_file(self.fastq3).read(1):
-            ## for some reason, singletons are in fasta instead of fastq
-            #f3_aligned = glob(os.path.join(self.outdir, "*aligned_singleton*"))[0]
-            #
-            #if re.search("fa.gz$", f3_aligned):
-            #    # changing current self definitions to reflect fastq or fasta
-            #    # this may cause problems downstream as baseclass assumes working with fastq
-            #    self.fq3_suffix = re.sub("q", "a", self.fq3_suffix)
-            #    self.fastq3 = re.sub("q", "a", self.fastq3)
-            
+        if not self.sortmerna_skip_singletons and IOTools.open_file(self.fastq3).read(1):            
             os.rename(f3_aligned,
                       outf_prefix + '_rRNA' + self.fq3_suffix)
 
@@ -619,22 +597,21 @@ class bmtagger(matchReference):
                              " rm -rf %(tmpdir1)s %(tmpf)s %(outf_host_stub)s_%(n)s" % locals())
                 statements.append(statement)
                 
-        job_threads = self.PARAMS['bmtagger_job_threads']
-        job_memory = self.PARAMS['bmtagger_job_memory']
-        
-        return statements, job_threads, job_memory, to_remove_tmp
+        return statements, to_remove_tmp
 
     def run(self):
-        run_options = self.PARAMS.get('bmtagger_job_options')
         
-        (statements, job_threads, job_memory, to_remove_tmp) = self.buildStatement()
+        (statements, to_remove_tmp) = self.buildStatement()
         
-        print(statements)
         for statement in statements:
             P.run(statement, 
-                  job_threads=job_threads, 
-                  job_memory=job_memory)
+                  job_threads=self.PARAMS['bmtagger_job_threads'], 
+                  job_memory=self.PARAMS['bmtagger_job_memory'],
+                  job_options=self.PARAMS.get('bmtagger_job_options',''))
     
+    def postProcess(self):
+        (statements, to_remove_tmp) = self.buildStatement()
+
         if self.fastq2:
             # Drop host contaminated reads
             # A hack due to the fact that BMTagger truncates fastq identifiers
@@ -712,8 +689,8 @@ class bbtools(matchReference):
         # I can't find any instructions as to how to override this.
         entropy = self.PARAMS['dust_entropy']
         bb_options= ' '.join(self.PARAMS['dust_options'].split(','))
-        job_threads = self.PARAMS['dust_job_threads']
-        job_memory = self.PARAMS['dust_job_memory']
+        job_threads = self.PARAMS.get("dust_job_threads")
+
         sample_out = P.snip(self.outfile, self.fq1_suffix)
         
         fastq1 = self.fastq1
@@ -727,7 +704,7 @@ class bbtools(matchReference):
         out_disc1 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.1.fq.gz'
         out_disc2 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.2.fq.gz'
         out_disc3 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.3.fq.gz'
-           
+        
         if self.fastq2:
             if self.PARAMS['dust_discard_low_complexity']:
                 statement1 = ("bbduk.sh"
@@ -811,16 +788,18 @@ class bbtools(matchReference):
                              " %(bb_options)s"
                              " &> %(outfile)s.log" % locals())
 
-        return statement, job_threads, job_memory
+        return statement
 
     def run(self):
-        run_options = self.PARAMS.get('dust_job_options')
         
-        (statement, job_threads, job_memory) = self.buildStatement()
+        statement = self.buildStatement()
+        print(statement)
         P.run(statement, 
-              job_threads = job_threads,
-              job_memory = job_memory)
-        
+              job_threads=self.PARAMS['dust_job_threads'],
+              job_memory=self.PARAMS['dust_job_memory'],
+              job_options=self.PARAMS.get('dust_job_options', ''))
+    
+    def postProcess(self):
         sample_out = P.snip(self.outfile, self.fq1_suffix)
         fastq1 = self.fastq1
         fastq2 = self.fastq2
@@ -854,3 +833,43 @@ class bbtools(matchReference):
             if self.PARAMS['dust_discard_low_complexity']:
                 od1 = P.snip(out_disc1, '.1.fq.gz') + self.fq1_suffix
             os.rename(out_disc, od1)
+
+
+def summarizeReadCounts(infiles, outfile):
+    with IOTools.open_file(outfile, 'w') as outf:
+        outf.write("sample_id\tinput_reads\toutput_reads\tduplicates\t"
+                   "adapter_contamination\trRNA\thost\tlow_complexity\t"
+                   "duplicates_percent\tadapters_percent\trrna_percent\t"
+                   "host_percent\tlow_complexity_perc\tremaining_percent\n")
+        for infile in infiles:
+            sample_id = P.snip(os.path.basename(infile),
+                               '_read_count_summary.tsv')
+            E.info('Processing sample %s' % sample_id)
+            
+            df = pd.read_table(infile, index_col=0, header=None)
+            deadapt = df.loc['deadapt', 1]
+            deduped = df.loc['deduped', 1]
+            rrna = df.loc['rRNAremoved', 1]
+            dehost = df.loc['dehost', 1]
+            masked = df.loc['masked', 1]
+            input_reads = df.loc['input', 1]
+            
+            lost_dup = input_reads - deduped
+            lost_adapt = deduped - deadapt
+            lost_rrna = deadapt - rrna
+            lost_host = rrna - dehost
+            lost_mask = dehost - masked
+
+            lost_dup_perc = round(lost_dup/float(input_reads) * 100, 2)
+            lost_adapt_perc = round(lost_adapt/float(input_reads) * 100, 2)
+            lost_rrna_perc = round(lost_rrna/float(input_reads) * 100, 2)
+            lost_host_perc = round(lost_host/float(input_reads) * 100, 2)
+            lost_mask_perc = round(lost_mask/float(input_reads) * 100, 2)
+            output_perc = round(masked/float(input_reads) * 100, 2)
+
+            outf.write('\t'.join(map(str, [sample_id, input_reads, masked, 
+                                           lost_dup, lost_adapt, lost_rrna, 
+                                           lost_host, lost_mask, lost_dup_perc, 
+                                           lost_adapt_perc, lost_rrna_perc, 
+                                           lost_host_perc, lost_mask_perc, 
+                                           output_perc])) + '\n')

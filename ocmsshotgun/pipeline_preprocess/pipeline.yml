@@ -139,11 +139,8 @@ dust:
     # If yes, discard low complexity regions rather than softmask them
     discard_low_complexity: 1
 
-    # Otherwise will use all available
-    job_threads: 4
-
     # 0.0001 mask homopolymers, 0.75 recommended
-    entropy: 0.75
+     entropy: 0.75
 
     # A comma-separated list of additional options
     # If bbmask, set window=64 to emulate dustmasker
