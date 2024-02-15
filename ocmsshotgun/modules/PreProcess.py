@@ -835,7 +835,7 @@ class bbtools(matchReference):
             os.rename(out_disc, od1)
 
 
-def summarizeReadCounts(infiles, outfile):
+def summariseReadCounts(infiles, outfile):
     with IOTools.open_file(outfile, 'w') as outf:
         outf.write("sample_id\tinput_reads\toutput_reads\tduplicates\t"
                    "adapter_contamination\trRNA\thost\tlow_complexity\t"
