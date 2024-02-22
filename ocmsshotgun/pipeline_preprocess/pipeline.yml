@@ -140,7 +140,7 @@ dust:
     discard_low_complexity: 1
 
     # 0.0001 mask homopolymers, 0.75 recommended
-     entropy: 0.75
+    entropy: 0.75
 
     # A comma-separated list of additional options
     # If bbmask, set window=64 to emulate dustmasker
