@@ -18,13 +18,16 @@ class utility():
     def check_input(datadir='.'):
         
         fq1_regex = re.compile('(\S+).(fastq.1.gz)')
-        mask1 = list(map(lambda x: bool(fq1_regex.match(x)), os.listdir(datadir)))
+        mask1 = list(map(lambda x: bool(fq1_regex.match(x)),
+                         os.listdir(datadir)))
         fastq1s = [os.path.join(datadir, i) \
-                   for i in itertools.compress(os.listdir(datadir), mask1)]
+                   for i in itertools.compress(os.listdir(datadir),
+                                               mask1)]
 
         if sum(mask1):
             fq2_regex = re.compile('(\S+).(fastq.2.gz)')
-            mask2 = list(map(lambda x: bool(fq2_regex.match(x)), os.listdir(datadir)))
+            mask2 = list(map(lambda x: bool(fq2_regex.match(x)),
+                             os.listdir(datadir)))
             fastq2s = [os.path.join(datadir, i) \
                        for i in itertools.compress(os.listdir(datadir), mask2)]
             if sum(mask2):
@@ -34,7 +37,9 @@ class utility():
                 assert sorted(fq1_stubs) == sorted(fq2_stubs), \
                     "First and second read pair files do not correspond"        
         else:
-            raise ValueError("No input files detected in run directory. Check the file suffixes follow the notation fastq.1.gz and fastq.2.gz.")
+            raise ValueError("No input files detected in run directory."
+                             " Check the file suffixes follow the notation"
+                             " fastq.1.gz and fastq.2.gz.")
 
         return fastq1s
 
@@ -46,6 +51,7 @@ class utility():
                 os.remove(outf)
                 os.symlink(inf, outf)
 
+                
 class matchReference(object):
     """
     Base class for generating run statements to match mWGS reads to 
@@ -53,7 +59,7 @@ class matchReference(object):
     paired + singleton fastq files. 
 
     Some options are  assumed to be passed via kwargs, as this and 
-    inherited classes are writtento work with a PARAMS dict 
+    inherited classes are written to work with a PARAMS dict 
     generated from a pipeline.yml config file.
 
     ** Options:
@@ -80,11 +86,11 @@ class matchReference(object):
 
         # Find singleton file
         fastq3 = P.snip(self.fastq1, self.fq1_suffix) + self.fq3_suffix
-        self.fastq3 = fastq3
 
         if os.path.exists(fastq3):
             assert self.fastq2, "Can't have singletons without mate pairs"
-        
+            self.fastq3 = fastq3
+            
 class cdhit(matchReference):
         
     def buildStatement(self):
@@ -157,6 +163,7 @@ class cdhit(matchReference):
               job_memory=self.PARAMS['cdhit_job_memory'],
               job_options=self.PARAMS.get('cdhit_job_options',''))
 
+        
 class trimmomatic(matchReference):
 
     def buildStatement(self):
@@ -168,19 +175,20 @@ class trimmomatic(matchReference):
         logfile = sample_out + '.trim.log'
         logfile2 = sample_out + '.log'
         
-        trimmomatic_jar_path = self.PARAMS.get("trimmomatic_jar_path")
-        trimmomatic_n_threads = self.PARAMS.get("trimmomatic_n_threads")
-        phred_format = self.PARAMS.get('phred_format')
+        trimmomatic_jar_path = self.PARAMS["trimmomatic_jar_path"]
+        trimmomatic_n_threads = self.PARAMS["trimmomatic_n_threads"]
+        # >0.32 determines phred format automatically, here for legacy
+        phred_format = '-phred' + str(self.PARAMS.get('phred_format', ''))
         
-        trimmomatic_adapters = self.PARAMS.get("trimmomatic_adapters")
-        trimmomatic_seed_mismatches = self.PARAMS.get("trimmomatic_seed_mismatches")
-        trimmomatic_score_palendromic = self.PARAMS.get("trimmomatic_score_palendromic")
-        trimmomatic_score_simple = self.PARAMS.get("trimmomatic_score_simple")
-        trimmomatic_min_adapter_len = self.PARAMS.get("trimmomatic_min_adapter_len")
-        trimmomatic_keep_both_reads = self.PARAMS.get("trimmomatic_keep_both_reads")
-        trimmomatic_quality_leading = self.PARAMS.get("trimmomatic_quality_leading")
-        trimmomatic_quality_trailing = self.PARAMS.get("trimmomatic_quality_trailing")
-        trimmomatic_minlen = self.PARAMS.get("trimmomatic_minlen")
+        trimmomatic_adapters = self.PARAMS["trimmomatic_adapters"]
+        trimmomatic_seed_mismatches = self.PARAMS["trimmomatic_seed_mismatches"]
+        trimmomatic_score_palendromic = self.PARAMS["trimmomatic_score_palendromic"]
+        trimmomatic_score_simple = self.PARAMS["trimmomatic_score_simple"]
+        trimmomatic_min_adapter_len = self.PARAMS["trimmomatic_min_adapter_len"]
+        trimmomatic_keep_both_reads = self.PARAMS["trimmomatic_keep_both_reads"]
+        trimmomatic_quality_leading = self.PARAMS["trimmomatic_quality_leading"]
+        trimmomatic_quality_trailing = self.PARAMS["trimmomatic_quality_trailing"]
+        trimmomatic_minlen = self.PARAMS["trimmomatic_minlen"]
 
         if self.fastq2:
             outfile2 = re.sub(self.fq1_suffix, self.fq2_suffix, self.outfile)
@@ -190,7 +198,7 @@ class trimmomatic(matchReference):
             
             statement = ("java -Xmx5g -jar %(trimmomatic_jar_path)s PE"
                          " -threads %(trimmomatic_n_threads)s"
-                         " -phred%(phred_format)s"
+                         " %(phred_format)s"
                          " -trimlog %(logfile)s"
                          " %(fastq1)s" # input read 1
                          " %(fastq2)s" # input read 2
@@ -241,8 +249,8 @@ class trimmomatic(matchReference):
         statement = self.buildStatement()
         
         P.run(statement, 
-              job_threads = self.PARAMS.get('trimmomatic_job_threads'),
-              job_memory = self.PARAMS.get('trimmomatic_job_memory'),
+              job_threads = self.PARAMS['trimmomatic_job_threads'],
+              job_memory = self.PARAMS['trimmomatic_job_memory'],
               job_options = self.PARAMS.get('trimmomatic_job_options', ''))
 
 
@@ -260,6 +268,7 @@ def removeContaminants(in_fastq, out_fastq, method, **PARAMS):
     # Post process results into generic output for downstream tasks.
     tool.postProcess()
 
+    
 class runSortMeRNA(matchReference):
     """
     Run sortMeRNA. 
@@ -377,8 +386,8 @@ class runSortMeRNA(matchReference):
         E.info("Running sortMeRNA for files: {}".format(runfiles))
         
         P.run(statement, 
-              job_threads=self.PARAMS.get("sortmerna_job_threads"),
-              job_memory=self.PARAMS.get("sortmerna_job_memory"),
+              job_threads=self.PARAMS["sortmerna_job_threads"],
+              job_memory=self.PARAMS["sortmerna_job_memory"],
               job_options=self.PARAMS.get("sortmerna_job_options",''))
 
         
@@ -480,10 +489,6 @@ class createSortMeRNAOTUs(runSortMeRNA):
         return None
 
 class bmtagger(matchReference):
-
-    def __init__(self, fastq1, outfile, **PARAMS):
-        # initialize inherited attributes
-        super().__init__(fastq1, outfile, **PARAMS)
 
     def buildStatement(self):
         '''Remove host contamination using bmtagger'''
@@ -599,9 +604,8 @@ class bmtagger(matchReference):
                 
         return statements, to_remove_tmp
 
-    def run(self):
-        
-        (statements, to_remove_tmp) = self.buildStatement()
+    
+    def run(self, statements):
         
         for statement in statements:
             P.run(statement, 
@@ -609,7 +613,10 @@ class bmtagger(matchReference):
                   job_memory=self.PARAMS['bmtagger_job_memory'],
                   job_options=self.PARAMS.get('bmtagger_job_options',''))
     
-    def postProcess(self):
+        self.postProcess(statements, to_remove_tmp)    
+
+        
+    def postProcess(self, to_remove_tmp):
         (statements, to_remove_tmp) = self.buildStatement()
 
         if self.fastq2:
@@ -668,11 +675,8 @@ class bmtagger(matchReference):
             
             os.unlink(to_remove)
 
-
+        
 class bbtools(matchReference):
-    def __init__(self, fastq1, outfile, **PARAMS):
-        # initialize inherited attributes
-        super().__init__(fastq1, outfile, **PARAMS)
 
     def buildStatement(self):
         '''Either softmask low complexity regions, or remove reads with a large
@@ -701,9 +705,12 @@ class bbtools(matchReference):
         outfile1 = sample_out + '.1.fq.gz'
         outfile2 = sample_out + '.2.fq.gz'
         outfile3 = sample_out + '.3.fq.gz'
-        out_disc1 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.1.fq.gz'
-        out_disc2 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.2.fq.gz'
-        out_disc3 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.3.fq.gz'
+        out_disc1 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+            + '_discarded.fastq.1.fq.gz'
+        out_disc2 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+            + '_discarded.fastq.2.fq.gz'
+        out_disc3 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+            + '_discarded.fastq.3.fq.gz'
         
         if self.fastq2:
             if self.PARAMS['dust_discard_low_complexity']:
@@ -808,9 +815,12 @@ class bbtools(matchReference):
         outfile1 = sample_out + '.1.fq.gz'
         outfile2 = sample_out + '.2.fq.gz'
         outfile3 = sample_out + '.3.fq.gz'
-        out_disc1 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.1.fq.gz'
-        out_disc2 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.2.fq.gz'
-        out_disc3 = P.snip(self.outfile, '_masked' + self.fq1_suffix) + '_discarded.fastq.3.fq.gz'
+        out_disc1 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+            + '_discarded.fastq.1.fq.gz'
+        out_disc2 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+            + '_discarded.fastq.2.fq.gz'
+        out_disc3 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+            + '_discarded.fastq.3.fq.gz'
         if self.fastq2:
             # Renaming files because of bbmap idiosyncracies
             of1 = P.snip(outfile1, '.1.fq.gz') + self.fq1_suffix

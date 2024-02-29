@@ -106,9 +106,6 @@ def removeRibosomalRNA(fastq1, outfile):
         tool = pp.runSortMeRNA(fastq1, outfile, **PARAMS)
         tool.run()
         tool.postProcess()
-        #pp.removeContaminants(fastq1, 
-        #                      outfile, method='sortmerna',
-        #                      **PARAMS)
     else:
         assert PARAMS['data_type'] == 'metagenome', \
             'Unrecognised data type: {}'.format(PARAMS['data_type'])
@@ -177,8 +174,12 @@ def combineRNAClassification(infiles, outfile):
 def removeHost(fastq1, outfile):
     '''Remove host contamination using bmtagger'''
 
-    pp.bmtagger(fastq1, outfile, **PARAMS).run()
-    pp.bmtagger(fastq1, outfile, **PARAMS).postProcess()
+    tool = pp.bmtagger(fastq1, outfile, **PARAMS)
+    statements, tmpfiles = tool.buildStatement()
+
+    tool.run(statements)
+    tool.postProcess(tmpfiles)
+
 
 ###############################################################################
 # Mask or Remove Low-complexity sequence
@@ -197,9 +198,11 @@ def maskLowComplexity(fastq1, outfile):
     within a sliding window. Ranges from 0: mask nothing, 0.0001: mask
     homopolymers, 1: mask everything.
     '''
-    pp.bbtools(fastq1, outfile, **PARAMS).run()
-    pp.bbtools(fastq1, outfile, **PARAMS).postProcess()
 
+    tool = pp.bbtools(fastq1, outfile, **PARAMS)
+    tool.run()
+    tool.postProcess()
+    
 ###############################################################################
 # Summary Metrics
 ###############################################################################

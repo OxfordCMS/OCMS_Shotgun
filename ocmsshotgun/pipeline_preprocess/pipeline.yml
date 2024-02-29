@@ -18,9 +18,6 @@ version: 0.1
 # The full version, including alpha/beta/rc tags.
 release: 0.1
 
-# phred format
-phred_format: 33
-
 #location_fastq: 0
 
 # Sequence data type (metatranscriptome or metagenome)
