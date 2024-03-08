@@ -1,11 +1,13 @@
-"""===========================
+"""
+===========================
 pipeline_humann3.py
 ===========================
 
 Overview
 ========
 
-This pipeline uses humann3 to take raw fastq files and estimate taxonomic abundunce, then functionally profile the metagenome.
+This pipeline uses humann3 to take raw fastq files and estimate 
+taxonomic abundunce, then functionally profile the metagenome.
 files :file:``pipeline.yml` and :file:`conf.py`.
 
 Usage
@@ -66,220 +68,234 @@ import sys
 import os
 import glob
 import re
-import subprocess
-from pathlib import Path
+import shutil
 from ruffus import *
 from cgatcore import pipeline as P
-import ocmsshotgun.modules.Humann3 as H
+
+import modules.PreProcess as pp
+import modules.Humann3 as H
 
 # load options from the config file
 PARAMS = P.get_parameters(
     ["pipeline.yml"])
 
-#get all files within the directory to process
-SEQUENCEFILES = ("*fastq.gz")
+# check all files to be processed
+FASTQ1s = pp.utility.check_input(PARAMS['location_input'])
 
-SEQUENCEFILES_REGEX = regex(r"(\S+).(fastq.gz)")
+if PARAMS['location_transcriptome']:
+    FASTQ2s = pp.utility.check_input(PARAMS['location_transcriptome'])
+else:
+    FASTQ2s = None
 
-########################################################
-########################################################
-########################################################
+###############################################################################
 # Run humann3 on concatenated fastq.gz
+###############################################################################
+@follows(mkdir("input_merged.dir"))
+@transform(FASTQ1s,
+           regex(".+/(.+).fastq.1.gz"),
+           r"input_merged.dir/\1.fastq.gz")
+def poolInputFastqs(infile, outfile):
+    '''Humann relies on pooling input files'''
 
-# produces a humann3.dir which conatins
-# a folder for each sample, which contains 
+    infiles = pp.matchReference(infile, outfile, **PARAMS)
+    fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
+
+    if len(fastqs) == 1:
+        pp.utility.symlink(infile, outfile)
+    else:
+        fastqs = ' '.join(fastqs)
+        statement = "cat %(fastqs)s > %(outfile)s"
+        P.run(statement)
+
+
+###############################################################################
+# Run humann3 on concatenated fastq.gz
+# produces a humann3.dir with a folder for each sample, which contains 
 # pathcoverage, pathabundance and genefamilies files.
-########################################################
-########################################################
-########################################################
-
+###############################################################################
 @follows(mkdir("humann3.dir"))
-@transform(SEQUENCEFILES, SEQUENCEFILES_REGEX, r"humann3.dir/\1/\1_pathcoverage.tsv.gz")
-def runHumann3(infile, outfile):
-    '''functional profile with humann3
-    '''
-    H.humann3.run(infile, outfile, **PARAMS)
+@subdivide(poolInputFastqs,
+           regex(".+/(.+).fastq.gz"),
+           r"humann3.dir/\1/\1_*.tsv.gz")
+def runHumann3(infile, outfiles):
+    '''functional profile with humann3'''
+    
+    outfile = P.snip(infile, '.fastq.gz', strip_path=True)
+    outfile = os.path.join('humann3.dir',
+                            outfile,
+                            outfile + '_pathcoverage.tsv.gz')
+    
+    statement = H.humann3(infile, outfile, **PARAMS).run()    
+        
+    P.run(statement,
+          job_memory = PARAMS["humann3_job_memory"],
+          job_threads = PARAMS["humann3_job_threads"],
+          job_options = PARAMS.get('humann3_job_options',''))
 
-########################################################
-########################################################
-########################################################
-# merge Humann3 output files
-########################################################
-########################################################
-########################################################
+    
+###############################################################################
+# Run humann3 on metatranscriptome data
+###############################################################################
+@active_if(PARAMS['location_transcriptome'])    
+@follows(mkdir("transcriptome_merged.dir"))
+@transform(FASTQ2s,
+           regex(".+/(.+).fastq.1.gz"),
+           r"transcriptome_merged.dir/\1.fastq.gz")
+def poolTranscriptomeFastqs(infile, outfile):
+    '''Humann relies on pooling input files'''
+
+    infiles = pp.matchReference(infile, outfile, **PARAMS)
+    fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
+
+    if len(fastqs) == 1:
+        pp.utility.symlink(infile, outfile)
+    else:
+        fastqs = ' '.join(fastqs)
+        statement = "cat %(fastqs)s > %(outfile)s"
+        P.run(statement)
+
+
 @follows(runHumann3)
-@merge(runHumann3, "humann3.dir/merged_pathcoverage.tsv")
-def mergePathCoverage(infiles, outfile):
-    '''
-    merge the results from Humann3
-    '''
+@follows(mkdir("humann3_transcriptome.dir"))
+@subdivide(poolTranscriptomeFastqs,
+           regex(".+/(.+).fastq.gz"),
+           add_inputs(r"humann3.dir/\1/\1_metaphlan_bugs_list.tsv.gz"),
+           r"humann3_transcriptome.dir/\1/\1_*.tsv.gz")
+def runHumann3_metatranscriptome(infiles, outfiles):
+    '''Optionally run humann3 on matched metatranscriptome data, making 
+    use of the metaphlan_bugs_list file output from the metagenome analysis'''
 
-    infiles_path = [os.path.abspath(f) for f in infiles]
-    infiles_path = " ".join(infiles_path)
-    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles]
-    outfiles_path = " ".join(outfiles_path)
+    infile, tax_profile = infiles
+    assert os.path.exists(tax_profile), 'No humann3 metagenome output found'
     
-# find infiles with glob because file order from glob 
-    # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_pathcoverage.tsv.gz")
-    samples = [P.snip(os.path.basename(x), "_pathcoverage.tsv.gz") for x in infiles]
-    titles = ",".join(samples)
-    statement = '''gunzip %(infiles_path)s; 
-                   cgat combine_tables
-                   --glob=humann3.dir/*/*_pathcoverage.tsv
-                   --header-names=%(titles)s
-                   -m 0
-                   -c 1
-                   --log=humann3.dir/merged_pathcoverage.log
-                   | sed '1s/bin/pathway/' >> %(outfile)s;
-                   gzip %(outfiles_path)s
-                '''
+    outfile = P.snip(infile, '.fastq.gz', strip_path=True)
+    outfile = os.path.join('humann3_transcriptome.dir',
+                            outfile,
+                            outfile + '_pathcoverage.tsv.gz')
+
+    # Not sure if humann can take gzipped input
+    tmpf = P.get_temp_filename('.')
+    statement = "zcat %(tax_profile)s > %(tmpf)s && " % locals()
+    statement = statement + H.humann3(infile, outfile,
+                                      taxonomic_profile=tmpf, **PARAMS).run()
+    # print(statement + '\n')
+    
     P.run(statement,
-          job_memory=PARAMS.get('merge_job_mem'),
-          job_threads= PARAMS.get('merge_job_threads'),
-          job_options=PARAMS.get('merge_job_options',''))
+          job_memory = PARAMS["humann3_job_memory"],
+          job_threads = PARAMS["humann3_job_threads"],
+          job_options = PARAMS.get('humann3_job_options',''))
+    os.unlink(tmpf)
 
-@follows(mergePathCoverage)
-@merge(runHumann3, "humann3.dir/merged_pathabundance.tsv")
-def mergePathAbundance(infiles, outfile):
-    '''
-    merge the results from Humann3
-    '''
+
+###############################################################################
+# merge Humann3 output files
+###############################################################################
+@collate([runHumann3, runHumann3_metatranscriptome],
+         regex("(humann3.dir|humann3_metatranscriptome.dir)/.+/.+_(pathcoverage|pathabundance|genefamilies).tsv.gz"),
+         r"\1/tables/merged_\2.tsv.gz")
+def mergeHumannOutput(infiles, outfile):
+    '''Merge respective output files from humann. Note this uses humann
+    scripts which don't account for the metaphlan bugs list'''
     
-    infiles_path = [re.sub("pathcoverage", "pathabundance", f) for f in infiles]
-    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
-    infiles_path = [os.path.abspath(f) for f in infiles_path]
-    infiles_path = " ".join(infiles_path)
-    outfiles_path = " ".join(outfiles_path)
+    # Fetch the output filetype
+    suffix = re.search(".+/.+_(pathcoverage|pathabundance|genefamilies).tsv.gz",
+                       infiles[0]).group(1)
+    assert suffix in ('pathcoverage', 'pathabundance', 'genefamilies')
 
-    # find infiles with glob because file order from glob 
-    # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_pathabundance.tsv.gz")
-    samples = [P.snip(os.path.basename(x), "_pathabundance.tsv.gz") for x in infiles]
-    titles = ",".join(samples)    
-    statement = '''gunzip %(infiles_path)s;
-                   cgat combine_tables
-                   --glob=humann3.dir/*/*_pathabundance.tsv
-                   --header-names=%(titles)s
-                   -m 0
-                   -c 1
-                   --log=humann3.dir/merged_pathabundance.log
-                   | sed '1s/bin/pathway/' >> %(outfile)s;
-                   gzip %(outfiles_path)s 
-                '''
-    P.run(statement,
-          job_memory=PARAMS.get('merge_job_mempry'),
-          job_threads=PARAMS.get('merge_job_threads'),
-          job_options=PARAMS.get('merge_job_options',''))
+    # Fetch the output directory
+    outdir = os.path.dirname(outfile)
+    indir = os.path.dirname(outdir)
+    if os.path.exists(outdir):
+        shutil.rmtree(outdir)
+    os.mkdir(outdir)
 
-
-@follows(mergePathCoverage)
-@merge(runHumann3, "humann3.dir/merged_genefamilies.tsv")
-def mergeGeneFamilies(infiles, outfile):
-    '''
-    merge the results from Humann3
-    '''
+    outf = P.snip(outfile, '.gz')
     
-    infiles_path = [re.sub("pathcoverage", "genefamilies", f) for f in infiles]
-    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
-    infiles_path = [os.path.abspath(f) for f in infiles_path]
-    infiles_path = " ".join(infiles_path)
-    outfiles_path = " ".join(outfiles_path)
-    
-    # find infiles with glob because file order from glob 
-    # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_genefamilies.tsv.gz")   
-    samples = [P.snip(os.path.basename(x), "_genefamilies.tsv.gz") for x in infiles]
-    titles = ",".join(samples)
-    statement = '''gunzip %(infiles_path)s; 
-                   cgat combine_tables
-                   --glob=humann3.dir/*/*_genefamilies.tsv
-                   --header-names=%(titles)s
-                   -m 0
-                   -c 1
-                   --log=humann3.dir/merged_genefamilies.log 
-                   | sed '1s/bin/gene_family/' >> %(outfile)s;
-                   gzip %(outfiles_path)s
-                '''
-    P.run(statement,
-          job_memory=PARAMS.get('merge_job_memory'),
-          job_threads=PARAMS.get('merge_job_threads'),
-          job_options=PARAMS.get('merge_job_options'.''))
+    statement = ("humann_join_tables"
+                 "  -i %(indir)s"
+                 "  -s"
+                 "  --file_name %(suffix)s"
+                 "  -o %(outf)s &&"
+                 " gzip %(outf)s")
+    P.run(statement)
 
-@follows(mergePathCoverage)
-@merge(runHumann3, "humann3.dir/merged_metaphlan.tsv")
-def mergeMetaphlan(infiles, outfile):
-    '''
-    merge metaphlan bugs list from Humann3 across samples
-    '''
-    
-    infiles_path = [re.sub("pathcoverage", "metaphlan_bugs_list", f) for f in infiles]
-    outfiles_path = [os.path.abspath(f)[:-3] for f in infiles_path]
-    infiles_path = [os.path.abspath(f) for f in infiles_path]
-    infiles_path = " ".join(infiles_path)
-    outfiles_path = " ".join(outfiles_path)
 
-    # find infiles with glob because file order from glob 
-    # is different from infiles found with ruffus
-    infiles = glob.glob("humann3.dir/*/*_metaphlan_bugs_list.tsv.gz")   
-    samples = [P.snip(os.path.basename(x), "_metaphlan_bugs_list.tsv.gz") for x in infiles]
-    # sed doesn't recognize \t as tab. need to double escape with \\
-    titles = "\\t".join(samples)
-    x = glob.glob("humann3.dir/*/*_metaphlan_bugs_list.tsv")
+@transform(mergeHumannOutput,
+           suffix('genefamilies.tsv.gz'),
+           'KOs.tsv.gz')
+def mapUniref2KOs(infile, outfile):
+    '''Use humann regroup_table script to fetch KO for Uniref mapping'''
 
-    statement = '''gunzip %(infiles_path)s;
-                   cgat combine_tables
-                   --glob=humann3.dir/*/*_metaphlan_bugs_list.tsv
-                   --columns 1
-                   --take 3
-                   -m 0
-                   --log=humann3.dir/merged_metaphlan.log 
-                   | sed 1i"clade_name\\t%(titles)s" >> %(outfile)s;
-                   gzip %(outfiles_path)s
-                '''
-    P.run(statement,
-          job_memory=PARAMS.get('merge_job_memory'),
-          job_threads=PARAMS.get('merge_job_threads'),
-          job_options=PARAMS.get('merge_job_options'))
+    statement = ("zcat %(infile)s |"
+                 " humann_regroup_table"
+                 "  --custom %(humann3_uniref_to_ko)s"
+                 " 2> %(outfile)s.log |"
+                 " gzip > %(outfile)s")
+    P.run(statement)
 
-#####################################################
-#####################################################
-#####################################################
-@follows(mergeMetaphlan)
-@split(mergeMetaphlan, "humann3.dir/merged_metaphlan_*.tsv")
-def splitMetaphlan(infile, outfiles):
-    '''split merged metaphlan file by taxonomic levels
-    '''
+
+@transform([mergeHumannOutput, mapUniref2KOs],
+           suffix('.tsv.gz'),
+           '_cpm.tsv')
+def renormalizeHumannOutput(infile, outfile):
+    '''Renormalize to CPM'''
+
+    statement = ("zcat %(infile)s |"
+                 " humann_renorm_table"
+                 "  --units cpm"
+                 " 2> %(outfile)s.log |"
+                 " gzip > %(outfile)s")
+    P.run(statement)
+
+###############################################################################
+# Handle metaphlan output
+###############################################################################
+@follows(mkdir('metaphlan_output.dir'))
+@merge(runHumann3,
+         regex("humann3.dir/.+/.+_metaphlan_bugs_list.tsv.gz"),
+         r"metaphlan_output.dir/merged_metaphlan_bugs_list.tsv.gz")
+def mergeMetaphlanOutput(infiles, outfile):
+    '''Merge respective output files from humann's internal metaphlan run.
+    Note this uses metaphlan custom scripts.'''
+
+    infiles = ' '.join([os.path.abspath(x) for x in infiles])
+
+    statement = "merge_metaphlan_tables.py -o %(outfile)s %(infiles)s"
+    P.run(statement)
+
+
+@split(mergeMetaphlanOutput, "metaphlan_output.dir/metaphlan_*.tsv")
+def splitMetaphlanByTaxonomy(infile, outfiles):
+    '''split merged metaphlan file by taxonomic levels'''
     
     statement = '''ocms_shotgun split_metaphlan -i %(infile)s -o humann3.dir'''
     P.run(statement)
 
-#####################################################
-#####################################################
-#####################################################
-@follows("mergePathAbundance",
-         "mergePathCoverage", 
-         "mergeGeneFamilies",
-         "splitMetaphlan",
-         mkdir("report.dir"))
-def build_report():
-    '''
-    render the rmarkdown report file
-    '''
-    reportdir = os.path.dirname(os.path.abspath(__file__))
-    reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_humann3")
-    reportfile = os.path.join(reportdir, "pipeline_humann3_report.Rmd")
+# ###############################################################################
+# @follows("mergePathAbundance",
+#          "mergePathCoverage", 
+#          "mergeGeneFamilies",
+#          "splitMetaphlan",
+#          mkdir("report.dir"))
+# def build_report():
+#     '''
+#     render the rmarkdown report file
+#     '''
+#     reportdir = os.path.dirname(os.path.abspath(__file__))
+#     reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_humann3")
+#     reportfile = os.path.join(reportdir, "pipeline_humann3_report.Rmd")
 
-    # copy report template to report.dir and render report
-    statement = '''cd report.dir;
-                   cp %(reportfile)s .;
-                   R -e "rmarkdown::render('pipeline_humann3_report.Rmd', output_file='pipeline_humann3_report.html')";
-                   cd ../
-                '''
-    P.run(statement)
-# ---------------------------------------------------
+#     # copy report template to report.dir and render report
+#     statement = '''cd report.dir;
+#                    cp %(reportfile)s .;
+#                    R -e "rmarkdown::render('pipeline_humann3_report.Rmd', output_file='pipeline_humann3_report.html')";
+#                    cd ../
+#                 '''
+#     P.run(statement)
+
+###############################################################################
 # Generic pipeline tasks
-@follows("runHumann3", "mergePathCoverage", "mergePathAbundance", "mergeGeneFamilies", "splitMetaphlan")
+@follows(renormalizeHumannOutput, splitMetaphlanByTaxonomy)
 def full():
     pass
 
