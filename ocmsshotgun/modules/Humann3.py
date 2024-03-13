@@ -14,6 +14,7 @@ class humann3(object):
     def buildStatement(self):
         infile = self.infile
         prefix = self.prefix
+        outpath = self.outpath
         db_metaphlan_path = self.PARAMS["humann3_db_metaphlan_path"]
         db_metaphlan_id = self.PARAMS["humann3_db_metaphlan_id"]
         db_nucleotide = self.PARAMS["humann3_db_nucleotide"]
@@ -28,12 +29,12 @@ class humann3(object):
         
         statement = ("humann"
                      " --input %(infile)s"
-                     " --output humann3.dir/%(prefix)s"
+                     " --output %(outpath)s/%(prefix)s"
                      " --nucleotide-database %(db_nucleotide)s"
                      " --protein-database %(db_protein)s"
                      " --search-mode %(search_mode)s"
                      " --metaphlan-options  \"--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s\""
-                     " %(options)s" % locals())
+                     " %(options)s 2> %(outpath)s/%(prefix)s.log" % locals())
         
         return statement
 

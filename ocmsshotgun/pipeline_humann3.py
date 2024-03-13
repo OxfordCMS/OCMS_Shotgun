@@ -137,10 +137,10 @@ def runHumann3(infile, outfiles):
 # Run humann3 on metatranscriptome data
 ###############################################################################
 @active_if(PARAMS['location_transcriptome'])    
-@follows(mkdir("transcriptome_merged.dir"))
+@follows(mkdir("input_mtx_merged.dir"))
 @transform(FASTQ2s,
            regex(".+/(.+).fastq.1.gz"),
-           r"transcriptome_merged.dir/\1.fastq.gz")
+           r"input_mtx_merged.dir/\1.fastq.gz")
 def poolTranscriptomeFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
@@ -156,11 +156,11 @@ def poolTranscriptomeFastqs(infile, outfile):
 
 
 @follows(runHumann3)
-@follows(mkdir("humann3_transcriptome.dir"))
+@follows(mkdir("humann3_mtx.dir"))
 @subdivide(poolTranscriptomeFastqs,
            regex(".+/(.+).fastq.gz"),
            add_inputs(r"humann3.dir/\1/\1_metaphlan_bugs_list.tsv.gz"),
-           r"humann3_transcriptome.dir/\1/\1_*.tsv.gz")
+           r"humann3_mtx.dir/\1/\1_*.tsv.gz")
 def runHumann3_metatranscriptome(infiles, outfiles):
     '''Optionally run humann3 on matched metatranscriptome data, making 
     use of the metaphlan_bugs_list file output from the metagenome analysis'''
@@ -169,7 +169,7 @@ def runHumann3_metatranscriptome(infiles, outfiles):
     assert os.path.exists(tax_profile), 'No humann3 metagenome output found'
     
     outfile = P.snip(infile, '.fastq.gz', strip_path=True)
-    outfile = os.path.join('humann3_transcriptome.dir',
+    outfile = os.path.join('humann3_mtx.dir',
                             outfile,
                             outfile + '_pathcoverage.tsv.gz')
 
@@ -191,7 +191,7 @@ def runHumann3_metatranscriptome(infiles, outfiles):
 # merge Humann3 output files
 ###############################################################################
 @collate([runHumann3, runHumann3_metatranscriptome],
-         regex("(humann3.dir|humann3_metatranscriptome.dir)/.+/.+_(pathcoverage|pathabundance|genefamilies).tsv.gz"),
+         regex("(humann3.dir|humann3_mtx.dir)/.+/.+_(pathcoverage|pathabundance|genefamilies).tsv.gz"),
          r"\1/tables/merged_\2.tsv.gz")
 def mergeHumannOutput(infiles, outfile):
     '''Merge respective output files from humann. Note this uses humann
