@@ -231,7 +231,9 @@ def mapUniref2KOs(infile, outfile):
                  "  --custom %(humann3_uniref_to_ko)s"
                  " 2> %(outfile)s.log |"
                  " gzip > %(outfile)s")
-    P.run(statement)
+    P.run(statement,
+          job_memory = PARAMS["humann3_postprocess_memory"],
+          job_threads = PARAMS["humann3_postprocess_threads"])
 
 
 @transform([mergeHumannOutput, mapUniref2KOs],
@@ -245,31 +247,55 @@ def renormalizeHumannOutput(infile, outfile):
                  "  --units cpm"
                  " 2> %(outfile)s.log |"
                  " gzip > %(outfile)s")
-    P.run(statement)
+    P.run(statement,
+          job_memory = PARAMS["humann3_postprocess_memory"],
+          job_threads = PARAMS["humann3_postprocess_threads"])
 
 ###############################################################################
 # Handle metaphlan output
 ###############################################################################
 @follows(mkdir('metaphlan_output.dir'))
-@merge(runHumann3,
+@collate(runHumann3,
          regex("humann3.dir/.+/.+_metaphlan_bugs_list.tsv.gz"),
          r"metaphlan_output.dir/merged_metaphlan_bugs_list.tsv.gz")
 def mergeMetaphlanOutput(infiles, outfile):
     '''Merge respective output files from humann's internal metaphlan run.
     Note this uses metaphlan custom scripts.'''
 
-    infiles = ' '.join([os.path.abspath(x) for x in infiles])
+    # Script can't handle compressed input
+    infiles = [x for x in infiles]
+    tmpdir = P.get_temp_dir('.')
+    tmpfiles = [os.path.join(tmpdir, P.snip(x, '.gz', strip_path=True)) \
+                for x in infiles]
+    outf = P.snip(outfile, '.gz')
 
-    statement = "merge_metaphlan_tables.py -o %(outfile)s %(infiles)s"
+    statements = []
+    for i in zip(infiles,tmpfiles):
+        statements.append("zcat %s > %s" % i)
+
+    statements = " && ".join(statements)
+    in_tmp = " ".join(tmpfiles)
+    statement = statements + " && " +\
+        "merge_metaphlan_tables.py -o %(outf)s %(in_tmp)s" + " && " \
+        "gzip %(outf)s"
     P.run(statement)
 
+    shutil.rmtree(tmpdir)
 
-@split(mergeMetaphlanOutput, "metaphlan_output.dir/metaphlan_*.tsv")
+@split(mergeMetaphlanOutput, "metaphlan_output.dir/metaphlan_*.tsv.gz")
 def splitMetaphlanByTaxonomy(infile, outfiles):
     '''split merged metaphlan file by taxonomic levels'''
+
+    # ruffus bug? split defaults to list as input
+    assert len(infile) == 1
+    infile = infile[0]
+
+    # Hack!
+    script = os.path.join(os.path.dirname(__file__), 'scripts', 'split_metaphlan.py')
     
-    statement = '''ocms_shotgun split_metaphlan -i %(infile)s -o humann3.dir'''
+    statement = '''python %(script)s -i %(infile)s -o metaphlan_output.dir'''
     P.run(statement)
+
 
 # ###############################################################################
 # @follows("mergePathAbundance",
@@ -293,8 +319,13 @@ def splitMetaphlanByTaxonomy(infile, outfiles):
 #                 '''
 #     P.run(statement)
 
+
 ###############################################################################
 # Generic pipeline tasks
+@follows(runHumann3, runHumann3_metatranscriptome)
+def runHumann():
+    pass
+
 @follows(renormalizeHumannOutput, splitMetaphlanByTaxonomy)
 def full():
     pass

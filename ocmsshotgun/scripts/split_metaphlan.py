@@ -29,6 +29,7 @@ Command line options
 import sys
 import os
 import cgatcore.experiment as E
+import cgatcore.iotools as IOTools
 
 def main(argv=None):
     """script main.
@@ -56,25 +57,28 @@ def main(argv=None):
         os.makedirs(args.outdir)
 
     # initialise file for each tax level
-    kingdom_file = open(os.path.join(args.outdir, "metaphlan_kingdom.tsv"), "w")
-    phylum_file = open(os.path.join(args.outdir, "metaphlan_phylum.tsv"), "w")
-    class_file = open(os.path.join(args.outdir, "metaphlan_class.tsv"), "w")
-    order_file = open(os.path.join(args.outdir, "metaphlan_order.tsv"), "w")
-    family_file = open(os.path.join(args.outdir, "metaphlan_family.tsv"), "w")
-    genus_file = open(os.path.join(args.outdir, "metaphlan_genus.tsv"), "w")
-    species_file = open(os.path.join(args.outdir, "metaphlan_species.tsv"), "w")
+    kingdom_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_kingdom.tsv.gz"), "w")
+    phylum_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_phylum.tsv.gz"), "w")
+    class_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_class.tsv.gz"), "w")
+    order_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_order.tsv.gz"), "w")
+    family_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_family.tsv.gz"), "w")
+    genus_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_genus.tsv.gz"), "w")
+    species_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_species.tsv.gz"), "w")
+    unknown_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_unknown.tsv.gz"), "w")
 
-    out_list = [kingdom_file, phylum_file, class_file, order_file, family_file, genus_file, species_file]
+    out_list = [kingdom_file, phylum_file, class_file, order_file, family_file, genus_file, species_file, unknown_file]
 
     # read in header
-    with open(args.infile) as f:
+    with IOTools.open_file(args.infile) as f:
+        header = f.readline()
         header = f.readline()
     for of in out_list:
         of.write(header)
     
     # read in file by line
-    with open(args.infile) as f:
+    with IOTools.open_file(args.infile) as f:
         # skip first line
+        next(f)
         next(f)
         for line in f:
             if "s__" in line:
@@ -91,6 +95,8 @@ def main(argv=None):
                 phylum_file.write(line)
             elif "k__" in line:
                 kingdom_file.write(line)
+            elif line.startswith("UNKNOWN"):
+                unknown_file.write(line)
             else:
                 raise ValueError("Unexpected line format in merged input: %s" % line)
 
