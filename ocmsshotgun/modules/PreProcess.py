@@ -612,12 +612,8 @@ class bmtagger(matchReference):
                   job_threads=self.PARAMS['bmtagger_job_threads'], 
                   job_memory=self.PARAMS['bmtagger_job_memory'],
                   job_options=self.PARAMS.get('bmtagger_job_options',''))
-    
-        self.postProcess(statements, to_remove_tmp)    
-
         
     def postProcess(self, to_remove_tmp):
-        (statements, to_remove_tmp) = self.buildStatement()
 
         if self.fastq2:
             # Drop host contaminated reads
