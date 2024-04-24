@@ -72,7 +72,7 @@ import shutil
 from ruffus import *
 from cgatcore import pipeline as P
 
-import ocmsshotgun.modules.PreProcess as pp
+import ocmsshotgun.modules.Utility as utility
 import ocmsshotgun.modules.Humann3 as H
 
 # load options from the config file
@@ -80,10 +80,10 @@ PARAMS = P.get_parameters(
     ["pipeline.yml"])
 
 # check all files to be processed
-FASTQ1s = pp.utility.check_input(PARAMS['location_input'])
+FASTQ1s = utility.check_input(PARAMS['location_input'])
 
 if PARAMS['location_transcriptome']:
-    FASTQ2s = pp.utility.check_input(PARAMS['location_transcriptome'])
+    FASTQ2s = utility.check_input(PARAMS['location_transcriptome'])
 else:
     FASTQ2s = None
 
@@ -97,11 +97,11 @@ else:
 def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
-    infiles = pp.matchReference(infile, outfile, **PARAMS)
+    infiles = utility.matchReference(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
 
     if len(fastqs) == 1:
-        pp.utility.symlink(infile, outfile)
+        utility.symlink(infile, outfile)
     else:
         fastqs = ' '.join(fastqs)
         statement = "cat %(fastqs)s > %(outfile)s"
@@ -145,11 +145,11 @@ def runHumann3(infile, outfiles):
 def poolTranscriptomeFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
-    infiles = pp.matchReference(infile, outfile, **PARAMS)
+    infiles = utility.matchReference(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
 
     if len(fastqs) == 1:
-        pp.utility.symlink(infile, outfile)
+        utility.symlink(infile, outfile)
     else:
         fastqs = ' '.join(fastqs)
         statement = "cat %(fastqs)s > %(outfile)s"
