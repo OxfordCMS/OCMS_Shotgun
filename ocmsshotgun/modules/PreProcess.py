@@ -75,16 +75,6 @@ class cdhit(utility.matchReference):
                 utility.symlnk(fastq1, outfile)     
         
         return statement
-
-    def run(self):
-            
-        statement = self.buildStatement()
-
-        P.run(statement,
-              job_threads=self.PARAMS['cdhit_job_threads'], 
-              job_memory=self.PARAMS['cdhit_job_memory'],
-              job_options=self.PARAMS.get('cdhit_job_options',''))
-
         
 class trimmomatic(utility.matchReference):
 
@@ -166,29 +156,19 @@ class trimmomatic(utility.matchReference):
                 
         return statement
 
-    def run(self):
-
-        statement = self.buildStatement()
-        
-        P.run(statement, 
-              job_threads = self.PARAMS['trimmomatic_job_threads'],
-              job_memory = self.PARAMS['trimmomatic_job_memory'],
-              job_options = self.PARAMS.get('trimmomatic_job_options', ''))
-
-
-def removeContaminants(in_fastq, out_fastq, method, **PARAMS):
-    """
-    Remove sequences of non-microbiome origin
-    """
-
-    if method == "sortmerna":
-        tool = runSortMeRNA(in_fastq, out_fastq, **PARAMS)
-    else:
-        raise ValueError("Method {} not implemented".format(method))
-
-    tool.run()
-    # Post process results into generic output for downstream tasks.
-    tool.postProcess()
+#def removeContaminants(in_fastq, out_fastq, method, **PARAMS):
+#    """
+#    Remove sequences of non-microbiome origin
+#    """
+#
+#    if method == "sortmerna":
+#        tool = runSortMeRNA(in_fastq, out_fastq, **PARAMS)
+#    else:
+#        raise ValueError("Method {} not implemented".format(method))
+#
+#    tool.run()
+#    # Post process results into generic output for downstream tasks.
+#    tool.postProcess()
 
     
 class runSortMeRNA(utility.matchReference):
@@ -295,23 +275,6 @@ class runSortMeRNA(utility.matchReference):
                                      "rm -rf %(tmpf)s" % locals()])
 
         return statement
-    
-    def run(self):
-
-        # Custom command to run reference matching tool.
-        statement = self.buildStatement()
-
-        # Logging
-        runfiles = '\t'.join([os.path.basename(x) for x in (self.fastq1, \
-                                                            self.fastq2, \
-                                                            self.fastq3) if x])
-        E.info("Running sortMeRNA for files: {}".format(runfiles))
-        
-        P.run(statement, 
-              job_threads=self.PARAMS["sortmerna_job_threads"],
-              job_memory=self.PARAMS["sortmerna_job_memory"],
-              job_options=self.PARAMS.get("sortmerna_job_options",''))
-
         
     def postProcess(self):
         ''' Rename files output by sortmeRNA to appropriate suffix
@@ -373,10 +336,6 @@ class createSortMeRNAOTUs(runSortMeRNA):
         self.outdir = tmpf
         self.outfile = outfile
     
-    # inherit run method from runSortMeRNA
-    def run(self):
-        return super().run()
-
     def postProcess(self):
         '''Rename files output by sortmerna, including otu_map table.''' 
 
@@ -526,15 +485,6 @@ class bmtagger(utility.matchReference):
                 
         return statements, to_remove_tmp
 
-    
-    def run(self, statements):
-        
-        for statement in statements:
-            P.run(statement, 
-                  job_threads=self.PARAMS['bmtagger_job_threads'], 
-                  job_memory=self.PARAMS['bmtagger_job_memory'],
-                  job_options=self.PARAMS.get('bmtagger_job_options',''))
-        
     def postProcess(self, to_remove_tmp):
 
         if self.fastq2:
@@ -571,10 +521,7 @@ class bmtagger(utility.matchReference):
                          " --fastq-drop3 %(fastq3_host)s"
                          " &>> %(fastq1_out)s.log" % locals())
 
-            P.run(statement)
-
-            os.unlink(to_remove_paired)
-            os.unlink(to_remove_singletons)
+            to_unlink = [to_remove_paired, to_remove_singletons]
 
         else:
             
@@ -588,12 +535,14 @@ class bmtagger(utility.matchReference):
                          " --fastq-out1 %(outfile)s"
                          " --fastq-drop1 %(fastq_host)s"
                          " &>> %(outfile)s.log")
-            
+        
             P.run(statement)
             
             os.unlink(to_remove)
+            to_unlink = [to_remove]
 
-        
+        return statement, to_unlink
+
 class bbtools(utility.matchReference):
 
     def buildStatement(self):
