@@ -29,7 +29,7 @@ class humann3(object):
         
         statement = ("humann"
                      " --input %(infile)s"
-                     " --output %(outpath)s/%(prefix)s"
+                     " --output %(outpath)s"
                      " --nucleotide-database %(db_nucleotide)s"
                      " --protein-database %(db_protein)s"
                      " --search-mode %(search_mode)s"

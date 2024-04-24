@@ -125,7 +125,8 @@ def runHumann3(infile, outfiles):
                             outfile,
                             outfile + '_pathcoverage.tsv.gz')
     
-    statement = H.humann3(infile, outfile, **PARAMS).run()    
+    tool = H.humann3(infile, outfile, **PARAMS)
+    statement = ' && '.join([tool.buildStatement(), tool.postProcess()])
         
     P.run(statement,
           job_memory = PARAMS["humann3_job_memory"],
@@ -172,14 +173,16 @@ def runHumann3_metatranscriptome(infiles, outfiles):
     outfile = os.path.join('humann3_mtx.dir',
                             outfile,
                             outfile + '_pathcoverage.tsv.gz')
+    
+    tool = H.humann3(infile, outfile, **PARAMS)
 
     # Not sure if humann can take gzipped input
     tmpf = P.get_temp_filename('.')
-    statement = "zcat %(tax_profile)s > %(tmpf)s && " % locals()
-    statement = statement + H.humann3(infile, outfile,
-                                      taxonomic_profile=tmpf, **PARAMS).run()
-    # print(statement + '\n')
-    
+    statement = "zcat %(tax_profile)s > %(tmpf)s" % locals()
+    statement = ' && '.join([statement,
+                             tool.buildStatement(),
+                             tool.postProcess()])
+                    
     P.run(statement,
           job_memory = PARAMS["humann3_job_memory"],
           job_threads = PARAMS["humann3_job_threads"],
