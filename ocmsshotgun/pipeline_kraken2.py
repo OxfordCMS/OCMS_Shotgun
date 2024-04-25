@@ -86,9 +86,9 @@ def runKraken2(infile, outfile):
     '''
     statement  = K.kraken2(infile, outfile, **PARAMS).buildStatement()
     P.run(statement
-          job_threads = self.PARAMS.get("kraken2_job_threads"),
-          job_memory = self.PARAMS.get("kraken2_job_mem"),
-          job_options=self.PARAMS.get('kraken2_job_options',''))
+          job_threads = PARAMS.get("kraken2_job_threads"),
+          job_memory = PARAMS.get("kraken2_job_mem"),
+          job_options = PARAMS.get('kraken2_job_options',''))
 
 ########################################################
 ########################################################
@@ -110,9 +110,9 @@ def runBracken(infile, outfile):
     statement = K.bracken(infile, outfile, **PARAMS).build()
 
     P.run(statement,
-          job_threads = self.PARAMS.get("bracken_job_threads"),
-          job_memory = self.PARAMS.get("bracken_job_mem"),
-          job_threads=self.PARAMS.get('bracken_job_options',''))    
+          job_threads = PARAMS.get("bracken_job_threads"),
+          job_memory = PARAMS.get("bracken_job_mem"),
+          job_threads = PARAMS.get('bracken_job_options',''))    
 
 # check all backen at all taxonomic levels has been run
 @follows(runBracken)

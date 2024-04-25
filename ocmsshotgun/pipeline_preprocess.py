@@ -79,9 +79,9 @@ def removeDuplicates(fastq1, outfile):
     statement = pp.cdhit(fastq1, outfile, **PARAMS).buildStatement()
 
     P.run(statement,
-          job_threads=self.PARAMS['cdhit_job_threads'], 
-          job_memory=self.PARAMS['cdhit_job_memory'],
-          job_options=self.PARAMS.get('cdhit_job_options',''))
+          job_threads=PARAMS['cdhit_job_threads'], 
+          job_memory=PARAMS['cdhit_job_memory'],
+          job_options=PARAMS.get('cdhit_job_options',''))
 
 ###############################################################################
 # Remove Adapters
@@ -96,9 +96,9 @@ def removeAdapters(fastq1, outfile1):
     statement = pp.trimmomatic(fastq1, outfile1, **PARAMS).buildStatement()
 
     P.run(statement,
-          job_threads = self.PARAMS['trimmomatic_job_threads'],
-          job_memory = self.PARAMS['trimmomatic_job_memory'],
-          job_options = self.PARAMS.get('trimmomatic_job_options', ''))
+          job_threads = PARAMS['trimmomatic_job_threads'],
+          job_memory = PARAMS['trimmomatic_job_memory'],
+          job_options = PARAMS.get('trimmomatic_job_options', ''))
 
 
 ###############################################################################
@@ -124,9 +124,9 @@ def removeRibosomalRNA(fastq1, outfile):
         # run sortmerna
         statement = tool.buildStatement()
         P.run(statement, 
-              job_threads=self.PARAMS["sortmerna_job_threads"],
-              job_memory=self.PARAMS["sortmerna_job_memory"],
-              job_options=self.PARAMS.get("sortmerna_job_options",''))
+              job_threads=PARAMS["sortmerna_job_threads"],
+              job_memory=PARAMS["sortmerna_job_memory"],
+              job_options=PARAMS.get("sortmerna_job_options",''))
         
         # perform postprocessing steps
         tool.postProcess()
@@ -164,9 +164,9 @@ def classifyRibosomalRNA(fastq1, outfile):
     
     statement = tool.buildStatement()
     P.run(statement, 
-          job_threads=self.PARAMS["sortmerna_job_threads"],
-          job_memory=self.PARAMS["sortmerna_job_memory"],
-          job_options=self.PARAMS.get("sortmerna_job_options",''))
+          job_threads=PARAMS["sortmerna_job_threads"],
+          job_memory=PARAMS["sortmerna_job_memory"],
+          job_options=PARAMS.get("sortmerna_job_options",''))
     
 
 @transform(classifyRibosomalRNA, suffix('_map.txt'), 's.tsv.gz')
@@ -209,9 +209,9 @@ def removeHost(fastq1, outfile):
     # one statement for each host genome specified
     for statement in statements:
         P.run(statement, 
-              job_threads=self.PARAMS['bmtagger_job_threads'], 
-              job_memory=self.PARAMS['bmtagger_job_memory'],
-              job_options=self.PARAMS.get('bmtagger_job_options',''))
+              job_threads=PARAMS['bmtagger_job_threads'], 
+              job_memory=PARAMS['bmtagger_job_memory'],
+              job_options=PARAMS.get('bmtagger_job_options',''))
     
     statement, to_unlink  = tool.postProcess(tmpfiles)
     P.run(statement)
@@ -240,9 +240,9 @@ def maskLowComplexity(fastq1, outfile):
     
     statement = tool.buildStatement()
     P.run(statement, 
-          job_threads=self.PARAMS['dust_job_threads'],
-          job_memory=self.PARAMS['dust_job_memory'],
-          job_options=self.PARAMS.get('dust_job_options', ''))
+          job_threads=PARAMS['dust_job_threads'],
+          job_memory=PARAMS['dust_job_memory'],
+          job_options=PARAMS.get('dust_job_options', ''))
     
     tool.postProcess()
     

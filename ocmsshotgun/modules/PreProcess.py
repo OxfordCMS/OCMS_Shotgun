@@ -12,7 +12,7 @@ from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
-import ocmsshotgun.modules.utility as utility            
+import ocmsshotgun.modules.Utility as utility            
 class cdhit(utility.matchReference):
         
     def buildStatement(self):
