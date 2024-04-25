@@ -1,7 +1,9 @@
 location:
-    input: input.dir
+    # input directory (fastq single or paired end reads)
+    input: '.'
     
-    transcriptome: input_mtx.dir
+    # metatranscriptomics fastq directory
+    transcriptome: 
 
 humann3:
 

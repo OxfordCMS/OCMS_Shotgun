@@ -80,7 +80,7 @@ PARAMS = P.get_parameters(
     ["pipeline.yml"])
 
 # check all files to be processed
-FASTQ1s = utility.check_input(PARAMS['location_input'])
+FASTQ1s = utility.check_input(PARAMS.get('location_input','.'))
 
 if PARAMS['location_transcriptome']:
     FASTQ2s = utility.check_input(PARAMS['location_transcriptome'])
