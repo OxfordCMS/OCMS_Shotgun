@@ -90,7 +90,7 @@ class trimmomatic(utility.matchReference):
         trimmomatic_jar_path = self.PARAMS["trimmomatic_jar_path"]
         trimmomatic_n_threads = self.PARAMS["trimmomatic_n_threads"]
         # >0.32 determines phred format automatically, here for legacy
-        phred_format = '-phred' + str(self.PARAMS.get('phred_format', ''))
+        phred_format = '-phred' + str(self.PARAMS.get('phred_format', 33))
         
         trimmomatic_adapters = self.PARAMS["trimmomatic_adapters"]
         trimmomatic_seed_mismatches = self.PARAMS["trimmomatic_seed_mismatches"]
