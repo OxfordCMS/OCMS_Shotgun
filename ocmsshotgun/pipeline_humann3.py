@@ -195,7 +195,7 @@ def runHumann3_metatranscriptome(infiles, outfiles):
 ###############################################################################
 @collate([runHumann3, runHumann3_metatranscriptome],
          regex("(humann3.dir|humann3_mtx.dir)/.+/.+_(pathcoverage|pathabundance|genefamilies).tsv.gz"),
-         r"\1/tables/merged_\2.tsv.gz")
+         r"\1/merged_tables/merged_\2.tsv.gz")
 def mergeHumannOutput(infiles, outfile):
     '''Merge respective output files from humann. Note this uses humann
     scripts which don't account for the metaphlan bugs list'''
@@ -253,17 +253,20 @@ def renormalizeHumannOutput(infile, outfile):
 ###############################################################################
 # Handle metaphlan output
 ###############################################################################
-@follows(mkdir('metaphlan_output.dir'))
 @merge(runHumann3,
-         regex("humann3.dir/.+/.+_metaphlan_bugs_list.tsv.gz"),
-         r"metaphlan_output.dir/merged_metaphlan_bugs_list.tsv.gz")
+         r"merged_tables/merged_metaphlan_bugs_list.tsv.gz")
 def mergeMetaphlanOutput(infiles, outfile):
     '''Merge respective output files from humann's internal metaphlan run.
-    Note this uses metaphlan custom scripts.'''
-
+    Note this uses metaphlan utils script.'''
+    
+    # getting metaphlan outputs from running humann
+    infiles = [x for x in infiles if bool(re.search("metaphlan_bugs_list", x))]
     infiles = ' '.join([os.path.abspath(x) for x in infiles])
 
-    statement = "merge_metaphlan_tables.py -o %(outfile)s %(infiles)s"
+    statement = "merge_metaphlan_tables.py %(infiles)s -o %(outfile)s" % locals()
+    print("===============================================================")
+    print(statement)
+    
     P.run(statement)
 
 
