@@ -49,7 +49,10 @@ class humann3(object):
                       " mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv.gz %(outpath)s &&"
                       " tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp &&"
                       " rm -rf %(outpath)s/%(prefix)s_humann_temp" % locals())
-
+        
+        remove_humann_temp = self.PARAMS.get('remove_humann_temp',True)
+        if remove_humann_temp:
+            statement = statement + ' && rm -f %(outpath)s/%(prefix)s_humann_temp.tar.gz' % locals()
         return statement
     
     def run(self):
