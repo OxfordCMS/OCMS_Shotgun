@@ -41,12 +41,18 @@ class humann3(object):
     def postProcess(self):
         prefix = self.prefix
         outpath = self.outpath
+
+        if self.taxonomic_profile:
+            options = ""
+        else:
+            options = (" gzip %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv &&"
+                       " mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv.gz %(outpath)s &&" % locals())
         
-        statement =  ("gzip %(outpath)s/%(prefix)s_pathcoverage.tsv &&"
+        statement =  ("mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s.log %(outpath)s &&"
+                      " gzip %(outpath)s/%(prefix)s_pathcoverage.tsv &&"
                       " gzip %(outpath)s/%(prefix)s_pathabundance.tsv &&" 
                       " gzip %(outpath)s/%(prefix)s_genefamilies.tsv &&"
-                      " gzip %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv &&"
-                      " mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv.gz %(outpath)s &&"
+                      " %(options)s"
                       " tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp &&"
                       " rm -rf %(outpath)s/%(prefix)s_humann_temp" % locals())
         
