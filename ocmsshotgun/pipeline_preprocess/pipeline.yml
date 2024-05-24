@@ -54,6 +54,8 @@ trimmomatic:
     # NexteraPE-PE.fa, TruSeq2-PE.fa, TruSeq3-PE-2.fa, TruSeq3-PE.fa
     # TruSeq2-SE.fa, TruSeq3-SE.fa
     adapters: /gpfs3/well/johnson/shared/databases/adapters/HTG_oligov2/HTG_oligov2.fa
+    
+    phred_format: 33
 
     # Number of mismatches tolerated in seed alignment of adapter sequence (16 bases)
     seed_mismatches: 3

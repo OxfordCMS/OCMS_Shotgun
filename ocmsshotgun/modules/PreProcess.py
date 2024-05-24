@@ -12,86 +12,8 @@ from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
-
-class utility():
-    # Check that the input files correspond
-    def check_input(datadir='.'):
-        
-        fq1_regex = re.compile('(\S+).(fastq.1.gz)')
-        mask1 = list(map(lambda x: bool(fq1_regex.match(x)),
-                         os.listdir(datadir)))
-        fastq1s = [os.path.join(datadir, i) \
-                   for i in itertools.compress(os.listdir(datadir),
-                                               mask1)]
-
-        if sum(mask1):
-            fq2_regex = re.compile('(\S+).(fastq.2.gz)')
-            mask2 = list(map(lambda x: bool(fq2_regex.match(x)),
-                             os.listdir(datadir)))
-            fastq2s = [os.path.join(datadir, i) \
-                       for i in itertools.compress(os.listdir(datadir), mask2)]
-            if sum(mask2):
-                assert sum(mask1) == sum(mask2), 'Not all input files have pairs'
-                fq1_stubs = [fq1_regex.match(x).group(1) for x in fastq1s]
-                fq2_stubs = [fq2_regex.match(x).group(1) for x in fastq2s]
-                assert sorted(fq1_stubs) == sorted(fq2_stubs), \
-                    "First and second read pair files do not correspond"        
-        else:
-            raise ValueError("No input files detected in run directory."
-                             " Check the file suffixes follow the notation"
-                             " fastq.1.gz and fastq.2.gz.")
-
-        return fastq1s
-
-    def symlnk(inf, outf):
-        try:
-            os.symlink(os.path.abspath(inf), outf)
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                os.remove(outf)
-                os.symlink(inf, outf)
-
-                
-class matchReference(object):
-    """
-    Base class for generating run statements to match mWGS reads to 
-    reference sequences. Intended to work with single, paired, or
-    paired + singleton fastq files. 
-
-    Some options are  assumed to be passed via kwargs, as this and 
-    inherited classes are written to work with a PARAMS dict 
-    generated from a pipeline.yml config file.
-
-    ** Options:
-    fn_suffix - option to pass something other than .fastq.1.gz
-    """
-
-    def __init__(self, fastq1, outfile, **PARAMS):
-        self.outdir = os.path.dirname(outfile)
-        self.fastq1 = fastq1
-        self.fastq2 = None
-        self.fastq3 = None
-        self.fq1_suffix = '.fastq.1.gz'
-        self.fq2_suffix = '.fastq.2.gz'
-        self.fq3_suffix = '.fastq.3.gz'
-        self.outfile = outfile
-        self.PARAMS = PARAMS
-
-        # Assume that files are fastq and end .fastq.1.gz
-        # Find mate pair file
-        fastq2 = P.snip(self.fastq1, self.fq1_suffix) + self.fq2_suffix
-
-        if os.path.exists(fastq2):
-            self.fastq2 = fastq2        
-
-        # Find singleton file
-        fastq3 = P.snip(self.fastq1, self.fq1_suffix) + self.fq3_suffix
-
-        if os.path.exists(fastq3):
-            assert self.fastq2, "Can't have singletons without mate pairs"
-            self.fastq3 = fastq3
-            
-class cdhit(matchReference):
+import ocmsshotgun.modules.Utility as utility            
+class cdhit(utility.matchReference):
         
     def buildStatement(self):
         '''Filter exact duplicates, if specified in config file'''
@@ -153,18 +75,8 @@ class cdhit(matchReference):
                 utility.symlnk(fastq1, outfile)     
         
         return statement
-
-    def run(self):
-            
-        statement = self.buildStatement()
-
-        P.run(statement,
-              job_threads=self.PARAMS['cdhit_job_threads'], 
-              job_memory=self.PARAMS['cdhit_job_memory'],
-              job_options=self.PARAMS.get('cdhit_job_options',''))
-
         
-class trimmomatic(matchReference):
+class trimmomatic(utility.matchReference):
 
     def buildStatement(self):
         '''Remove adapters using Trimmomatic'''
@@ -178,7 +90,7 @@ class trimmomatic(matchReference):
         trimmomatic_jar_path = self.PARAMS["trimmomatic_jar_path"]
         trimmomatic_n_threads = self.PARAMS["trimmomatic_n_threads"]
         # >0.32 determines phred format automatically, here for legacy
-        phred_format = '-phred' + str(self.PARAMS.get('phred_format', ''))
+        phred_format = '-phred' + str(self.PARAMS.get('phred_format', 33))
         
         trimmomatic_adapters = self.PARAMS["trimmomatic_adapters"]
         trimmomatic_seed_mismatches = self.PARAMS["trimmomatic_seed_mismatches"]
@@ -244,32 +156,22 @@ class trimmomatic(matchReference):
                 
         return statement
 
-    def run(self):
-
-        statement = self.buildStatement()
-        
-        P.run(statement, 
-              job_threads = self.PARAMS['trimmomatic_job_threads'],
-              job_memory = self.PARAMS['trimmomatic_job_memory'],
-              job_options = self.PARAMS.get('trimmomatic_job_options', ''))
-
-
-def removeContaminants(in_fastq, out_fastq, method, **PARAMS):
-    """
-    Remove sequences of non-microbiome origin
-    """
-
-    if method == "sortmerna":
-        tool = runSortMeRNA(in_fastq, out_fastq, **PARAMS)
-    else:
-        raise ValueError("Method {} not implemented".format(method))
-
-    tool.run()
-    # Post process results into generic output for downstream tasks.
-    tool.postProcess()
+#def removeContaminants(in_fastq, out_fastq, method, **PARAMS):
+#    """
+#    Remove sequences of non-microbiome origin
+#    """
+#
+#    if method == "sortmerna":
+#        tool = runSortMeRNA(in_fastq, out_fastq, **PARAMS)
+#    else:
+#        raise ValueError("Method {} not implemented".format(method))
+#
+#    tool.run()
+#    # Post process results into generic output for downstream tasks.
+#    tool.postProcess()
 
     
-class runSortMeRNA(matchReference):
+class runSortMeRNA(utility.matchReference):
     """
     Run sortMeRNA. 
     Assumes that reference indexes have been created in advance in a 
@@ -373,23 +275,6 @@ class runSortMeRNA(matchReference):
                                      "rm -rf %(tmpf)s" % locals()])
 
         return statement
-    
-    def run(self):
-
-        # Custom command to run reference matching tool.
-        statement = self.buildStatement()
-
-        # Logging
-        runfiles = '\t'.join([os.path.basename(x) for x in (self.fastq1, \
-                                                            self.fastq2, \
-                                                            self.fastq3) if x])
-        E.info("Running sortMeRNA for files: {}".format(runfiles))
-        
-        P.run(statement, 
-              job_threads=self.PARAMS["sortmerna_job_threads"],
-              job_memory=self.PARAMS["sortmerna_job_memory"],
-              job_options=self.PARAMS.get("sortmerna_job_options",''))
-
         
     def postProcess(self):
         ''' Rename files output by sortmeRNA to appropriate suffix
@@ -451,10 +336,6 @@ class createSortMeRNAOTUs(runSortMeRNA):
         self.outdir = tmpf
         self.outfile = outfile
     
-    # inherit run method from runSortMeRNA
-    def run(self):
-        return super().run()
-
     def postProcess(self):
         '''Rename files output by sortmerna, including otu_map table.''' 
 
@@ -488,7 +369,7 @@ class createSortMeRNAOTUs(runSortMeRNA):
         
         return None
 
-class bmtagger(matchReference):
+class bmtagger(utility.matchReference):
 
     def buildStatement(self):
         '''Remove host contamination using bmtagger'''
@@ -604,15 +485,6 @@ class bmtagger(matchReference):
                 
         return statements, to_remove_tmp
 
-    
-    def run(self, statements):
-        
-        for statement in statements:
-            P.run(statement, 
-                  job_threads=self.PARAMS['bmtagger_job_threads'], 
-                  job_memory=self.PARAMS['bmtagger_job_memory'],
-                  job_options=self.PARAMS.get('bmtagger_job_options',''))
-        
     def postProcess(self, to_remove_tmp):
 
         if self.fastq2:
@@ -649,10 +521,7 @@ class bmtagger(matchReference):
                          " --fastq-drop3 %(fastq3_host)s"
                          " &>> %(fastq1_out)s.log" % locals())
 
-            P.run(statement)
-
-            os.unlink(to_remove_paired)
-            os.unlink(to_remove_singletons)
+            to_unlink = [to_remove_paired, to_remove_singletons]
 
         else:
             
@@ -666,13 +535,15 @@ class bmtagger(matchReference):
                          " --fastq-out1 %(outfile)s"
                          " --fastq-drop1 %(fastq_host)s"
                          " &>> %(outfile)s.log")
-            
+        
             P.run(statement)
             
             os.unlink(to_remove)
+            to_unlink = [to_remove]
 
-        
-class bbtools(matchReference):
+        return statement, to_unlink
+
+class bbtools(utility.matchReference):
 
     def buildStatement(self):
         '''Either softmask low complexity regions, or remove reads with a large

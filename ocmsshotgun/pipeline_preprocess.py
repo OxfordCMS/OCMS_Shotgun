@@ -58,14 +58,14 @@ import itertools
 import distutils
 import pandas as pd
 
-
+import ocmsshotgun.modules.Utility as utility
 import ocmsshotgun.modules.PreProcess as pp
 
 # set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check that input files correspond
-FASTQ1S = pp.utility.check_input()
+FASTQ1S = utility.check_input()
 
 ###############################################################################
 # Deduplicate
@@ -76,7 +76,12 @@ FASTQ1S = pp.utility.check_input()
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
-    pp.cdhit(fastq1, outfile, **PARAMS).run()
+    statement = pp.cdhit(fastq1, outfile, **PARAMS).buildStatement()
+
+    P.run(statement,
+          job_threads=PARAMS['cdhit_job_threads'], 
+          job_memory=PARAMS['cdhit_job_memory'],
+          job_options=PARAMS.get('cdhit_job_options',''))
 
 ###############################################################################
 # Remove Adapters
@@ -88,7 +93,12 @@ def removeDuplicates(fastq1, outfile):
 def removeAdapters(fastq1, outfile1):
     '''Remove adapters using Trimmomatic'''
 
-    pp.trimmomatic(fastq1, outfile1, **PARAMS).run()
+    statement = pp.trimmomatic(fastq1, outfile1, **PARAMS).buildStatement()
+
+    P.run(statement,
+          job_threads = PARAMS['trimmomatic_job_threads'],
+          job_memory = PARAMS['trimmomatic_job_memory'],
+          job_options = PARAMS.get('trimmomatic_job_options', ''))
 
 
 ###############################################################################
@@ -104,7 +114,21 @@ def removeRibosomalRNA(fastq1, outfile):
 
     if PARAMS['data_type'] == 'metatranscriptome':
         tool = pp.runSortMeRNA(fastq1, outfile, **PARAMS)
-        tool.run()
+        
+        # Logging
+        runfiles = '\t'.join([os.path.basename(x) for x in (tool.fastq1, \
+                                                            tool.fastq2, \
+                                                            tool.fastq3) if x])
+        E.info("Running sortMeRNA for files: {}".format(runfiles))
+
+        # run sortmerna
+        statement = tool.buildStatement()
+        P.run(statement, 
+              job_threads=PARAMS["sortmerna_job_threads"],
+              job_memory=PARAMS["sortmerna_job_memory"],
+              job_options=PARAMS.get("sortmerna_job_options",''))
+        
+        # perform postprocessing steps
         tool.postProcess()
     else:
         assert PARAMS['data_type'] == 'metagenome', \
@@ -118,11 +142,11 @@ def removeRibosomalRNA(fastq1, outfile):
         outf2 = P.snip(outf1, '.fastq.1.gz') + '.fastq.2.gz'
         outf3 = P.snip(outf1, '.fastq.1.gz') + '.fastq.3.gz'
         
-        pp.utility.symlnk(inf1, outf1)
+        utility.symlnk(inf1, outf1)
         if os.path.exists(inf2):
-            pp.utility.symlnk(inf2, outf2)
+            utility.symlnk(inf2, outf2)
         if os.path.exists(inf3):
-            pp.utility.symlnk(inf3, outf3)
+            utility.symlnk(inf3, outf3)
 
 
 @follows(mkdir('reads_rrnaClassified.dir'))
@@ -137,7 +161,12 @@ def classifyRibosomalRNA(fastq1, outfile):
     tool = pp.createSortMeRNAOTUs(fastq1, 
                                   outfile, 
                                   **PARAMS)
-    tool.run()
+    
+    statement = tool.buildStatement()
+    P.run(statement, 
+          job_threads=PARAMS["sortmerna_job_threads"],
+          job_memory=PARAMS["sortmerna_job_memory"],
+          job_options=PARAMS.get("sortmerna_job_options",''))
     
 
 @transform(classifyRibosomalRNA, suffix('_map.txt'), 's.tsv.gz')
@@ -177,9 +206,17 @@ def removeHost(fastq1, outfile):
     tool = pp.bmtagger(fastq1, outfile, **PARAMS)
     statements, tmpfiles = tool.buildStatement()
 
-    tool.run(statements)
-    tool.postProcess(tmpfiles)
-
+    # one statement for each host genome specified
+    for statement in statements:
+        P.run(statement, 
+              job_threads=PARAMS['bmtagger_job_threads'], 
+              job_memory=PARAMS['bmtagger_job_memory'],
+              job_options=PARAMS.get('bmtagger_job_options',''))
+    
+    statement, to_unlink  = tool.postProcess(tmpfiles)
+    P.run(statement)
+    for f in to_unlink:
+        os.unlink(f)
 
 ###############################################################################
 # Mask or Remove Low-complexity sequence
@@ -200,7 +237,13 @@ def maskLowComplexity(fastq1, outfile):
     '''
 
     tool = pp.bbtools(fastq1, outfile, **PARAMS)
-    tool.run()
+    
+    statement = tool.buildStatement()
+    P.run(statement, 
+          job_threads=PARAMS['dust_job_threads'],
+          job_memory=PARAMS['dust_job_memory'],
+          job_options=PARAMS.get('dust_job_options', ''))
+    
     tool.postProcess()
     
 ###############################################################################

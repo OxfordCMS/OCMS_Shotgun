@@ -9,46 +9,13 @@ from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 
-class baseClass(object):
-    """
-    Base class for generating run statements to match mWGS reads to 
-    reference sequences. Intended to work with single, paired, or
-    paired + singleton fastn files. 
+import ocmsshotgun.modules.Utility as utility
 
-    Some options are  assumed to be passed via kwargs, as this and 
-    inherited classes are writtento work with a PARAMS dict 
-    generated from a pipeline.yml config file.
-    """
-
-    def __init__(self, fastn1, outfile, **PARAMS):
-        self.outdir = os.path.dirname(outfile)
-        self.outfile = outfile
-        self.fastq1 = fastq1
-        self.fastq2 = None
-        self.fastq3 = None
-        self.fq1_suffix = '.fastq.1.gz'
-        self.fq2_suffix = '.fastq.2.gz'
-        self.fq3_suffix = '.fastq3.gz'
-        self.PARAMS = PARAMS
-
-        # Assume that files are fastq and end in .fastq.1.gz
-        fastq2 = P.snip(self.fastq1, self.fq1_suffix) + self.fq2_suffix
-
-        if os.path.exists(fastq2):
-            self.fastq2 = fastq2
-        
-        # Find singleton file
-        fastq3 = P.snip(self.fastq1, self.fq1_suffix) + self.fq3_suffix
-        self.fastq3 = fastq3
-
-        if os.path.exists(fastq3):
-            assert self.fastq2, "Can't have singletons without mate pairs"
-
-class kraken2(baseClase):
+class kraken2(utility.matchReference):
     def __init__(self, fastq1, outfile, **PARAMS):
         super().__init__(fastq1, outfile, **PARAMS)
     
-    def statement(self):
+    def builtStatement(self):
         # Note that at the moment I only deal with paired-end
         # reads
         p1 = infile
@@ -87,58 +54,45 @@ class kraken2(baseClase):
         
         return statement
 
-    def run(self):
-        '''classify reads with kraken2
-        '''
-        
-        statement = self.statement()
-        P.run(statement
-              job_threads = self.PARAMS.get("kraken2_job_threads"),
-              job_memory = self.PARAMS.get("kraken2_job_mem"),
-              job_options=self.PARAMS.get('kraken2_job_options',''))
+def generate_parallel_params():
+    '''
+    use output of runKraken2 to generate list  of bracken inputs and 
+    outputs for every taxononmic level    
+    '''
+    kraken_outfiles = glob.glob("kraken2.dir/*.k2.report.tsv")
+    levels = ['species','genus','family','class','order','phylum','domain']
 
+    for kraken_outfile in kraken_outfiles:
+        # generate output files for each taxonomic level
+        sample_name = os.path.basename(kraken_outfile)
+        bracken_outfiles = [sample_name.replace(".k2.report.tsv",".abundance.%s.tsv" % x) for x in levels]
+        bracken_outfiles = [os.path.join("bracken.dir", x) for x in bracken_outfiles]
 
-class utility():
+        for bracken_outfile in bracken_outfiles:
+            yield kraken_outfile, bracken_outfile
 
-    def generate_parallel_params():
-        '''
-        use output of runKraken2 to generate list  of bracken inputs and 
-        outputs for every taxononmic level    
-        '''
-        kraken_outfiles = glob.glob("kraken2.dir/*.k2.report.tsv")
-        levels = ['species','genus','family','class','order','phylum','domain']
-    
-        for kraken_outfile in kraken_outfiles:
-            # generate output files for each taxonomic level
-            sample_name = os.path.basename(kraken_outfile)
-            bracken_outfiles = [sample_name.replace(".k2.report.tsv",".abundance.%s.tsv" % x) for x in levels]
-            bracken_outfiles = [os.path.join("bracken.dir", x) for x in bracken_outfiles]
-        
-            for bracken_outfile in bracken_outfiles:
-                yield kraken_outfile, bracken_outfile
+def files_to_check():
+    '''
+    check all bracken at all taxonomic levels has been run
+    '''
+    expected_files = [x for x in list(generate_parallel_params())]
+    expected_files = [x[1] for x in expected_files]
+    return expected_files
 
-    def files_to_check():
-        '''
-        check all backen at all taxonomic levels has been run
-        '''
-        expected_files = [x for x in list(utility.generate_parallel_params())]
-        expected_files = [x[1] for x in expected_files]
-        return expected_files
+def check_bracken_levels(expected_files, outfile):
 
-    def check_bracken_levels(expected_files, outfile):
-    
-        missing_files = [f for f in expected_files if not os.path.exists(f)]
-    
-        if missing_files:
-            raise Exception("Abundance file not found:\n%s" % '\n'.join(missing_files))
-        else:
-            open(outfile, 'a').close()
+    missing_files = [f for f in expected_files if not os.path.exists(f)]
 
-class bracken(baseClass):
+    if missing_files:
+        raise Exception("Abundance file not found:\n%s" % '\n'.join(missing_files))
+    else:
+        open(outfile, 'a').close()
+
+class bracken(utility.matchReference):
     def __init__(self, fastq1, outfile, **PARAMS):
         super().__init__(fastq1, outfile, **PARAMS)
 
-    def statement(self):
+    def buildStatement(self):
         '''
         convert read classifications into abundance with Bracken
         '''
@@ -173,11 +127,4 @@ class bracken(baseClass):
                     -l %(level_param)s
                     %(options)s
                     '''
-        return statement, job_threads, job_mem
-
-    def run(self):
-        statement = self.statement()
-        P.run(statement,
-              job_threads = self.PARAMS.get("bracken_job_threads"),
-              job_memory = self.PARAMS.get("bracken_job_mem"),
-              job_threads=self.PARAMS.get('bracken_job_options',''))
+        return statement
