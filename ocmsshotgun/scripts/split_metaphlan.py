@@ -14,10 +14,10 @@ Usage
 .. Example use case
 
 Example::
-    python cgat_script_template.py
+    ocms_shotgun split_metaphlan
 
 Type::
-    python cgat_script_tempalte.py --help
+    ocms_shotgun split_metaphlan --help
     
 for command line help.
 
