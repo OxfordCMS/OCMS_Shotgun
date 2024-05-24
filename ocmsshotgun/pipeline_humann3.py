@@ -155,7 +155,7 @@ def poolTranscriptomeFastqs(infile, outfile):
         statement = "cat %(fastqs)s > %(outfile)s"
         P.run(statement)
 
-
+@active_if(PARAMS['location_transcriptome'])
 @follows(runHumann3)
 @follows(mkdir("humann3_mtx.dir"))
 @subdivide(poolTranscriptomeFastqs,
@@ -195,7 +195,7 @@ def runHumann3_metatranscriptome(infiles, outfiles):
 ###############################################################################
 @collate([runHumann3, runHumann3_metatranscriptome],
          regex("(humann3.dir|humann3_mtx.dir)/.+/.+_(pathcoverage|pathabundance|genefamilies).tsv.gz"),
-         r"\1/merged_tables/merged_\2.tsv.gz")
+         r"\1/merged_\2.tsv.gz")
 def mergeHumannOutput(infiles, outfile):
     '''Merge respective output files from humann. Note this uses humann
     scripts which don't account for the metaphlan bugs list'''
@@ -205,13 +205,8 @@ def mergeHumannOutput(infiles, outfile):
                        infiles[0]).group(1)
     assert suffix in ('pathcoverage', 'pathabundance', 'genefamilies')
 
-    # Fetch the output directory
-    outdir = os.path.dirname(outfile)
-    indir = os.path.dirname(outdir)
-    if os.path.exists(outdir):
-        shutil.rmtree(outdir)
-    os.mkdir(outdir)
-
+    # Fetch the input directory
+    indir = os.path.dirname(infiles[0])
     outf = P.snip(outfile, '.gz')
     
     statement = ("humann_join_tables"
@@ -221,8 +216,7 @@ def mergeHumannOutput(infiles, outfile):
                  "  -o %(outf)s &&"
                  " gzip %(outf)s")
     P.run(statement)
-
-
+    
 @transform(mergeHumannOutput,
            suffix('genefamilies.tsv.gz'),
            'KOs.tsv.gz')
@@ -238,10 +232,9 @@ def mapUniref2KOs(infile, outfile):
           job_memory = PARAMS["humann3_postprocess_memory"],
           job_threads = PARAMS["humann3_postprocess_threads"])
 
-
 @transform([mergeHumannOutput, mapUniref2KOs],
            suffix('.tsv.gz'),
-           '_cpm.tsv')
+           '_cpm.tsv.gz')
 def renormalizeHumannOutput(infile, outfile):
     '''Renormalize to CPM'''
 
@@ -293,35 +286,31 @@ def splitMetaphlanByTaxonomy(infile, outfiles):
     # ruffus bug? split defaults to list as input
     assert len(infile) == 1
     infile = infile[0]
-
-    # Hack!
-    script = os.path.join(os.path.dirname(__file__), 'scripts', 'split_metaphlan.py')
     
-    statement = '''python %(script)s -i %(infile)s -o metaphlan_output.dir'''
+    statement = '''ocms_shotgun split_metaphlan -i %(infile)s -o metaphlan_output.dir'''
     P.run(statement)
 
 
-# ###############################################################################
-# @follows("mergePathAbundance",
-#          "mergePathCoverage", 
-#          "mergeGeneFamilies",
-#          "splitMetaphlan",
-#          mkdir("report.dir"))
-# def build_report():
-#     '''
-#     render the rmarkdown report file
-#     '''
-#     reportdir = os.path.dirname(os.path.abspath(__file__))
-#     reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_humann3")
-#     reportfile = os.path.join(reportdir, "pipeline_humann3_report.Rmd")
+###############################################################################
+@follows("mergeHumannOutput",
+         mkdir("report.dir"))
+def build_report():
+    '''
+    render the rmarkdown report file
+    '''
+    reportdir = os.path.dirname(os.path.abspath(__file__))
+    reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_humann3")
+    reportfile = os.path.join(reportdir, "pipeline_humann3_report.Rmd")
 
-#     # copy report template to report.dir and render report
-#     statement = '''cd report.dir;
-#                    cp %(reportfile)s .;
-#                    R -e "rmarkdown::render('pipeline_humann3_report.Rmd', output_file='pipeline_humann3_report.html')";
-#                    cd ../
-#                 '''
-#     P.run(statement)
+    # decompress merged humann outputs
+    # copy report template to report.dir and render report
+    # recompress humann outputs
+    statement = '''gunzip humann3.dir/merged*.gz metaphlan_output.dir/metaphlan*.gz;
+                   cp %(reportfile)s report.dir;
+                   R -e "rmarkdown::render('report.dir/pipeline_humann3_report.Rmd', output_file='pipeline_humann3_report.html', output_dir='report.dir')";
+                   gzip humann3.dir/merged*.tsv metaphlan_output.dir/metaphlan*.tsv
+                '''
+    P.run(statement)
 
 
 ###############################################################################
