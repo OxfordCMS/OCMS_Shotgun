@@ -56,7 +56,7 @@ class humann3(object):
                       " tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp &&"
                       " rm -rf %(outpath)s/%(prefix)s_humann_temp" % locals())
         
-        remove_humann_temp = self.PARAMS.get('remove_humann_temp',True)
+        remove_humann_temp = self.PARAMS.get('humann_remove_humann_temp',True)
         if remove_humann_temp:
             statement = statement + ' && rm -f %(outpath)s/%(prefix)s_humann_temp.tar.gz' % locals()
         return statement
@@ -68,3 +68,4 @@ class humann3(object):
         statement = self.buildStatement() + ' && ' + self.postProcess()
 
         return statement
+
