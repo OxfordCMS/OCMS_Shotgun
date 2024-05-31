@@ -35,9 +35,9 @@ library(DT)
 ```
 
 ```{r read-data}
-path_coverage <- read.table("../humann3.dir/merged_pathcoverage.tsv", sep="\t")
-path_abundance <- read.table("../humann3.dir/merged_pathabundance.tsv", sep="\t")
-gene_abundance <- read.table("../humann3.dir/merged_genefamilies.tsv", sep="\t")
+path_coverage <- read.table("../humann3.dir/merged_tables/merged_pathcoverage.tsv", sep="\t")
+path_abundance <- read.table("../humann3.dir/merged_tables/merged_pathabundance.tsv", sep="\t")
+gene_abundance <- read.table("../humann3.dir/merged_tables/merged_genefamilies.tsv", sep="\t")
 taxa_abundance <- list()
 iter_file <- list.files("../metaphlan_output.dir/", pattern = "metaphlan_.*\\.tsv")
 for(i in 1:length(iter_file)) {
@@ -48,19 +48,19 @@ for(i in 1:length(iter_file)) {
 }
 
 # update headers
-header <- readLines("../humann3.dir/merged_pathcoverage.tsv", n=1)
+header <- readLines("../humann3.dir/merged_tables/merged_pathcoverage.tsv", n=1)
 header <- unlist(strsplit(header, '\t'))
 header[1] <- gsub("^# ", "", tolower(header[1]))
 header <- gsub("_pathcoverage.tsv$", "", header)
 colnames(path_coverage) <- header
 
-header <- readLines("../humann3.dir/merged_pathabundance.tsv", n=1)
+header <- readLines("../humann3.dir/merged_tables/merged_pathabundance.tsv", n=1)
 header <- unlist(strsplit(header, '\t'))
 header[1] <- gsub("^# ", "", tolower(header[1]))
 header <- gsub("_pathabundance.tsv$", "", header)
 colnames(path_abundance) <- header
 
-header <- header <- readLines("../humann3.dir/merged_genefamilies.tsv", n=1)
+header <- header <- readLines("../humann3.dir/merged_tables/merged_genefamilies.tsv", n=1)
 header <- unlist(strsplit(header, '\t'))
 header <- gsub("_genefamilies.tsv$", "", header)
 header[1] <- gsub("^# ", "", header[1])

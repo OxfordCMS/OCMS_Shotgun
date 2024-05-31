@@ -93,12 +93,15 @@ else:
 @follows(mkdir("input_merged.dir"))
 @transform(FASTQ1s,
            regex(".+/(.+).fastq.1.gz"),
-           r"input_merged.dir/\1.fastq.gz")
-def poolInputFastqs(infile, outfile):
+           r"input_merged.dir/.sentinel.\1")
+def poolInputFastqs(infile, sentinel):
     '''Humann relies on pooling input files'''
 
     infiles = utility.matchReference(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
+    prefix = P.snip(os.path.basename(infile), ".fastq.1.gz")
+    outfile = os.path.join(os.path.abspath(os.path.dirname(infile)), 
+                           "input_merged.dir", prefix + "fastq.gz")
 
     if len(fastqs) == 1:
         utility.symlink(infile, outfile)
@@ -106,7 +109,10 @@ def poolInputFastqs(infile, outfile):
         fastqs = ' '.join(fastqs)
         statement = "cat %(fastqs)s > %(outfile)s"
         P.run(statement)
-
+    
+    # create sentinel file once completed concatenation
+    statement = "touch (sentinel)s"
+    P.run(statement)
 
 ###############################################################################
 # Run humann3 on concatenated fastq.gz
@@ -195,7 +201,7 @@ def runHumann3_metatranscriptome(infiles, outfiles):
 ###############################################################################
 @collate([runHumann3, runHumann3_metatranscriptome],
          regex("(humann3.dir|humann3_mtx.dir)/.+/.+_(pathcoverage|pathabundance|genefamilies).tsv.gz"),
-         r"\1/merged_\2.tsv.gz")
+         r"\1/merged_tables/merged_\2.tsv.gz")
 def mergeHumannOutput(infiles, outfile):
     '''Merge respective output files from humann. Note this uses humann
     scripts which don't account for the metaphlan bugs list'''
@@ -207,6 +213,12 @@ def mergeHumannOutput(infiles, outfile):
 
     # Fetch the input directory
     indir = os.path.dirname(infiles[0])
+    outdir = os.path.dirname(outfile)
+    # need to remove tables dir when re-running pipeline
+    if os.path.exists(outdir):
+        shutil.rmtree(outdir)
+    os.mkdir(outdir)
+
     outf = P.snip(outfile, '.gz')
     
     statement = ("humann_join_tables"
@@ -305,10 +317,10 @@ def build_report():
     # decompress merged humann outputs
     # copy report template to report.dir and render report
     # recompress humann outputs
-    statement = '''gunzip humann3.dir/merged*.gz metaphlan_output.dir/metaphlan*.gz;
+    statement = '''gunzip humann3.dir/merged_tables/merged*.gz metaphlan_output.dir/metaphlan*.gz;
                    cp %(reportfile)s report.dir;
                    R -e "rmarkdown::render('report.dir/pipeline_humann3_report.Rmd', output_file='pipeline_humann3_report.html', output_dir='report.dir')";
-                   gzip humann3.dir/merged*.tsv metaphlan_output.dir/metaphlan*.tsv
+                   gzip humann3.dir/merged_tables/merged*.tsv metaphlan_output.dir/metaphlan*.tsv
                 '''
     P.run(statement)
 
@@ -316,7 +328,7 @@ def build_report():
 ###############################################################################
 # Generic pipeline tasks
 @follows(runHumann3, runHumann3_metatranscriptome)
-def runHumann():
+def runHumann3():
     pass
 
 @follows(renormalizeHumannOutput, splitMetaphlanByTaxonomy)
