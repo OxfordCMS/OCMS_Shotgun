@@ -61,11 +61,3 @@ class humann3(object):
             statement = statement + ' && rm -f %(outpath)s/%(prefix)s_humann_temp.tar.gz' % locals()
         return statement
     
-    def run(self):
-        '''functional profile with humann3
-        '''
-        
-        statement = self.buildStatement() + ' && ' + self.postProcess()
-
-        return statement
-
