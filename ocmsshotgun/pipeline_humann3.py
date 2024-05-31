@@ -93,16 +93,13 @@ else:
 @follows(mkdir("input_merged.dir"))
 @transform(FASTQ1s,
            regex(".+/(.+).fastq.1.gz"),
-           r"input_merged.dir/.sentinel.\1")
+           r"input_merged.dir/\1.fastq.gz")
 def poolInputFastqs(infile, sentinel):
     '''Humann relies on pooling input files'''
 
     infiles = utility.matchReference(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
-    prefix = P.snip(os.path.basename(infile), ".fastq.1.gz")
-    outfile = os.path.join(os.path.abspath(os.path.dirname(infile)), 
-                           "input_merged.dir", prefix + "fastq.gz")
-
+    
     if len(fastqs) == 1:
         utility.symlink(infile, outfile)
     else:
@@ -110,10 +107,6 @@ def poolInputFastqs(infile, sentinel):
         statement = "cat %(fastqs)s > %(outfile)s"
         P.run(statement)
     
-    # create sentinel file once completed concatenation
-    statement = "touch (sentinel)s"
-    P.run(statement)
-
 ###############################################################################
 # Run humann3 on concatenated fastq.gz
 # produces a humann3.dir with a folder for each sample, which contains 
