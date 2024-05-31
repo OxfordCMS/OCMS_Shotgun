@@ -94,7 +94,7 @@ else:
 @transform(FASTQ1s,
            regex(".+/(.+).fastq.1.gz"),
            r"input_merged.dir/\1.fastq.gz")
-def poolInputFastqs(infile, sentinel):
+def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
     infiles = utility.matchReference(infile, outfile, **PARAMS)
