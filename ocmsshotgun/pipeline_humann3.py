@@ -137,12 +137,17 @@ def runHumann3(infile, outfiles):
 # Run humann3 on metatranscriptome data
 ###############################################################################
 @active_if(PARAMS['location_transcriptome'])    
-@follows(mkdir("input_mtx_merged.dir"))
 @transform(FASTQ2s,
            regex(".+/(.+).fastq.1.gz"),
            r"input_mtx_merged.dir/\1.fastq.gz")
 def poolTranscriptomeFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
+    
+    # make output directory
+    outdir = os.path.abspath(os.path.dirname(outfile))
+    if os.path.exists(outdir):
+        shutil.rmtree(outdir)
+    os.mkdir(outdir)
 
     infiles = utility.matchReference(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
@@ -154,9 +159,7 @@ def poolTranscriptomeFastqs(infile, outfile):
         statement = "cat %(fastqs)s > %(outfile)s"
         P.run(statement)
 
-@active_if(PARAMS['location_transcriptome'])
 @follows(runHumann3)
-@follows(mkdir("humann3_mtx.dir"))
 @subdivide(poolTranscriptomeFastqs,
            regex(".+/(.+).fastq.gz"),
            add_inputs(r"humann3.dir/\1/\1_metaphlan_bugs_list.tsv.gz"),
@@ -173,6 +176,12 @@ def runHumann3_metatranscriptome(infiles, outfiles):
                             outfile,
                             outfile + '_pathcoverage.tsv.gz')
     
+    # make output directory
+    outdir = os.path.abspath(os.path.dirname(outfile))
+    if os.path.exists(outdir):
+        shutil.rmtree(outdir)
+    os.mkdir(outdir)
+
     tool = H.humann3(infile, outfile, **PARAMS)
 
     # Not sure if humann can take gzipped input
