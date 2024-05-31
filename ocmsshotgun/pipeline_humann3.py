@@ -330,7 +330,7 @@ def build_report():
 ###############################################################################
 # Generic pipeline tasks
 @follows(runHumann3, runHumann3_metatranscriptome)
-def runHumann3():
+def runHumann():
     pass
 
 @follows(renormalizeHumannOutput, splitMetaphlanByTaxonomy)
