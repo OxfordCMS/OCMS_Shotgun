@@ -54,12 +54,22 @@ module load pipelines/preprocess
 
 OR
 
+# modules for using GCCcore/9.3.9
 module load CD-HIT/4.8.1-GCC-9.3.0
 module load CD-HIT-auxtools/4.8.1-GCC-9.3.0
 module load bmtagger/3.101-gompi-2020a
 module load Trimmomatic/0.39-Java-11
 module load BBMap/38.90-GCC-9.3.0
 module load SortMeRNA/4.3.4-GCC-9.3.0
+
+# modules for using GCCcore/12.2.0
+module load CD-HIT/4.8.1-GCC-12.2.0
+module load CD-HIT-auxtools/4.8.1-GCC-12.2.0
+module load SortMeRNA/4.3.4
+module load  bmtagger/3.101-gompi-2022b
+module load BBMap/39.01-GCC-12.2.0 # maybe ask to update BBMap/38.90-GCC-9.3.0 to GCC-12.2.0?
+module load SAMtools/1.17-GCC-12.2.0 # maybe ask to update SAMtools/1.10-GCC-9.3.0 to GCC-12.2.0?
+module load SRPRISM/3.3.2-GCCcore-12.2.0 # # maybe ask to update SRPRISM/3.1.1-GCCcore-9.3.0 to GCC-12.2.0?
 ```
 
 ### Configuration
