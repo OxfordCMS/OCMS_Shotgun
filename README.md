@@ -54,7 +54,8 @@ module load pipelines/preprocess
 
 OR
 
-# modules for using GCCcore/9.3.9
+#### modules for using GCCcore/9.3.9 ####
+
 module load CD-HIT/4.8.1-GCC-9.3.0
 module load CD-HIT-auxtools/4.8.1-GCC-9.3.0
 module load bmtagger/3.101-gompi-2020a
@@ -62,14 +63,15 @@ module load Trimmomatic/0.39-Java-11
 module load BBMap/38.90-GCC-9.3.0
 module load SortMeRNA/4.3.4-GCC-9.3.0
 
-# modules for using GCCcore/12.2.0
+#### modules for using GCCcore/12.2.0 ####
+
 module load CD-HIT/4.8.1-GCC-12.2.0
 module load CD-HIT-auxtools/4.8.1-GCC-12.2.0
 module load SortMeRNA/4.3.4
 module load  bmtagger/3.101-gompi-2022b
-module load BBMap/39.01-GCC-12.2.0 # maybe ask to update BBMap/38.90-GCC-9.3.0 to GCC-12.2.0?
-module load SAMtools/1.17-GCC-12.2.0 # maybe ask to update SAMtools/1.10-GCC-9.3.0 to GCC-12.2.0?
-module load SRPRISM/3.3.2-GCCcore-12.2.0 # # maybe ask to update SRPRISM/3.1.1-GCCcore-9.3.0 to GCC-12.2.0?
+module load BBMap/39.01-GCC-12.2.0 
+module load SAMtools/1.17-GCC-12.2.0 
+module load SRPRISM/3.3.2-GCCcore-12.2.0
 ```
 
 ### Configuration
@@ -132,8 +134,14 @@ module load pipelines/kraken2
 
 OR
 
+#### modules for using GCCcore/9.3.0 ####m
 module load Kraken2/2.0.9-beta-gompi-2020a-Perl-5.30.2
 module load Bracken/2.6.0-GCCcore-9.3.0
+module load taxonkit/0.14.2
+
+#### modules for using GCCcore/12.2.0 ####
+module load Kraken2/2.1.2-gompi-2022b
+module load Bracken/2.9-GCCcore-12.2.0
 module load taxonkit/0.14.2
 ```
 
@@ -211,6 +219,7 @@ module load pipelines/humann3
 
 OR
 
+#### modules for using GCCcore/9.3.0 ####
 module load Bowtie2/2.4.1-GCC-9.3.0
 module load DIAMOND/2.0.15-GCC-9.3.0
 module load Pandoc/2.13
@@ -218,6 +227,13 @@ module load X11/20200222-GCCcore-9.3.0
 module load GLPK/4.65-GCCcore-9.3.0
 module load R/4.2.1-foss-2020a-bare
 
+#### modules for using GCCcore/12.2.0 ####
+module load Bowtie2/2.5.1-GCC-12.2.0
+module load DIAMOND/2.1.8-GCC-12.2.0
+module load Pandoc/2.13
+module load X11/20221110-GCCcore-12.2.0
+module load GLPK/5.0-GCCcore-12.2.0
+module load R/4.3.1-foss-2022b-bare
 ```
 
 ### Configuration
