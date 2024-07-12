@@ -67,9 +67,10 @@ module load SortMeRNA/4.3.4-GCC-9.3.0
 
 module load CD-HIT/4.8.1-GCC-12.2.0
 module load CD-HIT-auxtools/4.8.1-GCC-12.2.0
-module load SortMeRNA/4.3.4
-module load  bmtagger/3.101-gompi-2022b
+module load bmtagger/3.101-gompi-2022b
+module load Trimmomatic/0.39-Java-11
 module load BBMap/39.01-GCC-12.2.0 
+module load SortMeRNA/4.3.4
 module load SAMtools/1.17-GCC-12.2.0 
 module load SRPRISM/3.3.2-GCCcore-12.2.0
 ```
