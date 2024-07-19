@@ -214,12 +214,13 @@ def mergeHumannOutput(infiles, outfile):
     assert suffix in ('pathcoverage', 'pathabundance', 'genefamilies')
 
     # Fetch the input directory
-    indir = os.path.dirname(infiles[0])
     outdir = os.path.dirname(outfile)
-    # need to remove tables dir when re-running pipeline
-    if os.path.exists(outdir):
-        shutil.rmtree(outdir)
-    os.mkdir(outdir)
+    indir = os.path.dirname(outdir)
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+    # need to remove merged dir  when re-running pipeline
+    if os.path.exists(outfile):
+        shutil.rmtree(outfile)
 
     outf = P.snip(outfile, '.gz')
     
