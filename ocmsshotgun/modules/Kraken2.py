@@ -12,45 +12,44 @@ from cgatcore import pipeline as P
 import ocmsshotgun.modules.Utility as utility
 
 class kraken2(utility.matchReference):
-    def __init__(self, fastq1, outfile, **PARAMS):
-        super().__init__(fastq1, outfile, **PARAMS)
-    
-    def builtStatement(self):
+
+    def buildStatement(self):
         # Note that at the moment I only deal with paired-end
         # reads
-        p1 = infile
+        p1 = self.fastq1
         
         prefix = P.snip(self.outfile, ".k2.report.tsv")
     
-        db = self.PARAMS.get("kraken2_db")
-        options = self.PARAMS.get("kraken2_options")
+        db = self.PARAMS["kraken2_db"]
+        job_threads = self.PARAMS["kraken2_job_threads"]
+        options = self.PARAMS["kraken2_options"]
     
-        kraken_statement = ('kraken2',
-                            '--db %(db)s',
-                            '--output %(prefix)s.classified.tsv',
-                            '--report %(prefix)s.k2.report.tsv',
-                            '--use-names',
-                            '--threads %(job_threads)s')
+        kraken_statement = ('kraken2'
+                            ' --db %(db)s'
+                            ' --output %(prefix)s.classified.tsv'
+                            ' --report %(prefix)s.k2.report.tsv'
+                            ' --use-names'
+                            ' --threads %(job_threads)s' % locals())
 
         # paired end reads
         if self.fastq2:
             p2 = p1.replace(".fastq.1.gz", ".fastq.2.gz")
-            statement_entry = ["--paired",
-                               "--gzip-compressed %s %s" % (p1, p2)]
+            statement_entry = (" --paired"
+                               " --gzip-compressed %(p1)s %(p2)s" % locals())
         # single end reads
         else:
-            statement_entry = ["--gzip-compressed %s" % p1]
+            statement_entry = " --gzip-compressed %s" % p1
 
         # build kraken statement
-        kraken_statement = ' '.join(list(kraken_statement) + statement_entry)
+        kraken_statement = kraken_statement + statement_entry
         
         if options != '':
-            statement_entry = (*kraken_statement, '%(options)s')
+            statement_entry = kraken_statement + ' ' + options
 
         # add additional commands
-        statement_entry = ['gzip %(prefix)s.classified.tsv']
+        statement_entry = 'gzip %(prefix)s.classified.tsv' % locals()
         
-        statement = ';'.join([kraken_statement] +  statement_entry)
+        statement = kraken_statement + '; ' +  statement_entry
         
         return statement
 
@@ -88,9 +87,11 @@ def check_bracken_levels(expected_files, outfile):
     else:
         open(outfile, 'a').close()
 
-class bracken(utility.matchReference):
-    def __init__(self, fastq1, outfile, **PARAMS):
-        super().__init__(fastq1, outfile, **PARAMS)
+class bracken():
+    def __init__(self, infile, outfile, **PARAMS):
+        self.infile = infile
+        self.outfile = outfile
+        self.PARAMS = PARAMS
 
     def buildStatement(self):
         '''
@@ -113,18 +114,17 @@ class bracken(utility.matchReference):
         #    return
     
         # bracken parameters
-        db = self.PARAMS.get("bracken_db")
-        read_len = self.PARAMS.get("bracken_read_len")
-        options = self.PARAMS.get("bracken_options")
-
-    
+        db = self.PARAMS["bracken_db"]
+        read_len = self.PARAMS["bracken_read_len"]
+        options = self.PARAMS["bracken_options"]
+        infile = self.infile
+        
         # run bracken at every taxonomic level
-        statement = '''bracken 
-                    -d %(db)s
-                    -i %(infile)s
-                    -o bracken.dir/%(prefix)s.abundance.%(level)s.tsv
-                    -w bracken.dir/%(prefix)s.k2b.report.%(level)s.tsv
-                    -l %(level_param)s
-                    %(options)s
-                    '''
+        statement = ('bracken' 
+                    ' -d %(db)s'
+                    ' -i %(infile)s'
+                    ' -o bracken.dir/%(prefix)s.abundance.%(level)s.tsv'
+                    ' -w bracken.dir/%(prefix)s.k2b.report.%(level)s.tsv'
+                    ' -l %(level_param)s'
+                     ' %(options)s' % locals())
         return statement

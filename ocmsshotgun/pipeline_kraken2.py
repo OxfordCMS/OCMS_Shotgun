@@ -80,14 +80,16 @@ SEQUENCEFILES_REGEX = regex(
 ########################################################
 
 @follows(mkdir("kraken2.dir"))
-@transform(SEQUENCEFILES, SEQUENCEFILES_REGEX, r"kraken2.dir/\1.k2.report.tsv")
+@transform(SEQUENCEFILES, 
+           SEQUENCEFILES_REGEX, 
+           r"kraken2.dir/\1.k2.report.tsv")
 def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
     statement  = K.kraken2(infile, outfile, **PARAMS).buildStatement()
-    P.run(statement
-          job_threads = PARAMS.get("kraken2_job_threads"),
-          job_memory = PARAMS.get("kraken2_job_mem"),
+    P.run(statement,
+          job_threads = PARAMS["kraken2_job_threads"],
+          job_memory = PARAMS["kraken2_job_mem"],
           job_options = PARAMS.get('kraken2_job_options',''))
 
 ########################################################
@@ -107,12 +109,15 @@ def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
     '''
-    statement = K.bracken(infile, outfile, **PARAMS).build()
+    print('=============================================================')
+    print(infile)
+    print(outfile)
+    statement = K.bracken(infile, outfile, **PARAMS).buildStatement()
 
     P.run(statement,
-          job_threads = PARAMS.get("bracken_job_threads"),
-          job_memory = PARAMS.get("bracken_job_mem"),
-          job_threads = PARAMS.get('bracken_job_options',''))    
+          job_threads = PARAMS["bracken_job_threads"],
+          job_memory = PARAMS["bracken_job_mem"],
+          job_options = PARAMS.get('bracken_job_options',''))    
 
 # check all backen at all taxonomic levels has been run
 @follows(runBracken)
@@ -150,7 +155,7 @@ def mergeBracken(infiles, outfile):
                      -c 1,2
                      --log=bracken.dir/merged_abundances.%(level)s.log > %(outfile)s                
                  '''
-     P.run(statement)
+    P.run(statement)
 
 ########################################################
 ########################################################
