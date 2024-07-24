@@ -29,7 +29,7 @@ class humann3(object):
         
         statement = ("humann"
                      " --input %(infile)s"
-                     " --output %(outpath)s/%(prefix)s"
+                     " --output %(outpath)s"
                      " --nucleotide-database %(db_nucleotide)s"
                      " --protein-database %(db_protein)s"
                      " --search-mode %(search_mode)s"
@@ -41,21 +41,23 @@ class humann3(object):
     def postProcess(self):
         prefix = self.prefix
         outpath = self.outpath
+
+        if self.taxonomic_profile:
+            options = ""
+        else:
+            options = (" gzip %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv &&"
+                       " mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv.gz %(outpath)s &&" % locals())
         
-        statement =  ("gzip %(outpath)s/%(prefix)s_pathcoverage.tsv &&"
+        statement =  ("mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s.log %(outpath)s &&"
+                      " gzip %(outpath)s/%(prefix)s_pathcoverage.tsv &&"
                       " gzip %(outpath)s/%(prefix)s_pathabundance.tsv &&" 
                       " gzip %(outpath)s/%(prefix)s_genefamilies.tsv &&"
-                      " gzip %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv &&"
-                      " mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv.gz %(outpath)s &&"
+                      " %(options)s"
                       " tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp &&"
                       " rm -rf %(outpath)s/%(prefix)s_humann_temp" % locals())
-
+        
+        remove_humann_temp = self.PARAMS.get('humann_remove_humann_temp',True)
+        if remove_humann_temp:
+            statement = statement + ' && rm -f %(outpath)s/%(prefix)s_humann_temp.tar.gz' % locals()
         return statement
     
-    def run(self):
-        '''functional profile with humann3
-        '''
-        
-        statement = self.buildStatement() + ' && ' + self.postProcess()
-
-        return statement
