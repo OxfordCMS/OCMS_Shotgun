@@ -35,18 +35,37 @@ library(DT)
 ```
 
 ```{r read-data}
-path_coverage <- read.csv("../humann3.dir/merged_pathcoverage.tsv", sep="\t")
-path_abundance <- read.csv("../humann3.dir/merged_pathabundance.tsv", sep="\t")
-gene_abundance <- read.csv("../humann3.dir/merged_genefamilies.tsv", sep="\t")
+path_coverage <- read.table("../humann3.dir/merged_tables/merged_pathcoverage.tsv", sep="\t")
+path_abundance <- read.table("../humann3.dir/merged_tables/merged_pathabundance.tsv", sep="\t")
+gene_abundance <- read.table("../humann3.dir/merged_tables/merged_genefamilies.tsv", sep="\t")
 taxa_abundance <- list()
-iter_file <- list.files("../humann3.dir/", pattern = "merged_metaphlan_.*\\.tsv")
+iter_file <- list.files("../metaphlan_output.dir/", pattern = "metaphlan_.*\\.tsv")
 for(i in 1:length(iter_file)) {
-  curr_level <- gsub("merged_metaphlan_", "", iter_file[i])
+  curr_level <- gsub("metaphlan_", "", iter_file[i])
   curr_level <- gsub(".tsv", "", curr_level)
-  curr_file <- file.path("../humann3.dir", iter_file[i])
-  taxa_abundance[[curr_level]] <- read.csv(curr_file, sep="\t")
+  curr_file <- file.path("../metaphlan_output.dir", iter_file[i])
+  taxa_abundance[[curr_level]] <- read.table(curr_file, sep="\t")
 }
 
+# update headers
+header <- readLines("../humann3.dir/merged_tables/merged_pathcoverage.tsv", n=1)
+header <- unlist(strsplit(header, '\t'))
+header[1] <- gsub("^# ", "", tolower(header[1]))
+header <- gsub("_pathcoverage.tsv$", "", header)
+colnames(path_coverage) <- header
+
+header <- readLines("../humann3.dir/merged_tables/merged_pathabundance.tsv", n=1)
+header <- unlist(strsplit(header, '\t'))
+header[1] <- gsub("^# ", "", tolower(header[1]))
+header <- gsub("_pathabundance.tsv$", "", header)
+colnames(path_abundance) <- header
+
+header <- header <- readLines("../humann3.dir/merged_tables/merged_genefamilies.tsv", n=1)
+header <- unlist(strsplit(header, '\t'))
+header <- gsub("_genefamilies.tsv$", "", header)
+header[1] <- gsub("^# ", "", header[1])
+header[1] <- gsub(" ", "_", tolower(header[1]))
+colnames(gene_abundance) <- header
 ```
 
 ## Pipeline parameters
