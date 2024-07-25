@@ -59,8 +59,11 @@ from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 import ocmsshotgun.modules.Kraken2 as K
+import ocmsshotgun.modules.Utility as utility
+PARAMS = P.get_parameters(["pipeline.yml"])
 
-PARAMS = P.get_parameters("pipeline.yml")
+# check files to be processed
+FASTQ1 = utility.check_input()
 
 #get all files within the directory to process
 SEQUENCEFILES = ("*.fastq.1.gz")
@@ -77,11 +80,17 @@ SEQUENCEFILES_REGEX = regex(
 ########################################################
 
 @follows(mkdir("kraken2.dir"))
-@transform(SEQUENCEFILES, SEQUENCEFILES_REGEX, r"kraken2.dir/\1.k2.report.tsv")
+@transform(SEQUENCEFILES, 
+           SEQUENCEFILES_REGEX, 
+           r"kraken2.dir/\1.k2.report.tsv")
 def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
-    K.kraken2(infile, outfile, **PARAMS).run()
+    statement  = K.kraken2(infile, outfile, **PARAMS).buildStatement()
+    P.run(statement,
+          job_threads = PARAMS["kraken2_job_threads"],
+          job_memory = PARAMS["kraken2_job_mem"],
+          job_options = PARAMS.get('kraken2_job_options',''))
 
 ########################################################
 ########################################################
@@ -95,19 +104,27 @@ def runKraken2(infile, outfile):
                                 
 @follows(runKraken2)
 @follows(mkdir("bracken.dir"))
-@files(K.utility.generate_parallel_params)
+@files(K.generate_parallel_params)
 def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
     '''
-    K.bracken(infile, outfile, **PARAMS).run()
+    print('=============================================================')
+    print(infile)
+    print(outfile)
+    statement = K.bracken(infile, outfile, **PARAMS).buildStatement()
+
+    P.run(statement,
+          job_threads = PARAMS["bracken_job_threads"],
+          job_memory = PARAMS["bracken_job_mem"],
+          job_options = PARAMS.get('bracken_job_options',''))    
 
 # check all backen at all taxonomic levels has been run
 @follows(runBracken)
-@merge(K.utility.files_to_check(), "bracken.dir/.sentinel.check")
+@merge(K.files_to_check(), "bracken.dir/.sentinel.check")
 def checkBrackenLevels(expected_files, outfile):
     
-    K.utility.check_bracken_levels(expected_files, outfile)
+   K.check_bracken_levels(expected_files, outfile)
 
 ########################################################
 ########################################################
@@ -122,8 +139,23 @@ def mergeBracken(infiles, outfile):
     '''
     merge sample results from bracken
     '''
-    K.mergebracken.run(infiles, outfile)
-    
+    level = P.snip(os.path.basename(outfile), ".tsv")
+    level = level.split(".")[-1]
+
+    sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
+    sample_names = [P.snip(x, "." + level) for x in sample_names]
+    titles = ",".join([x for x in sample_names])
+
+    statement = '''  cgat combine_tables
+                     --glob=bracken.dir/*.abundance.%(level)s.tsv
+                     --skip-titles
+                     --header-names=%(titles)s
+                     -m 0
+                     -k 6
+                     -c 1,2
+                     --log=bracken.dir/merged_abundances.%(level)s.log > %(outfile)s                
+                 '''
+    P.run(statement)
 
 ########################################################
 ########################################################
