@@ -178,7 +178,7 @@ class trimmomatic(matchReference):
         trimmomatic_jar_path = self.PARAMS["trimmomatic_jar_path"]
         trimmomatic_n_threads = self.PARAMS["trimmomatic_n_threads"]
         # >0.32 determines phred format automatically, here for legacy
-        phred_format = '-phred' + str(self.PARAMS.get('phred_format', ''))
+        phred_format = '-phred' + str(self.PARAMS.get('phred_format', 33))
         
         trimmomatic_adapters = self.PARAMS["trimmomatic_adapters"]
         trimmomatic_seed_mismatches = self.PARAMS["trimmomatic_seed_mismatches"]
@@ -537,9 +537,10 @@ class bmtagger(matchReference):
                 # bmtagger truncates fasta headers...  sed 's/[[:space:]]\+/__/g'
                 # It won't accept... sed 's|[[:space:]].*$|/1|'
                 # It also fails if fastq1 header differs from fastq2
+                #### UPDATED LOCATION OF bmtagger.sh ####
                 statement1 = ("zcat %(fastq1)s > %(tmpf1)s &&"
                               " zcat %(fastq2)s > %(tmpf2)s &&"
-                              " bmtagger.sh"
+                              " /users/todd/liu839/Scripts/bmtagger_debugged.sh"
                               "  -b %(bitmask)s"
                               "  -x %(srprism)s"
                               "  -T %(tmpdir1)s"
@@ -554,9 +555,10 @@ class bmtagger(matchReference):
                               "  %(outf_host_stub)s_paired%(n)s" % locals())
 
                 # Screen the singletons
+                #### UPDATED LOCATION OF bmtagger.sh ####
                 if os.path.exists(self.fastq3) and IOTools.open_file(self.fastq3).read(1):
                     statement2 = ("zcat %(fastq3)s > %(tmpf3)s &&"
-                                  " bmtagger.sh"
+                                  " /users/todd/liu839/Scripts/bmtagger_debugged.sh"
                                   "  -b %(bitmask)s"
                                   "  -x %(srprism)s"
                                   "  -T %(tmpdir2)s"
@@ -588,9 +590,9 @@ class bmtagger(matchReference):
                 # Screen the singletons
                 tmpdir1 = P.get_temp_dir('.')
                 tmpf = P.get_temp_filename('.')
-                
+                #### UPDATED LOCATION OF bmtagger.sh ####
                 statement = ("zcat %(fastq1)s > %(tmpf)s &&"
-                             " bmtagger.sh"
+                             " /users/todd/liu839/Scripts/bmtagger_debugged.sh"
                              "  -b %(bitmask)s"
                              "  -x %(srprism)s"
                              "  -T %(tmpdir1)s"
