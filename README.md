@@ -233,7 +233,7 @@ module load R/4.2.1-foss-2020a-bare
 #### modules for using GCCcore/12.2.0 ####
 module load Bowtie2/2.5.1-GCC-12.2.0
 module load DIAMOND/2.1.8-GCC-12.2.0
-module load Pandoc/2.13
+module load Pandoc/2.5
 module load X11/20221110-GCCcore-12.2.0
 module load GLPK/5.0-GCCcore-12.2.0
 module load R/4.3.1-foss-2022b-bare
