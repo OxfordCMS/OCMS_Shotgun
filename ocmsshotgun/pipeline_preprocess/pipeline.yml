@@ -13,7 +13,8 @@ projectname: Preprocess mWGS Samples
 copyright: Jethro Johnson
 
 # The short X.Y version.
-version: 0.1
+# this version has filepath specific for gpfs3/well/todd rather than gpfs3/well/kir
+version: 0.2
 
 # The full version, including alpha/beta/rc tags.
 release: 0.1
@@ -53,7 +54,7 @@ trimmomatic:
     # Location of contaminants file
     # NexteraPE-PE.fa, TruSeq2-PE.fa, TruSeq3-PE-2.fa, TruSeq3-PE.fa
     # TruSeq2-SE.fa, TruSeq3-SE.fa
-    adapters: /gpfs3/well/johnson/shared/databases/adapters/HTG_oligov2/HTG_oligov2.fa
+    adapters: /gpfs3/well/todd/projects/Microbiome/Ref_Databases/adapters/NEBNextUltraII-PE.fa
     
     phred_format: 33
 
@@ -92,16 +93,16 @@ trimmomatic:
 sortmerna:
 
     # Options for removing contaminant rRNA
-    index: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_indexes/
+    index: /gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_indexes/
 
-    reference: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/rfam-5.8s-database-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/rfam-5s-database-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-arc-16s-id95.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-arc-23s-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-bac-16s-id90.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-bac-23s-id98.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-euk-18s-id95.fasta,/gpfs3/well/johnson/shared/mirror/rrna/sortmerna/rRNA_databases/silva-euk-28s-id98.fasta 
+    reference: /gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_databases/rfam-5.8s-database-id98.fasta,/gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_databases/rfam-5s-database-id98.fasta,/gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_databases/silva-arc-16s-id95.fasta,/gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_databases/silva-arc-23s-id98.fasta,/gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_databases/silva-bac-16s-id90.fasta,/gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_databases/ilva-bac-23s-id98.fasta,/gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_databases/silva-euk-18s-id95.fasta,/gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/rRNA_databases/silva-euk-28s-id98.fasta 
 
     options: ''
 
     # Options for classfiying rRNA
-    otu_index: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/16S_indexes/
+    otu_index: /gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/16S_indexes/
 
-    otu_reference: /gpfs3/well/johnson/shared/mirror/rrna/sortmerna/16S_databases/GTDB_bac-arc_ssu_r86.fasta
+    otu_reference: gpfs3/well/todd/projects/Microbiome/Ref_Databases/sortmerna/16S_databases/GTDB_bac-arc_ssu_r86.fasta
 
     otu_options: --id 0.97 --coverage 0.97 --de_novo_otu True  --otu_map True
 
@@ -118,10 +119,11 @@ bmtagger:
     # keep_pairs: ''
 
     # Comma-separated list of genomes to screen against
-    bitmask: /gpfs3/well/johnson/shared/mirror/genome/bmtagger/bitmask/hg38.bitmask
+    bitmask: /gpfs3/well/todd/projects/Microbiome/Ref_Databases/bmtagger/bitmask/hg38.bitmask
 
-    srprism: /gpfs3/well/johnson/shared/mirror/genome/bmtagger/srprism/hg38.srprism
-
+    # srprism: /gpfs3/well/todd/projects/Microbiome/Ref_Databases/bmtagger/srprism/hg38.srprism
+    # create ref using updated module load SRPRISM/3.3.2-GCCcore-12.2.0
+    srprism: /gpfs3/well/todd/projects/Microbiome/Ref_Databases/human_genome/hg38.srprism
    
     # Cluster options  
     job_threads: 1
