@@ -390,6 +390,9 @@ class bmtagger(utility.matchReference):
 
         fastq1 = self.fastq1
         outfile = self.outfile
+        bmtagger_exec = self.PARAMS['bmtagger_executable']
+        assert bmtagger_exec in ["bmtagger.sh", "bmtagger_mod.sh"], "must specify bmtagger.sh or bmtagger_mod.sh"
+
         if self.fastq2:
             fastq2 = self.fastq2
             fastq3 = self.fastq3
@@ -401,7 +404,7 @@ class bmtagger(utility.matchReference):
             # In some cases, it may be desirable to screen against multiple hosts.
             indexes = zip(self.PARAMS['bmtagger_bitmask'].split(','),
                           self.PARAMS['bmtagger_srprism'].split(','))
-            
+           
             statements=[]
             for n, indexes in enumerate(indexes, 1):
                 n = str(n)
@@ -420,7 +423,7 @@ class bmtagger(utility.matchReference):
                 # It also fails if fastq1 header differs from fastq2
                 statement1 = ("zcat %(fastq1)s > %(tmpf1)s &&"
                               " zcat %(fastq2)s > %(tmpf2)s &&"
-                              " bmtagger.sh"
+                              " %(bmtagger_exec)s"
                               "  -b %(bitmask)s"
                               "  -x %(srprism)s"
                               "  -T %(tmpdir1)s"
@@ -437,7 +440,7 @@ class bmtagger(utility.matchReference):
                 # Screen the singletons
                 if os.path.exists(self.fastq3) and IOTools.open_file(self.fastq3).read(1):
                     statement2 = ("zcat %(fastq3)s > %(tmpf3)s &&"
-                                  " bmtagger.sh"
+                                  " %(bmtagger_exec)s"
                                   "  -b %(bitmask)s"
                                   "  -x %(srprism)s"
                                   "  -T %(tmpdir2)s"
@@ -471,7 +474,7 @@ class bmtagger(utility.matchReference):
                 tmpf = P.get_temp_filename('.')
                 
                 statement = ("zcat %(fastq1)s > %(tmpf)s &&"
-                             " bmtagger.sh"
+                             " %(bmtagger_exec)s"
                              "  -b %(bitmask)s"
                              "  -x %(srprism)s"
                              "  -T %(tmpdir1)s"
@@ -731,18 +734,18 @@ def summariseReadCounts(infiles, outfile):
             masked = df.loc['masked', 1]
             input_reads = df.loc['input', 1]
             
-            lost_dup = input_reads - deduped
-            lost_adapt = deduped - deadapt
-            lost_rrna = deadapt - rrna
-            lost_host = rrna - dehost
-            lost_mask = dehost - masked
+            lost_dup = int(input_reads) - int(deduped)
+            lost_adapt = int(deduped) - int(deadapt)
+            lost_rrna = int(deadapt) - int(rrna)
+            lost_host = int(rrna) - int(dehost)
+            lost_mask = int(dehost) - int(masked)
 
             lost_dup_perc = round(lost_dup/float(input_reads) * 100, 2)
             lost_adapt_perc = round(lost_adapt/float(input_reads) * 100, 2)
             lost_rrna_perc = round(lost_rrna/float(input_reads) * 100, 2)
             lost_host_perc = round(lost_host/float(input_reads) * 100, 2)
             lost_mask_perc = round(lost_mask/float(input_reads) * 100, 2)
-            output_perc = round(masked/float(input_reads) * 100, 2)
+            output_perc = round(float(masked)/float(input_reads) * 100, 2)
 
             outf.write('\t'.join(map(str, [sample_id, input_reads, masked, 
                                            lost_dup, lost_adapt, lost_rrna, 

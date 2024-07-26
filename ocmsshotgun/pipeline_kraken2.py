@@ -146,7 +146,7 @@ def mergeBracken(infiles, outfile):
     sample_names = [P.snip(x, "." + level) for x in sample_names]
     titles = ",".join([x for x in sample_names])
 
-    statement = '''  cgat combine_tables
+    statement = '''  cgat tables2table
                      --glob=bracken.dir/*.abundance.%(level)s.tsv
                      --skip-titles
                      --header-names=%(titles)s
