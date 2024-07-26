@@ -190,7 +190,7 @@ def combineRNAClassification(infiles, outfile):
 
     infiles = ' '.join(infiles)
 
-    statement = ("cgat combine_tables"
+    statement = ("cgat tables2table"
                  "  --log=%(outfile)s.log"
                  "  %(infiles)s |"
                  " gzip > %(outfile)s")
@@ -258,9 +258,12 @@ def maskLowComplexity(fastq1, outfile):
            r"read_count_summary.dir/\1_input.nreads")
 def countInputReads(infile, outfile):
     
+    outf = open(outfile, "w")
+    outf.write("nreads\n")
+    outf.close()
     statement = ("zcat %(infile)s |"
                  " awk '{n+=1;} END {printf(n/4\"\\n\");}'"
-                 " > %(outfile)s")
+                 " >> %(outfile)s")
 
     P.run(statement)
 
@@ -272,9 +275,13 @@ def countInputReads(infile, outfile):
            r'read_count_summary.dir/\1.nreads')
 def countOutputReads(infile, outfile):
     '''Count the number of reads in the output files'''    
+    
+    outf = open(outfile, "w")
+    outf.write("nreads\n")
+    outf.close()
     statement = ("zcat %(infile)s |"
                  " awk '{n+=1;} END {printf(n/4\"\\n\");}'"
-                 " > %(outfile)s")
+                 " >> %(outfile)s")
 
     P.run(statement)
 
@@ -286,7 +293,7 @@ def collateReadCounts(infiles, outfile):
 
     infiles = ' '.join(infiles)
     
-    statement = ("cgat combine_tables"
+    statement = ("cgat tables2table"
                  " --cat Step"
                  " --regex-filename='.+_(.+)\.nreads'"
                  " --no-titles"
