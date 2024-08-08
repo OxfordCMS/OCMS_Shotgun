@@ -142,7 +142,7 @@ def mergeBracken(infiles, outfile):
     level = P.snip(os.path.basename(outfile), ".tsv")
     level = level.split(".")[-1]
 
-    sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
+    sample_names = [P.snip(os.path.basename(x), ".tsv") for x in glob.glob("bracken.dir/*.abundance.%s.tsv" % level)]
     sample_names = [P.snip(x, "." + level) for x in sample_names]
     titles = ",".join([x for x in sample_names])
 
