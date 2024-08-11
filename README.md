@@ -117,14 +117,11 @@ Uses Taxonkit to generate a taxonomy file listing taxonomic lineage in mpa style
 ### Dependencies
 Taxonkit requires NCBI taxonomy files, which can be downloaded from the [NCBI FTP](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz). Path to directory of taxonomy files is specified in the `taxdump` parameter in the yml. 
 
+If you are working on the BMRC then please see OCMS_Modulefiles for how to use the correct modules for each pipeline. An example is:
+
 ```
 module load pipelines/kraken2
 
-OR
-
-module load Kraken2/2.0.9-beta-gompi-2020a-Perl-5.30.2
-module load Bracken/2.6.0-GCCcore-9.3.0
-module load taxonkit/0.14.2
 ```
 
 ### Configuration
@@ -135,7 +132,7 @@ ocms_shotgun kraken2 config
 ```
 
 ### Input files
-Pipeline preprocess takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in the working directory.
+Pipeline kraken2 takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in the working directory.
 
 ### Pipeline tasks
 
@@ -166,6 +163,9 @@ bracken.dir/
 
 # showing taxonomy as mpa-styled lineages
 taxonomy.dir/
+
+# counts with taxonomy information added as feature name
+counts.dir/
 ```
 
 ## Pipeline Concatfastq
