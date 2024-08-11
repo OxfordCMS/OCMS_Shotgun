@@ -204,7 +204,7 @@ def addTaxonomyToCounts(infile, outfile):
     statement = '''ocms_shotgun add_taxonomy
                    -c %(counts_file)s
                    -t %(taxonomy_file)s
-                   --log=add_taxonomy_%(level)s.log
+                   --log=counts.dir/add_taxonomy_%(level)s.log
                    > %(outfile)s
                 '''
     P.run(statement)
