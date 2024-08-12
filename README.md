@@ -14,7 +14,7 @@ pip install .
 ```
 
 ## Pipeline Environments
-Each pipeline has it's own set of dependencies. It is recommended that you only load the tools necessary for the pipeline being used. If you are working within the BMRC HPC, you can load the pipeline modulefile. See the OCMS modulefiles SOP for more details. If you are not working within the BMRC, please ensure that
+Each pipeline has it's own set of dependencies. It is recommended that you only load the tools necessary for the pipeline being used. If you are working within the BMRC HPC, you can load the pipeline modulefile. Please see the [OCMS_Modulefiles](https://github.com/OxfordCMS/OCMS_Modulefiles) repository for details and to download the modulefiles and read the OCMS modulefiles SOP for more details. If you are not working within the BMRC, please ensure that you have the appropriate software installed and in your PATH.
 
 ## Quick Start
 All pipelines are written to be used within a HPC system, but can be run using the `--local` flag to run locally. 
@@ -34,7 +34,7 @@ ocms_shotgun preprocess show full
 Run pipeline individual pipeline tasks with `make` followed by the pipeline task or run all pipeline tasks with `make full`
 
 ```
-ocms_shotgun kraken2 make full -p 20 -v 5
+ocms_shotgun preprocess make full -p 20 -v 5
 ```
 
 ## Pipeline Preprocess
@@ -49,17 +49,31 @@ This pipeline pre-processes shotgun metagenome or metatranscriptome data. It per
 * summrise preprocessed read counts
 
 ### Dependencies
+
+Software requirements:
+
++----------------+
+| CD-HIT         |
++----------------+
+| CD-HIT-auxtools|
++----------------+
+| SortMeRNA      |
++----------------+
+| bmtagger       |
++----------------+
+| BBMap          |
++ ---------------+
+| SAMtools       |
++----------------+
+| SRPRISM        |
++----------------+
+| Trimmomatic    |
++----------------+
+
+If using OCMS_Modulefiles you can simply load the modules:
+
 ```
 module load pipelines/preprocess
-
-OR
-
-module load CD-HIT/4.8.1-GCC-9.3.0
-module load CD-HIT-auxtools/4.8.1-GCC-9.3.0
-module load bmtagger/3.101-gompi-2020a
-module load Trimmomatic/0.39-Java-11
-module load BBMap/38.90-GCC-9.3.0
-module load SortMeRNA/4.3.4-GCC-9.3.0
 ```
 
 ### Configuration
@@ -117,14 +131,22 @@ Uses Taxonkit to generate a taxonomy file listing taxonomic lineage in mpa style
 ### Dependencies
 Taxonkit requires NCBI taxonomy files, which can be downloaded from the [NCBI FTP](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz). Path to directory of taxonomy files is specified in the `taxdump` parameter in the yml. 
 
+Software requirements:
+
++----------------+
+| Kraken2	 |
++----------------+
+| Bracken        |
++----------------+
+| taxonkit	 |
++----------------+
+
+
+If using OCMS_Modulefiles you can simply load the modules:
+
 ```
 module load pipelines/kraken2
 
-OR
-
-module load Kraken2/2.0.9-beta-gompi-2020a-Perl-5.30.2
-module load Bracken/2.6.0-GCCcore-9.3.0
-module load taxonkit/0.14.2
 ```
 
 ### Configuration
@@ -135,7 +157,7 @@ ocms_shotgun kraken2 config
 ```
 
 ### Input files
-Pipeline preprocess takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in the working directory.
+Pipeline kraken2 takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in the working directory.
 
 ### Pipeline tasks
 
@@ -166,6 +188,9 @@ bracken.dir/
 
 # showing taxonomy as mpa-styled lineages
 taxonomy.dir/
+
+# counts with taxonomy information added as feature names
+counts.dir/
 ```
 
 ## Pipeline Concatfastq
@@ -196,18 +221,26 @@ This pipeline performs functional profiling of fastq files using Humann3.
 ### Dependencies
 This pipeline was written for Humann3 v3.8 and Metaphlan 3.1. If you're not working within BMRC, Humann3 and Metaphlan3 need to be installed according to their developers' instructions. 
 
+Software requirements:
+
++----------------+
+| Bowtie2        |
++----------------+
+| MetaPhlAn      |
++----------------+
+| humann         |
++----------------+
+| DIAMOND        |
++----------------+
+| R              |
++ ---------------+
+| Pandoc         |
++----------------+
+
+If using OCMS_Modulefiles you can simply load the modules:
+
 ```
 module load pipelines/humann3
-
-OR
-
-module load Bowtie2/2.4.1-GCC-9.3.0
-module load DIAMOND/2.0.15-GCC-9.3.0
-module load Pandoc/2.13
-module load X11/20200222-GCCcore-9.3.0
-module load GLPK/4.65-GCCcore-9.3.0
-module load R/4.2.1-foss-2020a-bare
-
 ```
 
 ### Configuration

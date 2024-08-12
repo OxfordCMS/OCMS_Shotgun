@@ -182,9 +182,38 @@ def translateTaxonomy(infile, outfile):
                 '''
     P.run(statement)
 
+########################################################
+########################################################
+########################################################
+# Add taxonomy to counts tables
+########################################################
+########################################################
+########################################################
+@follows(mkdir("counts.dir"))
+@transform(translateTaxonomy,
+           regex("taxonomy.dir/mpa_taxonomy\.(\S+).tsv"),
+           r"counts.dir/\1_counts.tsv")
+def addTaxonomyToCounts(infile, outfile):
+    '''
+    add taxonomy information to the bracken counts tables
+    '''
+    taxonomy_file = infile
+    level = os.path.basename(infile).split(".")[1]
+    counts_file = [
+        x for x in glob.glob("bracken.dir/merged_abundances*.tsv") if level in x][0]
+    statement = '''ocms_shotgun add_taxonomy
+                   -c %(counts_file)s
+                   -t %(taxonomy_file)s
+                   --log=counts.dir/add_taxonomy_%(level)s.log
+                   > %(outfile)s
+                '''
+    P.run(statement)
+
+
+
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows(translateTaxonomy)
+@follows(addTaxonomyToCounts)
 def full():
     pass
 
