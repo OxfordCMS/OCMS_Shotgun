@@ -52,23 +52,23 @@ This pipeline pre-processes shotgun metagenome or metatranscriptome data. It per
 
 Software requirements:
 
-+----------------+
+|----------------|
 | CD-HIT         |
-+----------------+
+|----------------|
 | CD-HIT-auxtools|
-+----------------+
+|----------------|
 | SortMeRNA      |
-+----------------+
+|----------------|
 | bmtagger       |
-+----------------+
+|----------------|
 | BBMap          |
-+ ---------------+
+| ---------------|
 | SAMtools       |
-+----------------+
+|----------------|
 | SRPRISM        |
-+----------------+
+|----------------|
 | Trimmomatic    |
-+----------------+
+|----------------|
 
 If using OCMS_Modulefiles you can simply load the modules:
 
@@ -133,13 +133,13 @@ Taxonkit requires NCBI taxonomy files, which can be downloaded from the [NCBI FT
 
 Software requirements:
 
-+----------------+
+|----------------|
 | Kraken2	 |
-+----------------+
+|----------------|
 | Bracken        |
-+----------------+
+|----------------|
 | taxonkit	 |
-+----------------+
+|----------------|
 
 
 If using OCMS_Modulefiles you can simply load the modules:
@@ -223,19 +223,19 @@ This pipeline was written for Humann3 v3.8 and Metaphlan 3.1. If you're not work
 
 Software requirements:
 
-+----------------+
+|----------------|
 | Bowtie2        |
-+----------------+
+|----------------|
 | MetaPhlAn      |
-+----------------+
+|----------------|
 | humann         |
-+----------------+
+|----------------|
 | DIAMOND        |
-+----------------+
+|----------------|
 | R              |
-+ ---------------+
+| ---------------|
 | Pandoc         |
-+----------------+
+|----------------|
 
 If using OCMS_Modulefiles you can simply load the modules:
 
