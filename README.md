@@ -114,6 +114,12 @@ ocms_shotgun preprocess make full -p 20 -v 5
 
 ### Output
 ```
+# Summary of reads remaining after each task
+processing_summary.tsv
+
+# output reads after serial filtering steps
+reads_dusted.dir/
+
 ```
 
 ## Pipeline Kraken2
