@@ -37,6 +37,9 @@ Run pipeline individual pipeline tasks with `make` followed by the pipeline task
 ocms_shotgun preprocess make full -p 20 -v 5
 ```
 
+<details>
+  <summary>Pipeline Preprocess</summary>
+
 ## Pipeline Preprocess
 This pipeline pre-processes shotgun metagenome or metatranscriptome data. It performes the following:
 
@@ -122,6 +125,11 @@ reads_dusted.dir/
 
 ```
 
+<details>
+
+<details>
+  <summary>Pipeline Kraken2</summary>
+
 ## Pipeline Kraken2
 Uses Kraken2 to classify paired-end reads
 Uses Bracken to estimate abundances at every taxonomic level
@@ -190,6 +198,12 @@ taxonomy.dir/
 counts.dir/
 ```
 
+<details>
+
+
+<details>
+  <summary>Pipeline Concatfastq</summary>
+
 ## Pipeline Concatfastq
 This pipelines concatenates paired-end reads into one file. This is helpful when running Humann3.
 
@@ -211,6 +225,11 @@ ocms_shotgun concatfastq make full -p 20 -v 5
 
 ### Output
 Concatenated fastq files located in `concat.dir/`
+
+<details>
+
+<details>
+  <summary>Pipeline Humann3</summary>
 
 ## Pipeline Humann3
 This pipeline performs functional profiling of fastq files using Humann3.
@@ -297,3 +316,5 @@ Generate a report on humann3 results
 ```
 ocms_shotgun humann3 make build_report
 ```
+
+<details>
