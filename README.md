@@ -127,7 +127,7 @@ reads_dusted.dir/
 
 ```
 
-<\details>
+</details>
 
 <details>
   <summary>Pipeline Kraken2</summary>
@@ -200,7 +200,7 @@ taxonomy.dir/
 counts.dir/
 ```
 
-<\details>
+</details>
 
 
 <details>
@@ -228,7 +228,7 @@ ocms_shotgun concatfastq make full -p 20 -v 5
 ### Output
 Concatenated fastq files located in `concat.dir/`
 
-<\details>
+</details>
 
 <details>
   <summary>Pipeline Humann3</summary>
@@ -319,4 +319,4 @@ Generate a report on humann3 results
 ocms_shotgun humann3 make build_report
 ```
 
-<\details>
+</details>
