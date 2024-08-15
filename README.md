@@ -40,7 +40,7 @@ ocms_shotgun preprocess make full -p 20 -v 5
 # Pipelines
 
 <details>
-  <summary>Pipeline Databases<summary>
+  <summary>Pipeline Databases</summary>
 
 Each pipeline requires certain databases and indexes to run. For consistency between members of the group and to ensure compatibility with the different tool chains on the BMRC we have developed pipeline_databases. The pipeline is designed to either download pre-built index files (e.g. kraken2) or to download flat files and index them with a particular tool.
 
