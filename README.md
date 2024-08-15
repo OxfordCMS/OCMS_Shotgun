@@ -40,6 +40,93 @@ ocms_shotgun preprocess make full -p 20 -v 5
 # Pipelines
 
 <details>
+  <summary>Pipeline Databases<summary>
+
+Each pipeline requires certain databases and indexes to run. For consistency between members of the group and to ensure compatibility with the different tool chains on the BMRC we have developed pipeline_databases. The pipeline is designed to either download pre-built index files (e.g. kraken2) or to download flat files and index them with a particular tool.
+
+### Dependencies
+
+The software dependencies are the same as for the pipelines below. If you are working on BMRC then please also see [OCMS_Modulefiles](https://github.com/OxfordCMS/OCMS_Modulefiles) for an explanation of how to set up your environment.
+
+### Configuration
+
+To create a pipeline.yml file for configuration type
+
+```
+ocms_shotgun databases config
+```
+
+Edit this file with versions of software for database creation.
+
+### Run pipeline_databases
+
+There are no inout files specified as the task dependencies are created on the fly. If you only want to create databases for a single pipeline then you can use, for example,
+
+```
+ocms_shotgun databases make buildPreprocessDatabases
+```
+
+which will build the databases for the preprocess pipeline. If you want to produce databases for every pipeline in OCMS_Shotgun repository then you can use
+
+```
+ocms_shotgun databases make full
+```
+
+Note that some database files that are downloaded from various repositories are very large and so may take some hours to download.
+
+### Output
+
+The structure of the output for the "full" pipeline is as follows:
+
+microbiome/
+|--genomes/
+|  |-human/
+|    |-build/
+|      |-build.fa.gz
+|   |-mouse/
+|     |-build
+|       |-build.fa.gz
+|
+|--SRPRISM/
+|  |-human/
+|    |-build/
+|      |-GCC-version/
+|        |-srprism-version/
+|          |-build.srprism*
+|  |-mouse 
+|    |-build/
+|      |-GCC-version/
+|        |-srprism-version/
+|          |-build.srprism*
+|
+|--bmtool/
+|  |-human/
+|    |-build/
+|      |-GCC-version/
+|        |-bmtool-version/
+|          |-build.bitmask
+|   |-mouse 
+|     |-build/
+|       |-GCC-version/
+|         |-bmtool-version/
+|           |-build.bitmask
+|
+|--kraken2/
+|   |-kraken2-version/
+|     |-database_version/
+|       |-database_files
+|
+|--sortmerna/
+|  |-GCC-version/
+|    |-sortmerna-version/
+|      |-rrna/
+         |-smr_*.fasta
+       |-index/
+         |-smr_*.db
+
+</details>
+
+<details>
   <summary>Pipeline Preprocess</summary>
 
 ## Pipeline Preprocess
