@@ -77,7 +77,7 @@ Note that some database files that are downloaded from various repositories are 
 ### Output
 
 The structure of the output for the "full" pipeline is as follows:
-
+```
 microbiome/
 |--genomes/
 |  |-human/
@@ -123,7 +123,7 @@ microbiome/
          |-smr_*.fasta
        |-index/
          |-smr_*.db
-
+```
 </details>
 
 <details>
