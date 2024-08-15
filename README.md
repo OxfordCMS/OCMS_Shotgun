@@ -105,11 +105,11 @@ microbiome/
 |      |-GCC-version/
 |        |-bmtool-version/
 |          |-build.bitmask
-|   |-mouse 
-|     |-build/
-|       |-GCC-version/
-|         |-bmtool-version/
-|           |-build.bitmask
+|  |-mouse 
+|    |-build/
+|      |-GCC-version/
+|        |-bmtool-version/
+|          |-build.bitmask
 |
 |--kraken2/
 |   |-kraken2-version/
@@ -120,9 +120,9 @@ microbiome/
 |  |-GCC-version/
 |    |-sortmerna-version/
 |      |-rrna/
-         |-smr_*.fasta
-       |-index/
-         |-smr_*.db
+|        |-smr_*.fasta
+|      |-index/
+|        |-smr_*.db
 ```
 </details>
 
