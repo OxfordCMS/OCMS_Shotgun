@@ -1,9 +1,10 @@
 ########################################
-# Specify the GCC version you are using
+# Specify the GCC and python  version 
+# you are using
 ########################################
 
 gcc: 12.2.0
-
+python: 3.10.8 
 
 ########################################
 # Specify the mammalian genome versions
@@ -32,12 +33,17 @@ sortmerna:
 # databases available at
 # https://benlangmead.github.io/aws-indexes/k2
 # You can specify which ones you want in
-# a comma separated list
+# a comma separated list. Just specify
+# the basename of the file as in the
+# default below
 ########################################
 
 kraken2:
     version: 2.1.2
-    filenames: k2_viral_20240605.tar.gz
+    filenames: k2_pluspf_20240605.tar.gz
 
 bracken:
     version: 2.9
+
+metaphlan:
+    version: 4.0.6
