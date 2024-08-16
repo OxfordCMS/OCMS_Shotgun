@@ -29,6 +29,7 @@ class DB:
     def __init__(self, PARAMS, tool):
         self.PARAMS = PARAMS
         self.gcc_version = PARAMS["gcc"]
+        self.python_version = PARAMS["python"]
         self.tool = tool
         self.version = PARAMS[self.tool+"_version"]
         self.outdir = os.path.join(self.tool,
@@ -116,4 +117,31 @@ class KRAKEN2db(DB):
                    tar -xzvf %(outf)s -C %(outdir)s;
                    touch %(outfile)s 
                    ''' % locals()
+        return(statement)
+
+class METAPHLANdb(DB):
+    def build_statement(self, infile, outfile):
+        metaphlan_version = self.version.split(".")[0]
+        outdir = self.outdir.split("/")
+        outdir = os.path.join(outdir[0],
+                              "python-"+self.python_version,
+                              "metaphlan-"+metaphlan_version)
+        print(outdir)        
+
+        if metaphlan_version == "3":
+            statement = '''
+                        metaphlan --install
+                                  --index
+                                  mpa_v31_CHOCOPhlAn_201901
+                                  --bowtie2db 
+                                  %(outdir)s
+                        ''' % locals()
+        elif metaphlan_version == "4":
+            statement = '''
+                        metaphlan --install
+                                  --index
+                                  mpa_vOct22_CHOCOPhlAnSGB_202403
+                                  --bowtie2db 
+                                  %(outdir)s
+                        ''' % locals()
         return(statement)
