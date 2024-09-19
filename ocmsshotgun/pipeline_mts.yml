@@ -20,4 +20,5 @@ spades:
   job_memory: '8'  # Memory allocation for SPAdes (in GB)
   careful: true  # Optional: Tries to reduce the number of mismatches and indels
   options: '--cov-cutoff auto'  # Additional SPAdes-specific options
-
+  error_correction_run_options:
+  error_correction_options:  
