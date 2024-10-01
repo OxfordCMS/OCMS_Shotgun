@@ -12,7 +12,7 @@ This pipeline imports cleaned, trimmed reads from OCMC_preprocess pipelines and 
 
 Configuration
 -------------
-The pipeline requires a configured :file:`pipeline_mts.yml` file.
+The pipeline requires a configured :file:`pipeline.yml` file
 """
 
 # Load necessary modules
@@ -24,10 +24,10 @@ import shutil
 import pandas as pd
 import cgatcore.pipeline as P
 import ocmsshotgun.modules.Utility as utility
-import PipelineMetaAssembly as PMA
+import ocmsshotgun.modules.MetaAssembly as PMA
 
 # Load pipeline parameters from the configuration file
-PARAMS = P.get_parameters(["pipeline_mts.yml"])
+PARAMS = P.get_parameters(["pipeline.yml"])
 
 # Determine the location of the input files (reads)
 if PARAMS["input"] == 0:
@@ -94,20 +94,21 @@ def poolSamples(infiles, out_fastq1):
 # Read Correction with BayesHammer (SPAdes)
 ###############################################################################
 
-@active_if(PARAMS['pool']['enable'])
-@follows(poolSamples, mkdir('spades_read_correction.dir'))
+@active_if(PARAMS['read_error_correction']['enable'])  # Only run if error correction is enabled
+@follows(mkdir('spades_read_correction.dir'))
 @transform(
-    os.path.join('input_pooled.dir', '*.fastq.1.gz'),
-    regex(r'input_pooled.dir/(.+)_pooled.fastq.1.gz'),
-    r'spades_read_correction.dir/\1.fastq.1.gz')
+    os.path.join('input_pooled.dir' if PARAMS['pool']['enable'] else DATADIR, '*.fastq.1.gz'),
+    regex(r'(input_pooled.dir|'+DATADIR+r')/(.+).fastq.1.gz'),
+    r'spades_read_correction.dir/\2.fastq.1.gz')
 def runReadCorrection(infile, outfile):
-    '''Run BayesHammer read correction on pooled samples using SPAdes.'''
+    '''Run BayesHammer read correction on pooled or unpooled samples using SPAdes, based on YAML configuration.'''
 
     cluster_options = PARAMS['spades']['error_correction_run_options']
     assembler = PMA.SpadesReadCorrection()
 
     # Build and run the BayesHammer command
     statement = assembler.build(infile, outfile, **PARAMS)
+    print(f"BayesHammer statement: {statement}")
     P.run(statement)
 
     # Fetch processed reads
@@ -115,23 +116,68 @@ def runReadCorrection(infile, outfile):
     statement = assembler(infile, outfile)
     P.run(statement)
 
+
 ###############################################################################
 # SPAdes Metagenome Assembly
 ###############################################################################
 
+@active_if(PARAMS['read_error_correction']['enable'])  # Only run if error correction is enabled
+@follows(runReadCorrection)  # Follows the read correction step
 @follows(mkdir('spades_assembly.dir'))
-@transform(runReadCorrection,
-           regex(r'.+/(.+).fastq.1.gz'),
-           r'spades_assembly.dir/\1.spades.contigs.fasta')
-def assembleWithMetaSpades(infile, outfile):
-    '''Run MetaSPAdes on corrected reads for metagenomic assembly.'''
-
+@transform(
+    os.path.join('spades_read_correction.dir', '*.fastq.1.gz'),
+    regex(r'spades_read_correction.dir/(.+).fastq.1.gz'),
+    r'spades_assembly.dir/\1.spades.contigs.fasta')
+def assembleWithCorrectedReads(infile, outfile):
+    '''
+    Run SPAdes assembly on corrected reads from runReadCorrection.
+    '''
     cluster_options = PARAMS['spades_run_options']
-    assembler = PMA.runMetaSpades()
+    assembler = PMA.runSpades()
 
     # Build and run the SPAdes assembly command
     statement = assembler.build(infile, outfile, **PARAMS)
+    print(f"SPAdes assembly statement (corrected reads): {statement}")
     P.run(statement)
+
+
+@active_if(not PARAMS['read_error_correction']['enable'] and PARAMS['pool']['enable'])  # Only run if pooling is enabled and read correction is disabled
+@follows(mkdir('spades_assembly.dir'))
+@transform(
+    os.path.join('input_pooled.dir', '*.fastq.1.gz'),
+    regex(r'input_pooled.dir/(.+).fastq.1.gz'),
+    r'spades_assembly.dir/\1.spades.contigs.fasta')
+def assembleWithPooledReads(infile, outfile):
+    '''
+    Run SPAdes assembly on pooled reads if read correction is disabled.
+    '''
+    cluster_options = PARAMS['spades_run_options']
+    assembler = PMA.runSpades()
+
+    # Build and run the SPAdes assembly command
+    statement = assembler.build(infile, outfile, **PARAMS)
+    print(f"SPAdes assembly statement (pooled reads): {statement}")
+    P.run(statement)
+
+
+@active_if(not PARAMS['read_error_correction']['enable'] and not PARAMS['pool']['enable'])  # Only run if both read correction and pooling are disabled
+@follows(mkdir('spades_assembly.dir'))
+@transform(
+    os.path.join(DATADIR, '*.fastq.1.gz'),
+    regex(r'' + DATADIR + r'/(.+).fastq.1.gz'),
+    r'spades_assembly.dir/\1.spades.contigs.fasta')
+def assembleWithRawReads(infile, outfile):
+    '''
+    Run SPAdes assembly on raw reads if both read correction and pooling are disabled.
+    '''
+    cluster_options = PARAMS['spades_run_options']
+    assembler = PMA.runSpades()
+
+    # Build and run the SPAdes assembly command
+    statement = assembler.build(infile, outfile, **PARAMS)
+    print(f"SPAdes assembly statement (raw reads): {statement}")
+    P.run(statement)
+
 
 ###############################################################################
 # Run the pipeline
