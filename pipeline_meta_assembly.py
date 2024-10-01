@@ -12,7 +12,7 @@ This pipeline imports cleaned, trimmed reads from OCMC_preprocess pipelines and 
 
 Configuration
 -------------
-The pipeline requires a configured :file:`pipeline_mts.yml` file.
+The pipeline requires a configured :file:`pipeline.yml` file
 """
 
 # Load necessary modules
