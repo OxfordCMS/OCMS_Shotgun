@@ -1,0 +1,39 @@
+pipeline: pipeline_kraken2
+
+pipeline_kraken2:
+    kraken2:
+        db: ~/mirror/kraken2/k2_pluspf_20230605
+        job_threads: 6
+        job_mem: 10G
+        options: ''
+
+    bracken:
+        db: ~/mirror/kraken2/k2_pluspf_20230605
+        taxdump: ~/mirror/ncbi_taxonomy/taxdump_20230706
+        job_threads: 6
+        job_mem: 10G
+        options: ''
+
+    report:
+        # prefix to use for publishing the report from this pipeline
+        prefix: default
+
+pipeline_humann3:
+    humann3:
+
+        # database settings
+        db_metaphlan_path: /path/to/metaphlan/database/directory
+        db_metaphlan_id: mpa_v31_CHOCOPhlAn_201901
+        db_nucleotide: /path/to/chocophlan/database/directory 
+        db_protein: /path/to/uniref/database/directory
+
+        # additional humann3 options
+        options: ""
+    
+        # job options
+        job_mem: 40G
+        job_threads: 4
+
+    report:
+        # prefix to use for publishing the report from this pipeline
+        prefix: default

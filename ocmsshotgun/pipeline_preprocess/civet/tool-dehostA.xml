@@ -1,0 +1,23 @@
+<tool name="dehostA"
+      threads="4"
+      walltime="60:00:00"
+      exit_if_exists="out_1"
+      tool_config_prefix="tool-dehostA">
+      <module>ncbi-blast</module>      
+      <module>bmfilter</module>      
+
+      <option name="bitmask" command_text="-b" value="/data/weinstocklab/DBS/hs38/hs38.fa.bitmask" />
+      <option name="srprism" command_text="-x" value="/data/weinstocklab/DBS/hs38/hs38.fa.srprism" />
+      <file id="prefix" based_on="in_1" pattern="(.*)_DD.*" replace="\1" />
+      <dir id="tmpdira" based_on="prefix" append="_TEMP_A" />
+
+      <command program="/data/slek/bin/bmtagger_se.sh">
+        {bitmask} {srprism} -T {tmpdira} -q 0 -1 {in_1} -o {out_1}
+      </command>
+
+      <command program="rm -rfv">
+        {tmpdira}
+      </command>
+
+
+</tool>

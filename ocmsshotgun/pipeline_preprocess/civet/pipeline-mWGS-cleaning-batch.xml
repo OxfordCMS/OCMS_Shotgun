@@ -1,0 +1,110 @@
+<pipeline name="pipeline-mWHS-cleaning">
+<!--         
+Sai.Lek@jax.org
+07/01/2015, 08/25/2015                                                                                                                                                  
+civet_run -.xml input-dir  output-dir                                                                                            
+-->
+
+  <dir id="indir" parameter="1" input="True" />
+  <dir id="working-dir" parameter="2" default_output="True" />
+  <foreach id="foreach1" dir="indir">
+    <file id="r1" pattern=".*_R1_.*fastq" />
+    <related id="r2" input="True" pattern="(.*)_R1_(.*fastq.*)" replace="\1_R2_\2" />
+    <related id="f"  input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF.fasta" />
+    <step name="deduplicate">
+      <tool name="dedup"
+	    input="r1, r2"
+	    output="f"
+	    description="tool-dedup.xml"/>
+    </step>
+    
+    <related id="contamA" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_BMT_SCREEN_A.OUT" />
+    <step name="dehostcontamA">
+          <tool name="dehostA"
+                input="f"
+                output="contamA"
+                description="tool-dehostA.xml"/>
+    </step>
+
+    <related id="contamB" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_BMT_SCREEN_B.OUT" />
+    <step name="dehostcontamB">
+          <tool name="dehostB"
+                input="f"
+                output="contamB"
+                description="tool-dehostB.xml"/>
+    </step>
+   
+   
+    <related id="cl1" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_1.fastq" />
+    <related id="cl2" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_2.fastq" />
+    <related id="clse" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_SE.fastq" />
+ 
+    <related id="tr1" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_1.fasta" />
+    <related id="tr2" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_2.fasta" />
+    <related id="trse" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_SE.fasta" />
+    <step name="deadapter">
+          <tool name="deadapt"
+                input="cl1, cl2, clse, contamA, contamB"
+                output="tr1, tr2, trse"
+                description="tool-deadapt.xml"/>
+    </step>
+
+    <related id="ducl1" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_MASK_1.fasta.clean" />
+    <related id="ducl2" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_MASK_2.fasta.clean" />
+    <related id="duclse" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_MASK_SE.fasta.merged.clean" />
+    <related id="ducl" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_MASK.fasta.clean" />
+    <step name="dustmask">
+          <tool name="dust"
+                input="tr1, tr2, trse"
+                output="ducl1, ducl2, duclse, ducl"
+                description="tool-dust.xml"/>
+    </step>
+
+    <related id="contamApe" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_BMT_SCREEN_A_PE.OUT" />
+    <related id="contamAse" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_BMT_SCREEN_A_SE.OUT" />
+    <step name="dehostcontamApe">
+          <tool name="dehostApe"
+                input="ducl"
+                output="contamApe"
+                description="tool-dehostApe.xml"/>
+    </step>
+
+    <step name="dehostcontamAse">
+          <tool name="dehostAse"
+                input="duclse"
+                output="contamAse"
+                description="tool-dehostAse.xml"/>
+    </step>
+
+
+    <related id="contamBpe" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_BMT_SCREEN_B_PE.OUT" />
+    <step name="dehostcontamBpe">
+          <tool name="dehostBpe"
+                input="ducl"
+                output="contamBpe"
+                description="tool-dehostBpe.xml"/>
+    </step>
+
+
+    <related id="contamBse" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_BMT_SCREEN_B_SE.OUT" />
+    <step name="dehostcontamBse">
+          <tool name="dehostBse"
+                input="duclse"
+                output="contamBse"
+                description="tool-dehostBse.xml"/>
+    </step>
+
+
+    <related id="cla1" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_MASK_1.fasta.clean.cl" />
+    <related id="cla2" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_MASK_2.fasta.clean.cl" />
+    <related id="clase" input="False" pattern="(.*)_R1_(.*fastq.*)" replace="\1_DD_RF_CLEAN_TRIM_MASK_SE.fasta.clean.cl" />
+    <step name="dehostcontamFinal">
+          <tool name="dehostFinal"
+                input="ducl, duclse, contamApe, contamAse, contamBpe, contamBse"
+                output="cla1, cla2, clase"
+                description="tool-dehostFinal.xml"/>
+    </step>
+
+
+  </foreach>
+</pipeline>

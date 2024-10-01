@@ -1,0 +1,54 @@
+<tool name="dust"
+      threads="4"
+      walltime="30:00:00"
+      exit_if_exists="out_1, out_2, out_3"
+      exit_test_logic="and"
+      tool_config_prefix="tool-dust">
+      <module>bmfilter</module>
+
+      <option name="format" command_text="-outfmt" value="fasta" />
+      <option name="window" command_text="-window" value="60" />
+      <file id="prefix" based_on="in_1" pattern="(.*)_DD.*" replace="\1" />
+      <file id="rdlog" based_on="prefix" append="_READS_COUNT.LOG" />
+      <file id="stats" based_on="prefix" append=".stats" />
+
+      <file id="du1" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK_1.fasta" temp="True" />
+      <file id="du2" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK_2.fasta" temp="True" />
+      <file id="duse" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK_SE.fasta" temp="True" />
+
+      <file id="ducl1" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK_1.fasta.clean" temp="True" />
+      <file id="ducl2" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK_2.fasta.clean" temp="True" />
+      <file id="ducl" based_on="prefix" append="_DD_RF_CLEAN_TRIM_MASK.fasta.clean" />
+      
+      <command program="dustmasker">
+        -in {in_1} -out {du1} {format} {window}
+      </command>
+      <command program="dustmasker">
+        -in {in_2} -out {du2} {format} {window}
+      </command>
+      <command program="dustmasker">
+        -in {in_3} -out {duse} {format} {window}
+      </command>
+
+      <command program="/data/slek/bin/clean_calculate_metric_on_fasta_files.pl">
+        {du1} {du2} {duse} {stats}
+      </command>
+
+      <command program="/data/slek/bin/shuffle_pair_fasta.pl">
+        {ducl1} {ducl2} {ducl}
+      </command>
+
+      <command program="echo">
+        Dust_N_Removal >> {rdlog}      
+      </command>
+     
+      <command program="cut">
+        -f4,6,9 {stats} >> {rdlog}
+      </command> 
+
+
+      <command program="rm -v">
+        {in_1} {in_2} {in_3}
+      </command>  
+
+</tool>

@@ -1,0 +1,44 @@
+<tool name="dedup"
+      threads="4"
+      walltime="10:00:00"
+      exit_if_exists="out_1"
+      tool_config_prefix="tool-dedup">
+      <module>python/2.7.3</module>      
+
+      <file id="prefix" based_on="in_1" pattern="(.*)_R1.*" replace="\1" />
+      <file id="fq1" based_on="prefix" append="_R1.fastq" temp="True" />
+      <file id="fq2" based_on="prefix" append="_R2.fastq" temp="True" />
+      <file id="dd1" based_on="prefix" append="_DD_1.fastq" temp="True" />
+      <file id="dd2" based_on="prefix" append="_DD_2.fastq" temp="True" />
+      <file id="dd" based_on="prefix" append="_DD.fastq" temp="True" />
+      <file id="dup" based_on="prefix" append="_duplicates.fastq" temp="True" />
+      <file id="rf" based_on="prefix" append="_DD_RF.fastq" />
+      <file id="fa" based_on="prefix" append="_DD_RF.fasta" />
+      <file id="rdlog" based_on="prefix" append="_READS_COUNT.LOG" />
+
+      <command program="zcat ">
+        {in_1} > {fq1}
+      </command>
+
+      <command program="zcat ">
+        {in_2} >> {fq2}
+      </command>
+
+      <command program="python /data/slek/bin/rm_fastq_redun_pe.pyc ">
+        {fq1} {fq2} {dd1} {dd2} {dup} > {rdlog}
+      </command>
+
+      <command program="/data/slek/bin/shuffle_pair_fastq.pl "> 
+        {dd1} {dd2} {dd} 
+      </command>
+      
+      <command program="python /data/slek/bin/reformat_fastq.pyc "> 
+        {dd} {rf} 
+      </command>
+
+      <command program="python /data/slek/bin/fastq2fasta.pyc "> 
+        {rf} {fa} 
+      </command>
+
+
+</tool>
