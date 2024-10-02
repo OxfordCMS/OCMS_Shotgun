@@ -5,3 +5,31 @@ build/
 dist/
 ocms_shotgun.egg-info/
 __pycache__
+# Ignore temporary editor files
+*.swp
+*.swo
+*.swm
+*.svn
+*.svx
+*.svy
+*.svz
+
+# Ignore Python compiled files and cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Ignore swap and temporary files
+*.temp.ini.swp
+*.ini.swp
+
+# Ignore SQLite database files (if not necessary for the project)
+*.sqlite
+
+# Ignore log files
+*.log
+
+# Ignore build files and directories
+build/
+dist/
+*.egg-info/
