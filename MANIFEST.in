@@ -1,4 +1,0 @@
-include ocmsshotgun/modules/*.py
-include ocmsshotgun/scripts/*.py
-include ocmsshotgun/pipeline_docs/Rmd/*/*.Rmd
-include ocmsshotgun/pipeline_*/pipeline.yml
