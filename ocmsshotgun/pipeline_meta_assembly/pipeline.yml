@@ -1,9 +1,9 @@
 general:
-# directory where reads are located, specified as:
-# "0" for the current directory "."
-# "1" for the subdirectory "./data.dir".
-# alternatively, a path may be specified, but this is not recommended.
-input: 1  
+  # directory where reads are located, specified as:
+  # "0" for the current directory "."
+  # "1" for the subdirectory "./data.dir".
+  # alternatively, a path may be specified, but this is not recommended.
+  input: 1  
 
 preprocess:
   pool_input_regex: ".+_(chow|hfd|[^_]+)_(WT|KO)\\.fastq\\.1\\.gz"

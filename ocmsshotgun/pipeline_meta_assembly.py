@@ -6,22 +6,42 @@ import os
 import sys
 import glob
 import shutil
+import sqlite3 as s3
 import pandas as pd
 import cgatcore.pipeline as P
-import ocmsshotgun.modules.Utility as utility
-import ocmsshotgun.modules.MetaAssembly as PMA
+import modules.Utility as utility
+import modules.MetaAssembly as PMA
+
+###############################################################################
+# General setup
+###############################################################################
 
 # Load pipeline parameters from the configuration file
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # Location of the input files (reads)
-DATADIR = "data.dir"
+if PARAMS['general']['input'] == 0:
+    DATADIR = '.'
+elif PARAMS['general']['input'] == 1:
+    DATADIR = './data.dir'
+else:
+    DATADIR = PARAMS['general']['input']
+assert os.path.isdir(DATADIR), f'Input directory does not exist: {DATADIR}'
 
-print(f"Using DATADIR: {DATADIR}")
-print(f"Pipeline parameters: {PARAMS}")
+# print(f"Using DATADIR: {DATADIR}")
+# print(f"Pipeline parameters: {PARAMS}")
 
 # Check the input files correspond
-FASTQ1S = utility.check_input(DATADIR)
+FASTQ1s = utility.check_input(DATADIR)
+
+# utility function
+def connect():
+    '''Connect to sqlite db for storing pipeline datasets'''
+
+    dbh = s3.connect(PARAMS['database']['name'])
+
+    return dbh
+
 
 ###############################################################################
 # Pooling samples (optional)
@@ -29,7 +49,7 @@ FASTQ1S = utility.check_input(DATADIR)
 
 @active_if(PARAMS['pool']['enable'])  # Only run if pooling is enabled
 @follows(mkdir('input_pooled.dir'))
-@collate(os.path.join(DATADIR, '*.fastq.1.gz'),
+@collate(FASTQ1s,
          regex(PARAMS['preprocess']['pool_input_regex']),  # Use regex from YAML
          r"input_pooled.dir/" + PARAMS['preprocess']['pool_output_regex'])  # Output pattern from YAML
 def poolSamples(infiles, out_fastq1):
