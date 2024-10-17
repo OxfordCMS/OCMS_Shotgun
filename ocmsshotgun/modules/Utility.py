@@ -57,10 +57,10 @@ class matchReference(object):
     fn_suffix - option to pass something other than .fastq.1.gz
     """
 
-    def __init__(self, fastq1, outfile, **PARAMS):
-        self.outdir = os.path.dirname(outfile)
+    def __init__(self, fastq1, outfile=None, **PARAMS):
         self.fastq1 = fastq1
         self.fastq2 = None
+
         self.fastq3 = None
         self.fq1_suffix = '.fastq.1.gz'
         self.fq2_suffix = '.fastq.2.gz'

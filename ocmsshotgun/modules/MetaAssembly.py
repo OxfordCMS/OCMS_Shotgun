@@ -55,34 +55,7 @@ import cgatcore.pipeline as P
 ###############################################################################
 # Base classes
 
-class Format(object):
-    '''
-    class for assessing formats
-    '''
-
-    def fileFormat(self, infile):
-        '''
-        return the file format for the short read data
-        can be one of
-        fasta
-        fastq
-        fasta.gz
-        fastq.gz
-        fasta.1.gz
-        '''
-        possible_formats = ["fasta", "fastq", "fasta.gz",
-                            "fastq.gz", "fasta.1.gz", "fastq.1.gz"]
-        format = None
-        for f in possible_formats:
-            if infile.endswith(f):
-                format = f
-        assert format, ("File %s is not of correct format. Needs to be"
-                        " one of: %s" % (infile, ' '.join(possible_formats)))
-        
-        return format
-
-
-class FetchData(Format):
+class FetchData(object):
 
     '''
     class for assessing and retrieving data files
@@ -92,18 +65,29 @@ class FetchData(Format):
 
         self.format = None
         self.paired = False
-        self.paired_interleaved = False
-        self.paired_separate = False
+        self.singletons = False
 
     def getTrack(self, infile):
         '''
         return the track for the file
         '''
         return P.snip(os.path.basename(infile),
-                      ".%s" % self.fileFormat(infile),
+                      ".%s" % self.getFormat(infile),
                       strip_path=True)
 
     def getFormat(self, infile):
+        possible_formats = ["fasta", "fastq", "fasta.gz",
+                            "fastq.gz", "fasta.1.gz", "fastq.1.gz"]
+
+        for f in possible_formats:
+            if infile.endswith(f):
+                self.format = f
+        assert self.format, ("File %s is not of correct format. Needs to be"
+                        " one of: %s" % (infile, ' '.join(possible_formats)))
+        
+        return self.format
+
+        
         self.format = self.fileFormat(infile)
         return self.format
 
@@ -124,8 +108,10 @@ class FetchData(Format):
            
             if check_exists:
                 if os.path.exists(os.path.abspath(read2)):
+                    self.paired = True
                     file_list.append(read2)
                     if os.path.exists(os.path.abspath(read3)):
+                        self.singletons = True
                         file_list.append(read3)
                 elif os.path.exists(os.path.abspath(read3)):
                     raise IOError("Singleton file exists %s, but paired file (%s)"
@@ -137,48 +123,7 @@ class FetchData(Format):
                 
         return file_list
 
-    def checkPairs(self, infile, ntries=10):
-        '''
-        Function to check if pairs exist interleaved
-        within a file. If not it will check for separate
-        files for the read pair
-        '''
-        format = self.getFormat(infile)
-        paired = False
-        inf = IOTools.openFile(infile)
-        pairs = set()
-        if format in ["fasta", "fasta.gz"]:
-            iterator = FastaIterator.iterator
-        elif format in ["fastq", "fastq.gz"]:
-            iterator = Fastq.iterate
-        elif format in ["fasta.1.gz", "fastq.1.gz"]:
-            return self.checkPairedFile(infile)
-
-        c = 0
-        for record in iterator(inf):
-            if record.quals:
-                # make sure there are not other "/" in the sequence name
-                seq_id = record.identifier.split("/")
-            else:
-                seq_id = record.title.split("/")
-
-            assert len(
-                seq_id) < 3, "cannot deal with this sequence name %s" % seq_id
-            seq_id = seq_id[0]
-            if seq_id not in pairs:
-                pairs.add(seq_id)
-                if c >= ntries:
-                    break
-                paired = False
-                return paired
-            else:
-                E.info("found pair for %s" % (seq_id))
-                paired = "interleaved"
-                break
-
-        return paired
-
-
+    
 class MetaAssembler(FetchData):
     '''Generic assembler class. '''
     
@@ -220,11 +165,12 @@ class MetaAssembler(FetchData):
 # Run SPAdes
 
 class SpadesReadCorrection(MetaAssembler):
-    '''Run BayesHammer via Spades'''
+    '''Run BayesHammer via Spades, requires --threads and --memory passed
+    as spades_ec_options via kwargs'''
 
     def fetch_run_statement(self, libraries, out_sub_dir, **PARAMS):
         '''Generate commandline statement for running BayesHammer'''
-        run_options = PARAMS['spades_error_correction_options']
+        run_options = PARAMS['spades_ec_options']
         
         statement = ("spades.py"
                      " --only-error-correction"
@@ -234,7 +180,6 @@ class SpadesReadCorrection(MetaAssembler):
 
         return statement
         
-    
     def assembler(self, infiles, outfile, **PARAMS):
         ''' '''
         # set up sub-directories for spades run output 
@@ -259,51 +204,21 @@ class SpadesReadCorrection(MetaAssembler):
 
         # specify single or p.e. libraries
         if len(infiles) == 1:
+            assert self.paired == False
             libraries = '--s ' + infiles[0]
-        else:
+        elif len(infiles) == 3:
+            assert self.paired == True and self.singletons == True
             libraries = zip(['--pe1-1', '--pe1-2', '--pe1-s'], sym_files)
+            libraries = ' '.join([' '.join(x) for x in libraries])
+        else:
+            assert self.paired == True and self.singletons == False
+            libraries = zip(['--pe1-1', '--pe1-2'], sym_files)
             libraries = ' '.join([' '.join(x) for x in libraries])
 
         # specify run command
         statement = self.fetch_run_statement(libraries, out_sub_dir, **PARAMS)
 
         return statement
-
-
-class runSpades(SpadesReadCorrection):
-    '''Run spades --meta'''
-
-    def fetch_run_statement(self, libraries, out_sub_dir, **PARAMS):
-        '''Generate commandline statement for running metaSPAdes without
-        BayesHammer'''
-        run_options = PARAMS['spades_options']
-        
-        statement1 = ("spades.py"
-        #             " --meta"
-                     " --only-assembler"
-                     " {libraries}"
-                     " -o {out_sub_dir}"
-                     " {run_options}".format(**locals()))
-
-        # fetch scaffolds and contigs
-        out_dir = os.path.dirname(out_sub_dir)
-        out_prefix = os.path.basename(out_sub_dir)
-
-        contigs = os.path.join('..', out_sub_dir, 'contigs.fasta')
-        scaffolds = os.path.join('..', out_sub_dir, 'scaffolds.fasta')
-
-        cont_out = os.path.join(out_dir,
-                                out_prefix + '.spades.contigs.fasta')
-        scaf_out = os.path.join(out_dir,
-                                out_prefix + '.spades.scaffolds.fasta')
-
-        statement2 = (" ln -s {contigs} {cont_out};"
-                      " ln -s {scaffolds} {scaf_out}".format(**locals()))
-
-        statements = ' && '.join([statement1, statement2])
-        
-        return statements
-
 
     def postProcess(self, infiles, outfile, **PARAMS):
         '''Remove the renamed symlinks used as spades input'''
@@ -356,6 +271,43 @@ class fetchSpadesProcessedReads(SpadesReadCorrection):
                           " %s" % ' '.join(infiles))
         
         return statement
+
+    
+class runMetaSpades(SpadesReadCorrection):
+    '''Run spades --meta'''
+
+    def fetch_run_statement(self, libraries, out_sub_dir, **PARAMS):
+        '''Generate commandline statement for running metaSPAdes without
+        BayesHammer'''
+        run_options = PARAMS['spades_meta_options']
+        
+        statement1 = ("spades.py"
+                     " --meta"
+                     " --only-assembler"
+                     " {libraries}"
+                     " -o {out_sub_dir}"
+                     " {run_options}".format(**locals()))
+
+        # fetch scaffolds and contigs
+        out_dir = os.path.dirname(out_sub_dir)
+        out_prefix = os.path.basename(out_sub_dir)
+
+        contigs = os.path.join('..', out_sub_dir, 'contigs.fasta')
+        scaffolds = os.path.join('..', out_sub_dir, 'scaffolds.fasta')
+
+        cont_out = os.path.join(out_dir,
+                                out_prefix + '.spades.contigs.fasta')
+        scaf_out = os.path.join(out_dir,
+                                out_prefix + '.spades.scaffolds.fasta')
+
+        statement2 = (" ln -s {contigs} {cont_out};"
+                      " ln -s {scaffolds} {scaf_out}".format(**locals()))
+
+        statements = ' && '.join([statement1, statement2])
+        
+        return statements
+
+    
 
 ###############################################################################
 # Run MEGAHIT

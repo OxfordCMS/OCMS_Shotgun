@@ -46,94 +46,135 @@ def connect():
 ###############################################################################
 # Pooling samples (optional)
 ###############################################################################
-
-@active_if(PARAMS['pool']['enable'])  # Only run if pooling is enabled
-@follows(mkdir('input_pooled.dir'))
+@follows(mkdir('01_input_pooled.dir'))
 @collate(FASTQ1s,
          regex(PARAMS['preprocess']['pool_input_regex']),  # Use regex from YAML
-         r"input_pooled.dir/" + PARAMS['preprocess']['pool_output_regex'])  # Output pattern from YAML
+         r"01_input_pooled.dir/" + PARAMS['preprocess']['pool_output_regex'])  # Output pattern from YAML
 def poolSamples(infiles, out_fastq1):
     '''Pool samples based on the provided regular expression and handle paired reads.'''
-    print(f"Pooling samples from: {infiles} to {out_fastq1}")
+    # print(f"Pooling samples from: {infiles} to {out_fastq1}")
 
-    out_fastq2 = P.snip(out_fastq1, '.1.gz') + '.2.gz'
-    out_fastq3 = P.snip(out_fastq1, '.1.gz') + '.3.gz'
+    samples = [utility.matchReference(x) for x in infiles]
 
-    in_fastqs2 = [P.snip(x, '.1.gz') + '.2.gz' for x in infiles]
-    in_fastqs3 = [P.snip(x, '.1.gz') + '.3.gz' for x in infiles]
+    # A list of the fastq1 files
+    in_fastqs1 = [fq.fastq1 for fq in samples]
+    
+    # Check for paired read files
+    in_fastqs2 = [fq.fastq2 for fq in samples]
+    if any(in_fastqs2):
+        # Sanity check... all files need to be paired for pooling.
+        for fq in samples:
+            fq2 = P.snip(fq.fastq1, fq.fq1_suffix) + fq.fq2_suffix
+            assert os.path.exists(fq2),  f"Expected paired file {fq2} does not exist."
+        out_fastq2 = P.snip(out_fastq1, samples[0].fq1_suffix) + samples[0].fq2_suffix
+            
+    # Check for singleton read files (not essential for all samples to have singletons)
+    in_fastqs3 = [fq.fastq3 for fq in samples]
+    if any(in_fastqs3):
+        out_fastq3 = P.snip(out_fastq1, samples[0].fq1_suffix) + samples[0].fq3_suffix
 
-    # Ensure paired reads exist
-    for f in in_fastqs2:
-        assert os.path.exists(f), f"Expected paired file {f} does not exist."
-
-    # Handle third paired reads if they exist
-    include_fastq3 = [os.path.exists(f) for f in in_fastqs3]
-
-    if len(infiles) == 1:
+    if len(in_fastqs1) == 1:
         # Create symlinks for single input
-        os.symlink(os.path.join('..', infiles[0]), out_fastq1)
-        os.symlink(os.path.join('..', in_fastqs2[0]), out_fastq2)
-        if include_fastq3[0]:
-            os.symlink(os.path.join('..', in_fastqs3[0]), out_fastq3)
+        os.symlink(os.path.abspath(in_fastqs1[0]), out_fastq1)
+        if any(in_fastqs2):
+            os.symlink(os.path.abspath(in_fastqs2[0]), out_fastq2)
+        if any(in_fastqs3):
+            os.symlink(os.path.abspath(in_fastqs3[0]), out_fastq3)
+        
     else:
         # Concatenate multiple input files
-        in_fastqs1_str = ' '.join(infiles)
-        in_fastqs2_str = ' '.join(in_fastqs2)
+        in_fastqs1 = ' '.join(in_fastqs1)
+        statement = "cat %(in_fastqs1)s > %(out_fastq1)s"
+        if any(in_fastqs2):
+            in_fastqs2 = ' '.join(in_fastqs2)
+            statement += " && cat %(in_fastqs2)s > %(out_fastq2)s"
+        if any(in_fastqs3):
+            in_fastqs3 = ' '.join(in_fastqs3)
+            statement += " && cat %(in_fastqs3)s > %(out_fastq3)s"
 
-        statement = f"cat {in_fastqs1_str} > {out_fastq1} && cat {in_fastqs2_str} > {out_fastq2}"
-
-        if any(include_fastq3):
-            in_fastqs3_str = ' '.join([f for i, f in enumerate(in_fastqs3) if include_fastq3[i]])
-            if in_fastqs3_str:
-                statement += f" && cat {in_fastqs3_str} > {out_fastq3}"
-
-        print(f"Running statement: {statement}")
-        P.run(statement, job_threads=PARAMS['pool']['job_threads'], job_memory=PARAMS['pool']['job_memory'])
-
-###############################################################################
-# Update DATADIR after pooling (if enabled)
-###############################################################################
-
-@follows(poolSamples)  
-def updateDATADIR():
-    global DATADIR
-    if PARAMS['pool']['enable']:
-        DATADIR = "input_pooled.dir"
-        print(f"Pooling is enabled. Setting DATADIR to: {DATADIR}")
-    else:
-        print(f"Pooling is not enabled. Using original DATADIR: {DATADIR}")
-
-# Add a task to use the updated DATADIR
-@follows(updateDATADIR)
-def downstreamTask():
-    print(f"Running downstream tasks with DATADIR: {DATADIR}")
-
+    P.run(statement)
+    
+    
 ###############################################################################
 # Read Processing
 ###############################################################################
-
-@active_if(PARAMS['read_error_correction']['enable'])  # Only run if error correction is enabled
-@follows(mkdir('processed_reads.dir'))
-@transform(
-    os.path.join(DATADIR, '*.fastq.1.gz'),
-    regex(re.escape(DATADIR) + r'/(.+).fastq.1.gz'),
-    r'processed_reads.dir/\1.fastq.1.gz')
+@follows(mkdir('02_processed_reads.dir'))
+@transform(poolSamples,
+           regex('.+/(.+).fastq.1.gz'),
+           r'02_processed_reads.dir/\1.fastq.1.gz')
 def runReadProcessing(infile, outfile):
-    '''Run BayesHammer read correction on pooled or unpooled samples using SPAdes, based on YAML configuration.'''
+    '''Run BayesHammer read correction on pooled or unpooled samples
+    using SPAdes, based on YAML configuration.
+    '''
 
-    cluster_options = PARAMS['spades']['error_correction_run_options']
-    assembler = PMA.SpadesReadCorrection()
+    if PARAMS['preprocess']['error_correction']:
 
-    # Build and run the BayesHammer command
+        cluster_options = PARAMS['spades']['error_correction_run_options']
+        assembler = PMA.SpadesReadCorrection()
+
+        # Build and run the BayesHammer command
+        statement = assembler.build(infile, outfile, **PARAMS)
+        P.run(statement,
+              job_threads=PARAMS['spades']['ec_threads'],
+              job_memory=PARAMS['spades']['ec_memory'],
+              job_options=PARAMS.get('spades_ec_job_options', ''))
+
+        # Fetch processed reads
+        assembler = PMA.fetchSpadesProcessedReads()
+        statement = assembler(infile, outfile)
+        P.run(statement)
+
+    else:
+        os.symlink(infile, outfile)
+
+    
+###############################################################################
+# Run Assembly Tools
+###############################################################################
+@follows(mkdir('03_spades_assembly.dir'))
+@transform(runReadProcessing,
+           regex('.+/(.+).fast(q|a).1.gz'),
+           r'03_spades_assembly.dir/\1.spades.contigs.fasta')
+def assembleWithMetaSpades(infile, outfile):
+    '''Run SPAdes --meta without read error correction'''
+    assembler = PMA.runMetaSpades()
     statement = assembler.build(infile, outfile, **PARAMS)
-    print(f"BayesHammer statement: {statement}")
-    P.run(statement)
+    
+    P.run(statement,
+          job_threads=PARAMS['spades']['meta_threads'],
+          job_memory=PARAMS['spades']['meta_memory'],
+          job_options=PARAMS.get('spades_meta_job_options', ''))
 
-    # Fetch processed reads
-    assembler = PMA.fetchSpadesProcessedReads()
-    statement = assembler(infile, outfile)
-    P.run(statement)
+    
+@follows(mkdir('megahit_assembly.dir'))
+@transform(runReadProcessing,
+           regex('.+/(.+).fast(q|a).1.gz'),
+           r'megahit_assembly.dir/\1.megahit.contigs.fasta') 
+def assembleWithMegaHit(infile, outfile):
+    '''Run MEGAHIT'''
+    cluster_options = PARAMS['megahit_cluster_options']
+    assembler = PMA.runMegaHit()
+    statement = assembler.build(infile, outfile, **PARAMS)
+    
+    P.run(statement, job_options=cluster_options)
 
+
+ASSEMBLY_TARGETS = []
+assembly_targets = {'metaspades': (assembleWithMetaSpades,),
+                    'megahit': (assembleWithMegaHit,)
+                    }
+
+for tool in PARAMS['general']['assemblers'].split(','):
+    ASSEMBLY_TARGETS.extend(assembly_targets[tool])
+
+@follows(*ASSEMBLY_TARGETS)
+def assembleMetaGenome():
+    '''Perform assembly using tools specified in config file'''
+    pass
+
+
+###############################################################################
+    
 def main(argv=None):
     if argv is None:
         argv=sys.argv
