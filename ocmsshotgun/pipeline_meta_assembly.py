@@ -92,7 +92,7 @@ def poolSamples(infiles, out_fastq1):
             in_fastqs3 = ' '.join(in_fastqs3)
             statement += " && cat %(in_fastqs3)s > %(out_fastq3)s"
 
-    P.run(statement)
+        P.run(statement)
     
     
 ###############################################################################
@@ -109,7 +109,7 @@ def runReadProcessing(infile, outfile):
 
     if PARAMS['preprocess']['error_correction']:
 
-        cluster_options = PARAMS['spades']['error_correction_run_options']
+        cluster_options = PARAMS['spades'].get('error_correction_run_options',"")
         assembler = PMA.SpadesReadCorrection()
 
         # Build and run the BayesHammer command
@@ -157,7 +157,6 @@ def assembleWithMegaHit(infile, outfile):
     statement = assembler.build(infile, outfile, **PARAMS)
     
     P.run(statement, job_options=cluster_options)
-
 
 ASSEMBLY_TARGETS = []
 assembly_targets = {'metaspades': (assembleWithMetaSpades,),
