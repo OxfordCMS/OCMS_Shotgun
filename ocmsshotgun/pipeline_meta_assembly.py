@@ -176,7 +176,6 @@ def assembleMetaGenome():
 
 
 ###############################################################################
-"""
 
 # Calculate Assembly Statistics
 @transform(ASSEMBLY_TARGETS,
@@ -275,8 +274,8 @@ def collateContigStatsAcrossAssemblers(infiles, outfile):
         statement = statement + ' && ' + statement2
 
     P.run(statement)
-"""
 
+"""
 # Calculate Assembly Statistics
 @transform(ASSEMBLY_TARGETS,
            regex('(.+)/(.+).contigs.fasta'),
@@ -307,7 +306,7 @@ def QuastContigStats(contig_file, outfile):
         statement = statement + ' && ' + statement2
 
     P.run(statement)
-   
+"""
 
 def main(argv=None):
     if argv is None:
