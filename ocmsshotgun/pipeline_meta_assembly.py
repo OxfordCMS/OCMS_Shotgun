@@ -146,17 +146,20 @@ def assembleWithMetaSpades(infile, outfile):
           job_options=PARAMS.get('spades_meta_job_options', ''))
 
     
-@follows(mkdir('megahit_assembly.dir'))
+@follows(mkdir('04_megahit_assembly.dir'))
 @transform(runReadProcessing,
            regex('.+/(.+).fast(q|a).1.gz'),
-           r'megahit_assembly.dir/\1.megahit.contigs.fasta') 
+           r'04_megahit_assembly.dir/\1.megahit.contigs.fasta') 
 def assembleWithMegaHit(infile, outfile):
     '''Run MEGAHIT'''
-    cluster_options = PARAMS['megahit_cluster_options']
+   # cluster_options = PARAMS['megahit_cluster_options']
     assembler = PMA.runMegaHit()
     statement = assembler.build(infile, outfile, **PARAMS)
     
-    P.run(statement, job_options=cluster_options)
+    P.run(statement,
+          job_threads=PARAMS['megahit']['meta_threads'],
+          job_memory=PARAMS['megahit']['meta_memory'],
+          job_options=PARAMS.get('megahit_cluster_options',''))
 
 ASSEMBLY_TARGETS = []
 assembly_targets = {'metaspades': (assembleWithMetaSpades,),
@@ -173,7 +176,139 @@ def assembleMetaGenome():
 
 
 ###############################################################################
+"""
+
+# Calculate Assembly Statistics
+@transform(ASSEMBLY_TARGETS,
+           regex('(.+)/(.+).contigs.fasta'),
+           r'\1/\2.contigs.tsv.gz')
+
+def getContigStats(contig_file, outfile):
+    '''Run fasta2table to get contig/scaffold length/ngaps'''
+
+    scaffold_file = P.snip(contig_file, '.contigs.fasta') + '.scaffolds.fasta'
+    scaffold_out = P.snip(outfile, 'contigs.tsv.gz') + 'scaffolds.tsv.gz'
+
+    statement = ''' cat %(contig_file)s |
+                    cgat fasta2table
+                    --section=length
+                    --section=gaps
+                    --log=%(outfile)s.log |
+                    gzip > %(outfile)s
+                '''
+
+    statement2 = ''' cat %(scaffold_file)s |
+                     cgat fasta2table
+                     --section=length
+                     --section=gaps
+                     --log=%(outfile)s.log |
+                     gzip > %(scaffold_out)s
+                 '''
+    if os.path.exists(scaffold_file):
+        statement = statement + ' && ' + statement2
+
+    P.run(statement)
+
+@collate(getContigStats,
+         regex('(.+)/(.+)\.(.+)\.contigs.tsv.gz'),
+         r'\1/\3_contig_stats.tsv.gz')
+def collateContigStats(infiles, outfile):
+    '''Collate contig stats for each assembler'''
+
+    scaffold_files = ' '.join([P.snip(x, '.contigs.tsv.gz') + \
+                              '.scaffolds.tsv.gz' for x in infiles])
+    scaffold_out = P.snip(outfile, 'contig_stats.tsv.gz') + 'scaffold_stats.tsv.gz'
+    contig_files = ' '.join(infiles)
     
+    statement = ''' ocms_shotgun combine_tables
+                   --cat SampleID
+                   --regex-filename='.+/(.+)\..+\.contigs.tsv.gz'
+                   --log=%(outfile)s.log
+                   %(contig_files)s |
+                   gzip > %(outfile)s
+                '''
+                 
+
+    statement2 = ''' ocms_shotgun combine_tables
+                    --cat SampleID
+                    --regex-filename='.+/(.+)\..+\.scaffolds.tsv.gz'
+                    --log=%(outfile)s.log
+                    %(scaffold_files)s |
+                    gzip > %(scaffold_out)s
+                 '''
+    
+    if os.path.exists(scaffold_files.split()[0]):
+         statement = statement + ' && ' + statement2
+
+    P.run(statement)
+
+@merge(collateContigStats, 'assembly_contig_stats.tsv.gz')
+def collateContigStatsAcrossAssemblers(infiles, outfile):
+    '''Combine contig stats for different assemblers'''
+
+    # scaffolds are not reported for all assemblers
+    scaffold_files = [P.snip(x, '_contig_stats.tsv.gz') + \
+                      '_scaffold_stats.tsv.gz' for x in infiles]
+    scaffold_files = [x for x in scaffold_files if os.path.exists(x)] 
+    scaffold_out = P.snip(outfile, 'contig_stats.tsv.gz') + 'scaffold_stats.tsv.gz'
+
+    contig_files = ' '.join(infiles)
+    scaffold_files = ' '.join(scaffold_files)
+    
+    # HACK: Assumes combine_tables is in the pipeline directory
+    call_dir = os.path.dirname(os.path.realpath(__file__))
+
+    statement = ("ocms_shotgun combine_tables"
+                 " --cat assembler"
+                 " --regex-filename='.+/(.+)_contig_stats.tsv.gz'"
+                 " --log=%(outfile)s.log"
+                 " %(contig_files)s |"
+                 " gzip > %(outfile)s")
+ 
+    statement2 = ("ocms_shotgun combine_tables"
+                  "  --cat assembler"
+                  "  --regex-filename='.+/(.+)_scaffold_stats.tsv.gz'"
+                  "  --log=%(outfile)s.log"
+                  "  %(scaffold_files)s |"
+                  "  gzip > %(scaffold_out)s")
+    if scaffold_files:
+        statement = statement + ' && ' + statement2
+
+    P.run(statement)
+"""
+
+# Calculate Assembly Statistics
+@transform(ASSEMBLY_TARGETS,
+           regex('(.+)/(.+).contigs.fasta'),
+           r'\1/\2.contigs.tsv.gz')
+
+def QuastContigStats(contig_file, outfile):
+    '''Run Quast to get contig/scaffold stats'''
+
+    scaffold_file = P.snip(contig_file, '.contigs.fasta') + '.scaffolds.fasta'
+    scaffold_out = P.snip(outfile, 'contigs.tsv.gz') + 'scaffolds.tsv.gz'
+
+    statement = ''' cat %(contig_file)s |
+                    quast.py 
+                    -t 4
+                    -m 500
+                    --log=%(outfile)s.log |
+                    gzip > %(outfile)s
+                '''    
+ 
+    statement2 = ''' cat %(scaffold_file)s |
+                    quast.py
+                    -t 4
+                    -m 500
+                    --log=%(outfile)s.log |
+                    gzip > %(scaffold_out)s
+                '''
+    if os.path.exists(scaffold_file):
+        statement = statement + ' && ' + statement2
+
+    P.run(statement)
+   
+
 def main(argv=None):
     if argv is None:
         argv=sys.argv
