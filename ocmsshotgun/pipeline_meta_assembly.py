@@ -275,47 +275,24 @@ def collateContigStatsAcrossAssemblers(infiles, outfile):
 @follows(assembleMetaGenome)
 @transform(ASSEMBLY_TARGETS,
            regex('(.+)/(.+).contigs.fasta'),
-           r'\1/\2.contigs.quast.tsv.gz')
+           r'\1/\2_quast.dir/report.tsv')
 
-def QuastContigStats(contig_file, outfile):
-    '''Run Quast to get contig/scaffold stats'''
-    
-    # Define output directory for QUAST
-    temp_out_dir = P.snip(outfile, '.quast.tsv.gz') + "_quast_output"
+def runQUAST(contig_file, outfile):
+    '''Run Quast without reference to get contig/scaffold stats'''
+   
+    out_dir = os.path.dirname(outfile)
+    out_log = P.snip(out_dir, '.dir') + '.log'
 
-    # QUAST command for the contig file
-    statement = ("quast.py %(contig_file)s "
-                 "-t 4 "
-                 "-m 500 "
-                 "-o %(temp_out_dir)s")
+    statement = ("metaquast.py %(contig_file)s"
+                 " --output-dir %(out_dir)s"
+                 " %(quast_options)s"
+                 " &> %(out_log)s")
+    P.run(statement,
+          job_threads=PARAMS['quast']['meta_threads'],
+          job_memory=PARAMS['quast']['meta_memory'])
+          
 
-    P.run(statement)
-
-    # Compress QUAST results
-    quast_result_file=f"{temp_out_dir}/report.tsv"
-    if os.path.exists(quast_result_file):
-        statement2 = f"cat {quast_result_file} | gzip > {outfile}"
-        P.run(statement2)
-
-    # Check for scaffold file and run QUAST if it exists
-    scaffold_file = P.snip(contig_file, '.contigs.fasta') + '.scaffolds.fasta'
-    scaffold_out = P.snip(outfile, 'contigs.quast.tsv.gz') + 'scaffolds.quast.tsv.gz'
-    temp_out_dir_scaffold=P.snip(scaffold_out, '.scaffolds.quast.tsv.gz') + "_quast_output"
-    if os.path.exists(scaffold_file):
-       # QUAST command for the scaffold file
-       statement3 = ("quast.py %(scaffold_file)s "
-                    "-t 4 "
-                    "-m 500 "
-                    "-o %(temp_out_dir_scaffold)s")    
- 
-       P.run(statement3)
-    
-    # Compress QUAST scaffold result
-    scaffold_result_file=f"{temp_out_dir_scaffold}/report.tsv"
-    if os.path.exists(scaffold_result_file):
-        statement4 = f"cat {scaffold_result_file} | gzip > {scaffold_out}"
-        P.run(statement4)
-
+##############################################################################
 
 def main(argv=None):
     if argv is None:
