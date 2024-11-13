@@ -101,7 +101,7 @@ def poolSamples(infiles, out_fastq1):
 @follows(mkdir('02_processed_reads.dir'))
 @transform(poolSamples,
            regex('.+/(.+).fastq.1.gz'),
-           r'02_processed_reads.dir/\1.fastq.1.gz')
+           r'02_processed_reads.dir/\1_corrected.fastq.1.gz')
 def runReadProcessing(infile, outfile):
     '''Run BayesHammer read correction on pooled or unpooled samples
     using SPAdes, based on YAML configuration.
@@ -146,10 +146,10 @@ def assembleWithMetaSpades(infile, outfile):
           job_options=PARAMS.get('spades_meta_job_options', ''))
 
     
-@follows(mkdir('04_megahit_assembly.dir'))
+@follows(mkdir('03_megahit_assembly.dir'))
 @transform(runReadProcessing,
            regex('.+/(.+).fast(q|a).1.gz'),
-           r'04_megahit_assembly.dir/\1.megahit.contigs.fasta') 
+           r'03_megahit_assembly.dir/\1.megahit.contigs.fasta') 
 def assembleWithMegaHit(infile, outfile):
     '''Run MEGAHIT'''
    # cluster_options = PARAMS['megahit_cluster_options']
@@ -188,21 +188,18 @@ def getContigStats(contig_file, outfile):
     scaffold_file = P.snip(contig_file, '.contigs.fasta') + '.scaffolds.fasta'
     scaffold_out = P.snip(outfile, 'contigs.tsv.gz') + 'scaffolds.tsv.gz'
 
-    statement = ''' cat %(contig_file)s |
-                    cgat fasta2table
-                    --section=length
-                    --section=gaps
-                    --log=%(outfile)s.log |
-                    gzip > %(outfile)s
-                '''
+    statement = ("cat %(contig_file)s |"
+                   " cgat fasta2table"
+                   " --section=length"
+                   " --log=%(outfile)s.log |"
+                   " gzip > %(outfile)s")
+                
 
-    statement2 = ''' cat %(scaffold_file)s |
-                     cgat fasta2table
-                     --section=length
-                     --section=gaps
-                     --log=%(outfile)s.log |
-                     gzip > %(scaffold_out)s
-                 '''
+    statement2 = ("cat %(scaffold_file)s |"
+                    " cgat fasta2table"
+                    " --section=length"
+                    " --log=%(outfile)s.log |"
+                    " gzip > %(scaffold_out)s")
     if os.path.exists(scaffold_file):
         statement = statement + ' && ' + statement2
 
@@ -219,22 +216,20 @@ def collateContigStats(infiles, outfile):
     scaffold_out = P.snip(outfile, 'contig_stats.tsv.gz') + 'scaffold_stats.tsv.gz'
     contig_files = ' '.join(infiles)
     
-    statement = ''' ocms_shotgun combine_tables
-                   --cat SampleID
-                   --regex-filename='.+/(.+)\..+\.contigs.tsv.gz'
-                   --log=%(outfile)s.log
-                   %(contig_files)s |
-                   gzip > %(outfile)s
-                '''
+    statement = ("ocms_shotgun combine_tables"
+                  " --cat SampleID"
+                  " --regex-filename='.+/(.+)\..+\.contigs.tsv.gz'"
+                  " --log=%(outfile)s.log"
+                  " %(contig_files)s |"
+                  " gzip > %(outfile)s")
                  
 
-    statement2 = ''' ocms_shotgun combine_tables
-                    --cat SampleID
-                    --regex-filename='.+/(.+)\..+\.scaffolds.tsv.gz'
-                    --log=%(outfile)s.log
-                    %(scaffold_files)s |
-                    gzip > %(scaffold_out)s
-                 '''
+    statement2 = ("ocms_shotgun combine_tables"
+                   " --cat SampleID"
+                   " --regex-filename='.+/(.+)\..+\.scaffolds.tsv.gz'"
+                   " --log=%(outfile)s.log"
+                   " %(scaffold_files)s |"
+                   " gzip > %(scaffold_out)s")
     
     if os.path.exists(scaffold_files.split()[0]):
          statement = statement + ' && ' + statement2
@@ -275,38 +270,52 @@ def collateContigStatsAcrossAssemblers(infiles, outfile):
 
     P.run(statement)
 
-"""
-# Calculate Assembly Statistics
+
+# Calculate Assembly Statistics through QUAST
+@follows(assembleMetaGenome)
 @transform(ASSEMBLY_TARGETS,
            regex('(.+)/(.+).contigs.fasta'),
-           r'\1/\2.contigs.tsv.gz')
+           r'\1/\2.contigs.quast.tsv.gz')
 
 def QuastContigStats(contig_file, outfile):
     '''Run Quast to get contig/scaffold stats'''
+    
+    # Define output directory for QUAST
+    temp_out_dir = P.snip(outfile, '.quast.tsv.gz') + "_quast_output"
 
-    scaffold_file = P.snip(contig_file, '.contigs.fasta') + '.scaffolds.fasta'
-    scaffold_out = P.snip(outfile, 'contigs.tsv.gz') + 'scaffolds.tsv.gz'
-
-    statement = ''' cat %(contig_file)s |
-                    quast.py 
-                    -t 4
-                    -m 500
-                    --log=%(outfile)s.log |
-                    gzip > %(outfile)s
-                '''    
- 
-    statement2 = ''' cat %(scaffold_file)s |
-                    quast.py
-                    -t 4
-                    -m 500
-                    --log=%(outfile)s.log |
-                    gzip > %(scaffold_out)s
-                '''
-    if os.path.exists(scaffold_file):
-        statement = statement + ' && ' + statement2
+    # QUAST command for the contig file
+    statement = ("quast.py %(contig_file)s "
+                 "-t 4 "
+                 "-m 500 "
+                 "-o %(temp_out_dir)s")
 
     P.run(statement)
-"""
+
+    # Compress QUAST results
+    quast_result_file=f"{temp_out_dir}/report.tsv"
+    if os.path.exists(quast_result_file):
+        statement2 = f"cat {quast_result_file} | gzip > {outfile}"
+        P.run(statement2)
+
+    # Check for scaffold file and run QUAST if it exists
+    scaffold_file = P.snip(contig_file, '.contigs.fasta') + '.scaffolds.fasta'
+    scaffold_out = P.snip(outfile, 'contigs.quast.tsv.gz') + 'scaffolds.quast.tsv.gz'
+    temp_out_dir_scaffold=P.snip(scaffold_out, '.scaffolds.quast.tsv.gz') + "_quast_output"
+    if os.path.exists(scaffold_file):
+       # QUAST command for the scaffold file
+       statement3 = ("quast.py %(scaffold_file)s "
+                    "-t 4 "
+                    "-m 500 "
+                    "-o %(temp_out_dir_scaffold)s")    
+ 
+       P.run(statement3)
+    
+    # Compress QUAST scaffold result
+    scaffold_result_file=f"{temp_out_dir_scaffold}/report.tsv"
+    if os.path.exists(scaffold_result_file):
+        statement4 = f"cat {scaffold_result_file} | gzip > {scaffold_out}"
+        P.run(statement4)
+
 
 def main(argv=None):
     if argv is None:
