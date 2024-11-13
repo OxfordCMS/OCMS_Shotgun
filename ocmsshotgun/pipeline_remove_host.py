@@ -111,6 +111,7 @@ def mapHisat2(infile,outfile):
 ################################################################################    
 #filter the reads from the mapping output and convert to fasta/q file(s)
 ################################################################################
+@active_if(PARAMS['general_tool'] == 'hisat')
 @follows(mapHisat2)
 @transform(mapHisat2,
            regex(r"hisat.dir/(\S+)_dehost.mapped.bam"),
