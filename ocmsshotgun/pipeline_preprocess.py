@@ -40,7 +40,9 @@ module load bmtagger/3.101-gompi-2020a
 module load Trimmomatic/0.39-Java-11
 module load BBMap/38.90-GCC-9.3.0
 module load SortMeRNA/4.3.4
-
+module load SAMtools/1.10-GCC-9.3.0
+module load HISAT2/2.2.1-foss-2020a
+module load BEDTools/2.30.0-GCC-12.2.0
 Code
 ====
 
@@ -196,7 +198,12 @@ def combineRNAClassification(infiles, outfile):
                  " gzip > %(outfile)s")
     P.run(statement, to_cluster=False)
 
+################################################################################
+# remove host sequences with bmtagger
+################################################################################
+
 @follows(mkdir('reads_hostRemoved.dir'))
+@active_if(PARAMS['host_tool'] == 'bmtagger')
 @transform(removeRibosomalRNA,
            regex('.+/(.+)_rRNAremoved.fastq.1.gz'),
            r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
@@ -218,6 +225,54 @@ def removeHost(fastq1, outfile):
     for f in to_unlink:
         os.unlink(f)
 
+################################################################################
+#align reads to chosen reference genome using hisat2
+#converts the output from sam to bam
+################################################################################
+@active_if(PARAMS['host_tool'] == 'hisat')
+@follows(removeRibosomalRNA)
+@transform(removeRibosomalRNA,
+           regex(r'reads_rrnaRemoved.dir/(\S+)(_rRNAremoved).fastq.1.gz$'),
+           r"reads_hostRemoved.dir/\1_dehost.mapped.bam")
+def mapHisat2(infile,outfile):
+    '''Align host sequences with HISAT2 and remove host reads with samtools
+    '''
+    
+    tool = pp.hisat2(infile, outfile, **PARAMS)
+    statement = tool.buildStatement()
+    P.run(statement,
+          job_threads = PARAMS["hisat2_job_threads"],
+          job_memory = PARAMS["hisat2_job_memory"])
+
+    statement = tool.postProcess()
+    P.run(statement,
+          job_threads = PARAMS["hisat2_job_threads"],
+          job_memory = PARAMS["hisat2_job_memory"])
+    
+#filter the reads from the mapping output and convert to fasta/q file(s)
+@active_if(PARAMS['host_tool'] == 'hisat')
+@follows(mapHisat2)
+@transform(mapHisat2,
+           regex(r"reads_hostRemoved.dir/(\S+)_dehost.mapped.bam"),
+           add_inputs(r"reads_rrnaRemoved.dir/\1_rRNAremoved.fastq.1.gz"),
+           r"reads_hostRemoved.dir/\1_dehost.fastq.1.gz")
+def filterMapping(infiles,outfile):
+
+    bam = infiles[0]
+    fq1 = infiles[1]
+    # get fastq data corresponding with bam file
+    seqobj = utility.matchReference(fq1, outfile, **PARAMS)
+    tool = pp.filterFromBam(bam, outfile, seqobj,
+                            **{'inf_suffix':'.mapped.bam'}, **PARAMS)
+
+    statement = tool.buildStatement()
+    P.run(statement,
+          job_threads = PARAMS['bamfilter_job_threads'],
+          job_memory = PARAMS['bamfilter_job_memory'])
+    
+    statement = tool.postProcess() # remove bam files?
+    #P.run(statement)
+    
 ###############################################################################
 # Mask or Remove Low-complexity sequence
 ###############################################################################

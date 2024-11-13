@@ -753,3 +753,113 @@ def summariseReadCounts(infiles, outfile):
                                            lost_adapt_perc, lost_rrna_perc, 
                                            lost_host_perc, lost_mask_perc, 
                                            output_perc])) + '\n')
+
+# Class for removing host reads with Hisat2 alignment
+class hisat2(utility.matchReference):
+    def buildStatement(self):
+        
+        fastq1 = self.fastq1
+        ref_genome = self.PARAMS["hisat2_ref_genome"]
+        statement = ["hisat2 -x %(ref_genome)s" % locals()]
+
+        if self.fastq2 is None:
+            statement.append("-U %(fastq1)s" % locals())
+        elif self.fastq3 is None:
+            fastq2 = self.fastq2
+            statement.append("-1 %(fastq1)s -2 %(fastq2)s" % locals())
+        elif self.fastq3 is not None:
+            fastq2 = self.fastq2
+            fastq3 = self.fastq3
+            statement.append("-1 %(fastq1)s -2 %(fastq2)s -r %(fastq3)s" % locals())
+
+        if self.fileformat == "fasta":
+            statement.append("-f")
+        else:
+            statement.append("-q")
+
+        out_sam = re.sub("bam$","sam", self.outfile)    
+        statement.append("-S %(out_sam)s" % locals())
+
+        if self.PARAMS["hisat2_phred"] == "64":
+            statement.append("--phred64")
+        elif self.PARAMS["hisat2_phred"] == "33":
+            statement.append("--phred33")
+
+        statement.append(self.PARAMS["hisat2_options"])
+
+        statement = " ".join(statement)
+        print(statement)
+        return(statement)
+
+    # method to convert sam output to bam output
+    def postProcess(self):
+        out_sam = re.sub("bam$", "sam", self.outfile)
+        outfile = self.outfile
+        statement = ("samtools view -bS %(out_sam)s > %(outfile)s "
+                     " && rm %(out_sam)s" % locals())
+        
+        return(statement)
+
+class filterFromBam(utility.BaseClass):
+    
+    def __init__(self, infile, outfile, seqobj, **PARAMS):
+        # call baseclass __init__ method
+        super().__init__(infile, outfile, **PARAMS)
+        # additional inits
+        self.seqobj = seqobj
+        self.filtered = (self.infile.strip(".mapped.bam") +
+                         ".unmapped_reads.bam")
+        self.pairsort = (self.infile.strip(".mapped.bam") +
+                         ".sorted_unmapped_reads.bam")
+        self.statement = []
+
+    def unmapped(self):
+        if self.seqobj.paired == True:
+            fflag = self.PARAMS["bamfilter_paired_pos"]
+            Fflag = self.PARAMS["bamfilter_paired_neg"]
+        else:
+            fflag = self.PARAMS["bamfilter_un_pos"]
+            Fflag = self.PARAMS["bamfilter_un_neg"]
+
+        fastq1 = self.seqobj.fastq1
+        filtered = self.filtered
+        
+        unmap = ("samtools view -b -f %(fflag)s"
+                 " -F %(Fflag)s %(fastq1)s > %(filtered)s" % locals())
+        self.statement.append(unmap)
+
+    def convertBam(self):
+        filtered = self.filtered
+        pairsort = self.pairsort
+        fastq_out = self.outfile.rstrip(".gz")
+        fastq2_out = self.outfile.replace(self.seqobj.fq1_suffix,
+                                          self.seqobj.fq2_suffix).rstrip(".gz")
+        
+        #if paired reads ensure they are sorted into pairs before conversion 
+        #to FASTX
+        if self.seqobj.paired == True:
+            sort_statement = ("samtools sort -n %(filtered)s "
+                              "-o %(pairsort)s" % locals())
+            self.statement.append(sort_statement)
+            entry = ("bedtools bamtofastq -i %(pairsort)s"
+                     " -fq %(fastq_out)s -fq2 %(fastq2_out)s" % locals())
+             
+        else:
+            entry = ("bedtools bamtofastq -i %(filtered)s"
+                     " -fq %(fastq_out)s" % locals())
+        self.statement.append(entry)
+
+        #compress
+        self.statement.append("gzip %(fastq_out)s" % locals())
+        if self.seqobj.paired == True:
+            self.statement.append("gzip %(fastq2_out)s" % locals())
+
+    def buildStatement(self):
+        self.unmapped()
+        self.convertBam()
+        return(" && ".join(self.statement))
+    
+    def postProcess(self):
+        #remove bam files
+        statement = "rm {}/*.bam".format(self.outdir)
+        return(statement)
