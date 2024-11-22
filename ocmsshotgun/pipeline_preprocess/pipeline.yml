@@ -135,7 +135,7 @@ bmtagger:
 
 hisat2:
     # index for reference genome
-    ref_genome: /well/kir/mirror/genomes/hisat2/hg38.ensembl91.genome.dir
+    ref_genome: /well/kir/mirror/genomes/hisat2/hg38.ensembl91.genome.dir/hg38
 
     # phred type. 64 or 33
     phred: 64
