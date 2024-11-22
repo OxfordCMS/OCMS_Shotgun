@@ -63,7 +63,8 @@ import ocmsshotgun.modules.Utility as utility
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check files to be processed
-FASTQ1 = utility.check_input()
+indir = PARAMS.get('general_input.dir', 'input.dir')
+FASTQ1 = utility.check_input(indir)
 
 #get all files within the directory to process
 SEQUENCEFILES = ("*.fastq.1.gz")
