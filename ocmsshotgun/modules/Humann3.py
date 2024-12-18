@@ -33,7 +33,7 @@ class humann3(object):
                      " --nucleotide-database %(db_nucleotide)s"
                      " --protein-database %(db_protein)s"
                      " --search-mode %(search_mode)s"
-                     " --metaphlan-options  \"--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s\""
+                     " --metaphlan-options '--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s -t rel_ab_w_read_stats'"
                      " %(options)s 2> %(outpath)s/%(prefix)s.log" % locals())
         
         return statement
