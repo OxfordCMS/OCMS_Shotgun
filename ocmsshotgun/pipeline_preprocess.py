@@ -40,7 +40,9 @@ module load bmtagger/3.101-gompi-2020a
 module load Trimmomatic/0.39-Java-11
 module load BBMap/38.90-GCC-9.3.0
 module load SortMeRNA/4.3.4
-
+module load SAMtools/1.10-GCC-9.3.0
+module load HISAT2/2.2.1-foss-2020a
+module load BEDTools/2.30.0-GCC-12.2.0
 Code
 ====
 
@@ -196,28 +198,55 @@ def combineRNAClassification(infiles, outfile):
                  " gzip > %(outfile)s")
     P.run(statement, to_cluster=False)
 
+################################################################################
+# remove host sequences with bmtagger or hisat
+################################################################################
 @follows(mkdir('reads_hostRemoved.dir'))
+@follows(removeRibosomalRNA)
 @transform(removeRibosomalRNA,
-           regex('.+/(.+)_rRNAremoved.fastq.1.gz'),
+           regex(r'reads_rrnaRemoved.dir/(\S+)_rRNAremoved.fastq.1.gz$'),
            r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
-def removeHost(fastq1, outfile):
-    '''Remove host contamination using bmtagger'''
+def removeHost(infile,outfile): 
+    '''Align and remove host sequences with bmtagger or HISAT2
+    '''
+    # bmtagger - aligns with srprism
+    if PARAMS['host_tool']  == 'bmtagger':
+        tool = pp.bmtagger(fastq1, outfile, **PARAMS)
+        statements, tmpfiles = tool.buildStatement()
 
-    tool = pp.bmtagger(fastq1, outfile, **PARAMS)
-    statements, tmpfiles = tool.buildStatement()
+        # one statement for each host genome specified
+        for statement in statements:
+            P.run(statement, 
+                job_threads=PARAMS['bmtagger_job_threads'], 
+                job_memory=PARAMS['bmtagger_job_memory'],
+                job_options=PARAMS.get('bmtagger_job_options',''))
+        
+        statement, to_unlink  = tool.postProcess(tmpfiles)
+        P.run(statement)
+        for f in to_unlink:
+            os.unlink(f)
+    #Align host sequences with HISAT2 and remove host reads with samtools
+    #converts the output from sam to bam
+    elif PARAMS['host_tool'] == 'hisat':
+        tool = pp.hisat2(infile, outfile, **PARAMS)
 
-    # one statement for each host genome specified
-    for statement in statements:
-        P.run(statement, 
-              job_threads=PARAMS['bmtagger_job_threads'], 
-              job_memory=PARAMS['bmtagger_job_memory'],
-              job_options=PARAMS.get('bmtagger_job_options',''))
+        statement = [tool.hisatStatement()]
+        
+        # sort sam output to bam output and index bam
+        statement.append(tool.sam2bamStatement())
+        
+        statement = " ; ".join(statement)
+        P.run(statement,
+            job_threads = PARAMS["hisat2_job_threads"],
+            job_memory = PARAMS["hisat2_job_memory"])
+        
+        # clean up sam files and hisat outputs
+        statement = tool.postProcess()
+        P.run(statement, without_cluster=True)
+
+        # merging done locally
+        tool.mergeHisatMetrics() 
     
-    statement, to_unlink  = tool.postProcess(tmpfiles)
-    P.run(statement)
-    for f in to_unlink:
-        os.unlink(f)
-
 ###############################################################################
 # Mask or Remove Low-complexity sequence
 ###############################################################################

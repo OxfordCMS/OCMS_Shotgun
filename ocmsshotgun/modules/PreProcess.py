@@ -537,7 +537,7 @@ class bmtagger(utility.matchReference):
                          " --to-drop-single %(to_remove)s"
                          " --fastq-out1 %(outfile)s"
                          " --fastq-drop1 %(fastq_host)s"
-                         " &>> %(outfile)s.log")
+                         " &>> %(outfile)s.log" % locals())
         
             P.run(statement)
             
@@ -753,3 +753,126 @@ def summariseReadCounts(infiles, outfile):
                                            lost_adapt_perc, lost_rrna_perc, 
                                            lost_host_perc, lost_mask_perc, 
                                            output_perc])) + '\n')
+
+# Class for removing host reads with Hisat2 alignment
+class hisat2(utility.matchReference):
+    def hisatStatement(self):
+        
+        fastq1 = self.fastq1
+        ref_genome = self.PARAMS["hisat2_ref_genome"]
+        
+
+        statement = ["hisat2 -x %(ref_genome)s" % locals()]
+        
+        if self.fastq2 is None:
+            unmapped = self.outfile.replace(self.fq1_suffix, "_unmapped.fastq.gz")
+            mapped = self.outfile.replace(self.fq1_suffix, "_mapped.fastq.gz")
+            entry = ("-U %(fastq1)s --un-gz %(unmapped)s"
+                     " --al-gz %(mapped)s" % locals())
+            statement.append(entry)
+        elif self.fastq3 is None:
+            unmapped = self.outfile.replace(self.fq1_suffix, "_unmapped")
+            mapped = self.outfile.replace(self.fq1_suffix, "_mapped")
+            unmapped_unpaired = self.outfile.replace(self.fq1_suffix, 
+                                                     ".fastq.3.gz")
+            mapped_unpaired = self.outfile.replace(self.fq1_suffix,
+                                                   "_mapped.fastq.3.gz")
+            entry = (f"-1 {self.fastq1} -2 {self.fastq2}"
+                     f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
+                     f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
+            statement.append(entry)
+        elif self.fastq3 is not None:
+            unmapped = self.outfile.replace(self.fq1_suffix, "_unmapped")
+            mapped = self.outfile.replace(self.fq1_suffix, "_mapped")
+            unmapped_unpaired = self.outfile.replace(self.fq1_suffix, 
+                                                     ".fastq.3.gz")
+            mapped_unpaired = self.outfile.replace(self.fq1_suffix,
+                                                   "_mapped.fastq.3.gz")
+            entry = (f"-1 {self.fastq1} -2 {self.fastq2} -r {self.fastq3}"
+                     f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
+                     f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
+            statement.append(entry)
+
+        if self.fileformat == "fasta":
+            statement.append("-f")
+        else:
+            statement.append("-q")
+
+        samfile = self.outfile.replace(self.fq1_suffix, ".sam")
+        hisat2_metrics = self.outfile.replace(self.fq1_suffix, "_hisat2_metrics.log")
+        hisat2_summary = self.outfile.replace(self.fq1_suffix, "_hisat2_summary.log")
+        nthreads = self.PARAMS["hisat2_job_threads"]
+        entry = ("-S %(samfile)s --summary-file %(hisat2_summary)s"
+                 " --new-summary"
+                 " --met-file %(hisat2_metrics)s"
+                 " --met-stderr "
+                 " -p %(nthreads)s --reorder" % locals())
+        statement.append(entry)
+
+        statement.append(self.PARAMS["hisat2_options"])
+
+        statement = " ".join(statement)
+        return(statement)
+
+    # method to convert sam output to bam output
+    # sorts and indexes bam file
+    def sam2bamStatement(self):
+        samfile = self.outfile.replace(self.fq1_suffix, ".sam")
+        bamfile = re.sub("sam$", "bam", samfile)
+        statement = "samtools sort %(samfile)s > %(bamfile)s" % locals() 
+        #statement.append(" && samtools index %(bamfile)s" )
+        
+        return(statement)
+    
+        # merge hisat stats (per sample) into one table
+    def mergeHisatMetrics(self):
+        metric_files = glob(os.path.join(self.outdir, "*_hisat2_metrics.log"))
+        
+        # get header
+        with open(metric_files[0], "r") as f:
+            header = f.readline().split("\t")[:-1]
+
+        # add sample name to log files
+        header = ["sample_name"] + header
+
+        merged_metrics = os.path.join(self.outdir, "merged_hisat2_metrics.tsv")
+        with open(merged_metrics, "w") as f:
+            f.write("\t".join(header) + '\n')
+            # read in each file
+            for metric_file in metric_files:
+                with open(metric_file, "r") as curr_metric:
+                    next(curr_metric)
+                    values = curr_metric.readline().rstrip("\n").split("\t")
+                sample_name = self.outfile.strip(self.fq1_suffix)
+                values = [sample_name] + values
+
+                f.write("\t".join(values) + '\n')
+
+    def postProcess(self):
+        samfile = self.outfile.replace(self.fq1_suffix, ".sam")
+        baifile = self.outfile.replace(self.fq1_suffix, ".bam.bai")
+        statement = []
+        
+        # rename hisat output of paired end reads
+        hisat_fq = {
+            self.outfile.replace(self.fq1_suffix, "_mapped.1"):
+            self.outfile.replace(self.fq1_suffix, "_mapped.fastq.1.gz"),
+            self.outfile.replace(self.fq1_suffix, "_mapped.2"):
+            self.outfile.replace(self.fq1_suffix, "_mapped.fastq.2.gz"),
+            self.outfile.replace(self.fq1_suffix, "_unmapped.1"):
+            self.outfile.replace(self.fq1_suffix, ".fastq.1.gz"),
+            self.outfile.replace(self.fq1_suffix, "_unmapped.2"):
+            self.outfile.replace(self.fq1_suffix, ".fastq.2.gz")
+        }
+        entry = []
+        for key in [x for x in hisat_fq.keys() if os.path.exists(x)]:
+            entry.append(f"mv {key} {hisat_fq[key]}")
+        statement = statement + entry
+
+        # delete sam and bam.bai files
+        statement.append(f"rm {samfile}")
+        #statement.append(f"rm {baifile}")
+
+        statement = " ; ".join(statement)
+        
+        return(statement)
