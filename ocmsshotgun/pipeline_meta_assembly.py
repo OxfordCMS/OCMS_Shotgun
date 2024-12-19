@@ -286,6 +286,7 @@ def runQUAST(contig_file, outfile):
     statement = ("metaquast.py %(contig_file)s"
                  " --output-dir %(out_dir)s"
                  " %(quast_options)s"
+                 " -r %(quast_reference)s"
                  " &> %(out_log)s")
     P.run(statement,
           job_threads=PARAMS['quast']['meta_threads'],
