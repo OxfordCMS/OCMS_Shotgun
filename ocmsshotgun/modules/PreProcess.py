@@ -537,7 +537,7 @@ class bmtagger(utility.matchReference):
                          " --to-drop-single %(to_remove)s"
                          " --fastq-out1 %(outfile)s"
                          " --fastq-drop1 %(fastq_host)s"
-                         " &>> %(outfile)s.log")
+                         " &>> %(outfile)s.log" % locals())
         
             P.run(statement)
             
@@ -756,110 +756,123 @@ def summariseReadCounts(infiles, outfile):
 
 # Class for removing host reads with Hisat2 alignment
 class hisat2(utility.matchReference):
-    def buildStatement(self):
+    def hisatStatement(self):
         
         fastq1 = self.fastq1
         ref_genome = self.PARAMS["hisat2_ref_genome"]
-        statement = ["hisat2 -x %(ref_genome)s" % locals()]
+        
 
+        statement = ["hisat2 -x %(ref_genome)s" % locals()]
+        
         if self.fastq2 is None:
-            statement.append("-U %(fastq1)s" % locals())
+            unmapped = self.outfile.replace(self.fq1_suffix, "_unmapped.fastq.gz")
+            mapped = self.outfile.replace(self.fq1_suffix, "_mapped.fastq.gz")
+            entry = ("-U %(fastq1)s --un-gz %(unmapped)s"
+                     " --al-gz %(mapped)s" % locals())
+            statement.append(entry)
         elif self.fastq3 is None:
-            fastq2 = self.fastq2
-            statement.append("-1 %(fastq1)s -2 %(fastq2)s" % locals())
+            unmapped = self.outfile.replace(self.fq1_suffix, "_unmapped")
+            mapped = self.outfile.replace(self.fq1_suffix, "_mapped")
+            unmapped_unpaired = self.outfile.replace(self.fq1_suffix, 
+                                                     ".fastq.3.gz")
+            mapped_unpaired = self.outfile.replace(self.fq1_suffix,
+                                                   "_mapped.fastq.3.gz")
+            entry = (f"-1 {self.fastq1} -2 {self.fastq2}"
+                     f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
+                     f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
+            statement.append(entry)
         elif self.fastq3 is not None:
-            fastq2 = self.fastq2
-            fastq3 = self.fastq3
-            statement.append("-1 %(fastq1)s -2 %(fastq2)s -r %(fastq3)s" % locals())
+            unmapped = self.outfile.replace(self.fq1_suffix, "_unmapped")
+            mapped = self.outfile.replace(self.fq1_suffix, "_mapped")
+            unmapped_unpaired = self.outfile.replace(self.fq1_suffix, 
+                                                     ".fastq.3.gz")
+            mapped_unpaired = self.outfile.replace(self.fq1_suffix,
+                                                   "_mapped.fastq.3.gz")
+            entry = (f"-1 {self.fastq1} -2 {self.fastq2} -r {self.fastq3}"
+                     f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
+                     f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
+            statement.append(entry)
 
         if self.fileformat == "fasta":
             statement.append("-f")
         else:
             statement.append("-q")
 
-        out_sam = re.sub("bam$","sam", self.outfile)    
-        statement.append("-S %(out_sam)s" % locals())
-
-        if self.PARAMS["hisat2_phred"] == "64":
-            statement.append("--phred64")
-        elif self.PARAMS["hisat2_phred"] == "33":
-            statement.append("--phred33")
+        samfile = self.outfile.replace(self.fq1_suffix, ".sam")
+        hisat2_metrics = self.outfile.replace(self.fq1_suffix, "_hisat2_metrics.log")
+        hisat2_summary = self.outfile.replace(self.fq1_suffix, "_hisat2_summary.log")
+        nthreads = self.PARAMS["hisat2_job_threads"]
+        entry = ("-S %(samfile)s --summary-file %(hisat2_summary)s"
+                 " --new-summary"
+                 " --met-file %(hisat2_metrics)s"
+                 " --met-stderr "
+                 " -p %(nthreads)s --reorder" % locals())
+        statement.append(entry)
 
         statement.append(self.PARAMS["hisat2_options"])
 
         statement = " ".join(statement)
-        print(statement)
         return(statement)
 
     # method to convert sam output to bam output
-    def postProcess(self):
-        out_sam = re.sub("bam$", "sam", self.outfile)
-        outfile = self.outfile
-        statement = ("samtools view -bS %(out_sam)s > %(outfile)s "
-                     " && rm %(out_sam)s" % locals())
+    # sorts and indexes bam file
+    def sam2bamStatement(self):
+        samfile = self.outfile.replace(self.fq1_suffix, ".sam")
+        bamfile = re.sub("sam$", "bam", samfile)
+        statement = "samtools sort %(samfile)s > %(bamfile)s" % locals() 
+        #statement.append(" && samtools index %(bamfile)s" )
         
         return(statement)
-
-class filterFromBam(utility.BaseClass):
     
-    def __init__(self, infile, outfile, seqobj, **PARAMS):
-        # call baseclass __init__ method
-        super().__init__(infile, outfile, **PARAMS)
-        # additional inits
-        self.seqobj = seqobj
-        self.filtered = (self.infile.strip(".mapped.bam") +
-                         ".unmapped_reads.bam")
-        self.pairsort = (self.infile.strip(".mapped.bam") +
-                         ".sorted_unmapped_reads.bam")
-        self.statement = []
-
-    def unmapped(self):
-        if self.seqobj.paired == True:
-            fflag = self.PARAMS["bamfilter_paired_pos"]
-            Fflag = self.PARAMS["bamfilter_paired_neg"]
-        else:
-            fflag = self.PARAMS["bamfilter_un_pos"]
-            Fflag = self.PARAMS["bamfilter_un_neg"]
-
-        fastq1 = self.seqobj.fastq1
-        filtered = self.filtered
+        # merge hisat stats (per sample) into one table
+    def mergeHisatMetrics(self):
+        metric_files = glob(os.path.join(self.outdir, "*_hisat2_metrics.log"))
         
-        unmap = ("samtools view -b -f %(fflag)s"
-                 " -F %(Fflag)s %(fastq1)s > %(filtered)s" % locals())
-        self.statement.append(unmap)
+        # get header
+        with open(metric_files[0], "r") as f:
+            header = f.readline().split("\t")[:-1]
 
-    def convertBam(self):
-        filtered = self.filtered
-        pairsort = self.pairsort
-        fastq_out = self.outfile.rstrip(".gz")
-        fastq2_out = self.outfile.replace(self.seqobj.fq1_suffix,
-                                          self.seqobj.fq2_suffix).rstrip(".gz")
-        
-        #if paired reads ensure they are sorted into pairs before conversion 
-        #to FASTX
-        if self.seqobj.paired == True:
-            sort_statement = ("samtools sort -n %(filtered)s "
-                              "-o %(pairsort)s" % locals())
-            self.statement.append(sort_statement)
-            entry = ("bedtools bamtofastq -i %(pairsort)s"
-                     " -fq %(fastq_out)s -fq2 %(fastq2_out)s" % locals())
-             
-        else:
-            entry = ("bedtools bamtofastq -i %(filtered)s"
-                     " -fq %(fastq_out)s" % locals())
-        self.statement.append(entry)
+        # add sample name to log files
+        header = ["sample_name"] + header
 
-        #compress
-        self.statement.append("gzip %(fastq_out)s" % locals())
-        if self.seqobj.paired == True:
-            self.statement.append("gzip %(fastq2_out)s" % locals())
+        merged_metrics = os.path.join(self.outdir, "merged_hisat2_metrics.tsv")
+        with open(merged_metrics, "w") as f:
+            f.write("\t".join(header) + '\n')
+            # read in each file
+            for metric_file in metric_files:
+                with open(metric_file, "r") as curr_metric:
+                    next(curr_metric)
+                    values = curr_metric.readline().rstrip("\n").split("\t")
+                sample_name = self.outfile.strip(self.fq1_suffix)
+                values = [sample_name] + values
 
-    def buildStatement(self):
-        self.unmapped()
-        self.convertBam()
-        return(" && ".join(self.statement))
-    
+                f.write("\t".join(values) + '\n')
+
     def postProcess(self):
-        #remove bam files
-        statement = "rm {}/*.bam".format(self.outdir)
+        samfile = self.outfile.replace(self.fq1_suffix, ".sam")
+        baifile = self.outfile.replace(self.fq1_suffix, ".bam.bai")
+        statement = []
+        
+        # rename hisat output of paired end reads
+        hisat_fq = {
+            self.outfile.replace(self.fq1_suffix, "_mapped.1"):
+            self.outfile.replace(self.fq1_suffix, "_mapped.fastq.1.gz"),
+            self.outfile.replace(self.fq1_suffix, "_mapped.2"):
+            self.outfile.replace(self.fq1_suffix, "_mapped.fastq.2.gz"),
+            self.outfile.replace(self.fq1_suffix, "_unmapped.1"):
+            self.outfile.replace(self.fq1_suffix, ".fastq.1.gz"),
+            self.outfile.replace(self.fq1_suffix, "_unmapped.2"):
+            self.outfile.replace(self.fq1_suffix, ".fastq.2.gz")
+        }
+        entry = []
+        for key in [x for x in hisat_fq.keys() if os.path.exists(x)]:
+            entry.append(f"mv {key} {hisat_fq[key]}")
+        statement = statement + entry
+
+        # delete sam and bam.bai files
+        statement.append(f"rm {samfile}")
+        #statement.append(f"rm {baifile}")
+
+        statement = " ; ".join(statement)
+        
         return(statement)

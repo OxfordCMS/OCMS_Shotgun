@@ -118,7 +118,7 @@ class matchReference(object):
         self.fq2_suffix = None
         self.fq3_suffix = None
         self.fileformat = None
-        self.paired = False
+        self.paired = None
         self.compressed = False
         self.outfile = outfile
         self.PARAMS = PARAMS
@@ -138,10 +138,11 @@ class matchReference(object):
         '''autocheck file format and pairedness, 
            read count must be specified seperately
         '''
-        self.getSuffix(self.PARAMS.get('inf_suffix', None))
+        # self.getSuffix(self.PARAMS.get('inf_suffix', None))
+        self.isPaired()
+        self.getSuffix()
         self.prefix = os.path.basename(self.fastq1.rstrip(self.fq1_suffix))
         self.getFormat()
-        self.isPaired()
         self.hasSingleton()
         
 
@@ -149,18 +150,16 @@ class matchReference(object):
     '''
     # allow custom extension to be passed; default extension is ".fastsq.1.gz"
     # inf_suffix used to set fq1_suffix, fq2_suffix, fq3_suffix, and prefix
-    def getSuffix(self, inf_suffix=None):
+    def getSuffix(self):
         # set suffix
         # if self.fastq1.endswith(".fastq.1.gz"):
-        if inf_suffix is None:
+        if self.paired:
             self.fq1_suffix = ".fastq.1.gz"
             self.fq2_suffix = '.fastq.2.gz'
             self.fq3_suffix = '.fastq.3.gz'
         else:
-            self.fq1_suffix = inf_suffix
-            self.fq2_suffix = inf_suffix.replace('1', '2')
-            self.fq3_suffix = inf_suffix.replace('1', '3')
-
+            self.fq1_suffix = ".fastq.gz"
+            
     '''check it is fasta or fastq and if compressed'''    
     def getFormat(self):
         extensions=("fna","fa","fasta","fastq")
@@ -188,6 +187,8 @@ class matchReference(object):
             assert len(glob.glob(paired_name)) > 0, "cannot find read 2 file at location {} associated with read 1 file {}".format(paired_name,self.filename)
             self.paired = True
             self.fastq2 = paired_name
+        else:
+            self.paired = False
 
         # if we ever have interleaved data
         #elif self.isInterleaved(self.filepath):

@@ -199,79 +199,53 @@ def combineRNAClassification(infiles, outfile):
     P.run(statement, to_cluster=False)
 
 ################################################################################
-# remove host sequences with bmtagger
+# remove host sequences with bmtagger or hisat
 ################################################################################
-
 @follows(mkdir('reads_hostRemoved.dir'))
-@active_if(PARAMS['host_tool'] == 'bmtagger')
-@transform(removeRibosomalRNA,
-           regex('.+/(.+)_rRNAremoved.fastq.1.gz'),
-           r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
-def removeHost(fastq1, outfile):
-    '''Remove host contamination using bmtagger'''
-
-    tool = pp.bmtagger(fastq1, outfile, **PARAMS)
-    statements, tmpfiles = tool.buildStatement()
-
-    # one statement for each host genome specified
-    for statement in statements:
-        P.run(statement, 
-              job_threads=PARAMS['bmtagger_job_threads'], 
-              job_memory=PARAMS['bmtagger_job_memory'],
-              job_options=PARAMS.get('bmtagger_job_options',''))
-    
-    statement, to_unlink  = tool.postProcess(tmpfiles)
-    P.run(statement)
-    for f in to_unlink:
-        os.unlink(f)
-
-################################################################################
-#align reads to chosen reference genome using hisat2
-#converts the output from sam to bam
-################################################################################
-@active_if(PARAMS['host_tool'] == 'hisat')
 @follows(removeRibosomalRNA)
 @transform(removeRibosomalRNA,
-           regex(r'reads_rrnaRemoved.dir/(\S+)(_rRNAremoved).fastq.1.gz$'),
-           r"reads_hostRemoved.dir/\1_dehost.mapped.bam")
-def mapHisat2(infile,outfile):
-    '''Align host sequences with HISAT2 and remove host reads with samtools
+           regex(r'reads_rrnaRemoved.dir/(\S+)_rRNAremoved.fastq.1.gz$'),
+           r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
+def removeHost(infile,outfile): 
+    '''Align and remove host sequences with bmtagger or HISAT2
     '''
-    
-    tool = pp.hisat2(infile, outfile, **PARAMS)
-    statement = tool.buildStatement()
-    P.run(statement,
-          job_threads = PARAMS["hisat2_job_threads"],
-          job_memory = PARAMS["hisat2_job_memory"])
+    # bmtagger - aligns with srprism
+    if PARAMS['host_tool']  == 'bmtagger':
+        tool = pp.bmtagger(fastq1, outfile, **PARAMS)
+        statements, tmpfiles = tool.buildStatement()
 
-    statement = tool.postProcess()
-    P.run(statement,
-          job_threads = PARAMS["hisat2_job_threads"],
-          job_memory = PARAMS["hisat2_job_memory"])
-    
-#filter the reads from the mapping output and convert to fasta/q file(s)
-@active_if(PARAMS['host_tool'] == 'hisat')
-@follows(mapHisat2)
-@transform(mapHisat2,
-           regex(r"reads_hostRemoved.dir/(\S+)_dehost.mapped.bam"),
-           add_inputs(r"reads_rrnaRemoved.dir/\1_rRNAremoved.fastq.1.gz"),
-           r"reads_hostRemoved.dir/\1_dehost.fastq.1.gz")
-def filterMapping(infiles,outfile):
+        # one statement for each host genome specified
+        for statement in statements:
+            P.run(statement, 
+                job_threads=PARAMS['bmtagger_job_threads'], 
+                job_memory=PARAMS['bmtagger_job_memory'],
+                job_options=PARAMS.get('bmtagger_job_options',''))
+        
+        statement, to_unlink  = tool.postProcess(tmpfiles)
+        P.run(statement)
+        for f in to_unlink:
+            os.unlink(f)
+    #Align host sequences with HISAT2 and remove host reads with samtools
+    #converts the output from sam to bam
+    elif PARAMS['host_tool'] == 'hisat':
+        tool = pp.hisat2(infile, outfile, **PARAMS)
 
-    bam = infiles[0]
-    fq1 = infiles[1]
-    # get fastq data corresponding with bam file
-    seqobj = utility.matchReference(fq1, outfile, **PARAMS)
-    tool = pp.filterFromBam(bam, outfile, seqobj,
-                            **{'inf_suffix':'.mapped.bam'}, **PARAMS)
+        statement = [tool.hisatStatement()]
+        
+        # sort sam output to bam output and index bam
+        statement.append(tool.sam2bamStatement())
+        
+        statement = " ; ".join(statement)
+        P.run(statement,
+            job_threads = PARAMS["hisat2_job_threads"],
+            job_memory = PARAMS["hisat2_job_memory"])
+        
+        # clean up sam files and hisat outputs
+        statement = tool.postProcess()
+        P.run(statement, without_cluster=True)
 
-    statement = tool.buildStatement()
-    P.run(statement,
-          job_threads = PARAMS['bamfilter_job_threads'],
-          job_memory = PARAMS['bamfilter_job_memory'])
-    
-    statement = tool.postProcess() # remove bam files?
-    #P.run(statement)
+        # merging done locally
+        tool.mergeHisatMetrics() 
     
 ###############################################################################
 # Mask or Remove Low-complexity sequence
