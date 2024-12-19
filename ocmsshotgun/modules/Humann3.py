@@ -22,7 +22,7 @@ class humann3(object):
         search_mode = self.PARAMS['humann3_search_mode']
         options = self.PARAMS["humann3_options"]
 
-        # the option to add a taxonomic profile for restricting mapping
+        #the option to add a taxonomic profile for restricting mapping
         if self.taxonomic_profile:
             options = '--taxonomic-profile %s' % self.taxonomic_profile \
                 + ' ' + options
