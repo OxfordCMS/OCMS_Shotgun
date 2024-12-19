@@ -22,7 +22,7 @@ class humann3(object):
         search_mode = self.PARAMS['humann3_search_mode']
         options = self.PARAMS["humann3_options"]
 
-        #the option to add a taxonomic profile for restricting mapping
+        # the option to add a taxonomic profile for restricting mapping
         if self.taxonomic_profile:
             options = '--taxonomic-profile %s' % self.taxonomic_profile \
                 + ' ' + options
@@ -33,7 +33,7 @@ class humann3(object):
                      " --nucleotide-database %(db_nucleotide)s"
                      " --protein-database %(db_protein)s"
                      " --search-mode %(search_mode)s"
-                     " --metaphlan-options '--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s -t rel_ab_w_read_stats'"
+                     " --metaphlan-options  '--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s -t rel_ab_w_read_stats'"
                      " %(options)s 2> %(outpath)s/%(prefix)s.log" % locals())
         
         return statement
