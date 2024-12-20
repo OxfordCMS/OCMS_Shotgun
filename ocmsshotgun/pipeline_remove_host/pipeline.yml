@@ -12,46 +12,8 @@ general:
   # The full version, including alpha/beta/rc tags.
   release: 0.1
 
-  # which tool to use to align and filter host sequences. 
-  # bmtagger or hisat
-  tool: hisat
-
-hisat2:
-    # index for reference genome
-    ref_genome: /well/kir/mirror/genomes/hisat2/hg38.ensembl91.genome.dir
-
-    # phred type. 64 or 33
-    phred: 64
-
-    # additional hisat2 options
-    options: ''
-
-    # cluster options
-    job_threads: 10
-    job_memory: 2G
-
-#settings for extracting unmapped reads from mapping file
-#set the postive and negative flags for paired and unpaired data seperately
-bamfilter:
-    # positive samtools flags for paired data (f, to keep)
-    # 12= "only alignments with both reads unmapped"
-    paired_pos: 12
-
-    # negative samtools flags for paired data (f, not to keep)
-    # 256= "do not extract non-primary alignments"
-    paired_neg: 256
-    
-    # positive samtools flags for unpaired data (f, to keep)
-    # 4= "read unmapped"
-    un_pos: 4
-
-    # negative samtools flags for unpaired data (f, not to keep)
-    # 256= "do not extract non-primary alignments"
-    un_neg: 256
-
-    # cluster options
-    job_threads: 10
-    job_memory: 2G
+# tool to use for host alignment and filtering. bmtagger or hisat
+host_tool: hisat
 
 bmtagger:
 
@@ -72,3 +34,14 @@ bmtagger:
     job_threads: 1
 
     job_memory: 25G
+
+hisat2:
+    # index for reference genome
+    ref_genome: /well/kir/mirror/genomes/hisat2/hg38.ensembl91.genome.dir/hg38
+
+    # additional hisat2 options
+    options: ''
+
+    # cluster options
+    job_threads: 10
+    job_memory: 2G

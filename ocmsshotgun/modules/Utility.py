@@ -9,32 +9,40 @@ import cgatcore.iotools as IOTools
 from cgatcore import pipeline as P
 
 # Check that the input files correspond
-def check_input(datadir='.'):
+def check_input(datadir='.', paired=True):
 
-    fq1_regex = re.compile('(\S+).(fastq.1.gz)')
+    if paired:
+        fq1_regex = re.compile('(\S+).(fastq.1.gz)')
+    else:
+        fq1_regex = re.compile('(\S+).(fastq.gz)')
+    
     mask1 = list(map(lambda x: bool(fq1_regex.match(x)),
                      os.listdir(datadir)))
     fastq1s = [os.path.join(datadir, i) \
                for i in itertools.compress(os.listdir(datadir),
                                            mask1)]
 
-    if sum(mask1):
-        fq2_regex = re.compile('(\S+).(fastq.2.gz)')
-        mask2 = list(map(lambda x: bool(fq2_regex.match(x)),
-                         os.listdir(datadir)))
-        fastq2s = [os.path.join(datadir, i) \
-                   for i in itertools.compress(os.listdir(datadir), mask2)]
-        if sum(mask2):
-            assert sum(mask1) == sum(mask2), 'Not all input files have pairs'
-            fq1_stubs = [fq1_regex.match(x).group(1) for x in fastq1s]
-            fq2_stubs = [fq2_regex.match(x).group(1) for x in fastq2s]
-            assert sorted(fq1_stubs) == sorted(fq2_stubs), \
-                "First and second read pair files do not correspond"        
+    if paired:
+        if sum(mask1):
+            fq2_regex = re.compile('(\S+).(fastq.2.gz)')
+            mask2 = list(map(lambda x: bool(fq2_regex.match(x)),
+                            os.listdir(datadir)))
+            fastq2s = [os.path.join(datadir, i) \
+                    for i in itertools.compress(os.listdir(datadir), mask2)]
+            if sum(mask2):
+                assert sum(mask1) == sum(mask2), 'Not all input files have pairs'
+                fq1_stubs = [fq1_regex.match(x).group(1) for x in fastq1s]
+                fq2_stubs = [fq2_regex.match(x).group(1) for x in fastq2s]
+                assert sorted(fq1_stubs) == sorted(fq2_stubs), \
+                    "First and second read pair files do not correspond"        
+        else:
+            raise ValueError("No input files detected in run directory."
+                            " Check the file suffixes follow the notation"
+                            " fastq.1.gz and fastq.2.gz.")
     else:
-        raise ValueError("No input files detected in run directory."
-                         " Check the file suffixes follow the notation"
-                         " fastq.1.gz and fastq.2.gz.")
-
+        if not sum(mask1):
+            raise ValueError("No input files detected in run directory."
+                              "Check the file suffix is fastq.gz")
     return fastq1s
 
 def symlnk(inf, outf):

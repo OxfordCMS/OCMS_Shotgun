@@ -61,81 +61,55 @@ assert indir == 'input.dir', (
     "Input files need to be in input.dir."
 )
 ################################################################################
-# remove host sequences with bmtagger
+# remove host sequences with bmtagger or hisat
 ################################################################################
-@active_if(PARAMS['general_tool'] == 'bmtagger')
-@follows(mkdir('bmtagger.dir'))
-@transform(FASTQ1S,
-           regex('.+/(.+)_rRNAremoved.fastq.1.gz'),
-           r'bmtagger.dir/\1_dehost.fastq.1.gz')
-def runBmtagger(fastq1, outfile):
-    '''Remove host contamination using bmtagger'''
+@follows(mkdir('reads_hostRemoved.dir'))
+@follows(removeRibosomalRNA)
+@transform(removeRibosomalRNA,
+           regex(r'reads_rrnaRemoved.dir/(\S+)_rRNAremoved.fastq.1.gz$'),
+           r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
+def removeHost(infile,outfile): 
+    '''Align and remove host sequences with bmtagger or HISAT2
+    '''
+    # bmtagger - aligns with srprism
+    if PARAMS['host_tool']  == 'bmtagger':
+        tool = pp.bmtagger(fastq1, outfile, **PARAMS)
+        statements, tmpfiles = tool.buildStatement()
 
-    tool = pp.bmtagger(fastq1, outfile, **PARAMS)
-    statements, tmpfiles = tool.buildStatement()
+        # one statement for each host genome specified
+        for statement in statements:
+            P.run(statement, 
+                job_threads=PARAMS['bmtagger_job_threads'], 
+                job_memory=PARAMS['bmtagger_job_memory'],
+                job_options=PARAMS.get('bmtagger_job_options',''))
+        
+        statement, to_unlink  = tool.postProcess(tmpfiles)
+        P.run(statement)
+        for f in to_unlink:
+            os.unlink(f)
+    #Align host sequences with HISAT2 and remove host reads with samtools
+    #converts the output from sam to bam
+    elif PARAMS['host_tool'] == 'hisat':
+        tool = pp.hisat2(infile, outfile, **PARAMS)
 
-    # one statement for each host genome specified
-    for statement in statements:
-        P.run(statement, 
-              job_threads=PARAMS['bmtagger_job_threads'], 
-              job_memory=PARAMS['bmtagger_job_memory'],
-              job_options=PARAMS.get('bmtagger_job_options',''))
-    
-    statement, to_unlink  = tool.postProcess(tmpfiles)
-    P.run(statement)
-    for f in to_unlink:
-        os.unlink(f)
+        statement = [tool.hisatStatement()]
+        
+        # sort sam output to bam output and index bam
+        statement.append(tool.sam2bamStatement())
+        
+        statement = " ; ".join(statement)
+        P.run(statement,
+            job_threads = PARAMS["hisat2_job_threads"],
+            job_memory = PARAMS["hisat2_job_memory"])
+        
+        # clean up sam files and hisat outputs
+        statement = tool.postProcess()
+        P.run(statement, without_cluster=True)
 
-################################################################################
-#align reads to chosen reference genome using hisat2
-#converts the output from sam to bam
-################################################################################
-@active_if(PARAMS['general_tool'] == 'hisat')
-@mkdir("hisat.dir")
-@transform(FASTQ1S,
-           regex(r'.+/(\S+).fastq.1.gz$'),
-           r"hisat.dir/\1_dehost.mapped.bam")
-def mapHisat2(infile,outfile):
+        # merging done locally
+        tool.mergeHisatMetrics() 
 
-    tool = pp.hisat2(infile, outfile, **PARAMS)
-    statement = tool.buildStatement()
-    P.run(statement,
-          job_threads = PARAMS["hisat2_job_threads"],
-          job_memory = PARAMS["hisat2_job_memory"])
-
-    statement = tool.postProcess()
-    P.run(statement,
-          job_threads = PARAMS["hisat2_job_threads"],
-          job_memory = PARAMS["hisat2_job_memory"])
-
-################################################################################    
-#filter the reads from the mapping output and convert to fasta/q file(s)
-################################################################################
-@active_if(PARAMS['general_tool'] == 'hisat')
-@follows(mapHisat2)
-@transform(mapHisat2,
-           regex(r"hisat.dir/(\S+)_dehost.mapped.bam"),
-           # fastq file associated with bam file
-           add_inputs(r"input.dir/\1.fastq.1.gz"), 
-           r"hisat.dir/\1_dehost.fastq.1.gz")
-def filterMapping(infiles,outfile):
-
-    bam = infiles[0]
-    fq1 = infiles[1]
-    # get fastq data corresponding with bam file
-    seqobj = utility.matchReference(fq1, outfile, **PARAMS)
-    tool = pp.filterFromBam(bam, outfile, seqobj,
-                            **{'inf_suffix':'.mapped.bam'}, **PARAMS)
-
-    statement = tool.buildStatement()
-    P.run(statement,
-          job_threads = PARAMS['bamfilter_job_threads'],
-          job_memory = PARAMS['bamfilter_job_memory'])
-    
-    statement = tool.postProcess() # remove bam files?
-    #P.run(statement)
-
-@follows(filterMapping)
+@follows(removeHost)
 def full():
     pass
 
