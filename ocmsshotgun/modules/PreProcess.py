@@ -843,7 +843,7 @@ class hisat2(utility.matchReference):
                 with open(metric_file, "r") as curr_metric:
                     next(curr_metric)
                     values = curr_metric.readline().rstrip("\n").split("\t")
-                sample_name = self.outfile.strip(self.fq1_suffix)
+                sample_name = os.path.basename(self.outfile.strip(self.fq1_suffix))
                 values = [sample_name] + values
 
                 f.write("\t".join(values) + '\n')
