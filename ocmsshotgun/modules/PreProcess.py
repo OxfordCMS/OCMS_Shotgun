@@ -827,7 +827,7 @@ class hisat2(utility.matchReference):
         # merge hisat stats (per sample) into one table
     def mergeHisatMetrics(self):
         metric_files = glob(os.path.join(self.outdir, "*_hisat2_metrics.log"))
-        
+
         # get header
         with open(metric_files[0], "r") as f:
             header = f.readline().split("\t")[:-1]
@@ -843,7 +843,7 @@ class hisat2(utility.matchReference):
                 with open(metric_file, "r") as curr_metric:
                     next(curr_metric)
                     values = curr_metric.readline().rstrip("\n").split("\t")
-                sample_name = os.path.basename(self.outfile.strip(self.fq1_suffix))
+                sample_name = os.path.basename(metric_file.strip('.log'))
                 values = [sample_name] + values
 
                 f.write("\t".join(values) + '\n')
