@@ -11,7 +11,7 @@ from cgatcore import pipeline as P
 
 import ocmsshotgun.modules.Utility as utility
 
-class kraken2(utility.matchReference):
+class kraken2(utility.metaFastn):
 
     def buildStatement(self):
         # Note that at the moment I only deal with paired-end

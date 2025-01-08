@@ -13,7 +13,7 @@ from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
 import ocmsshotgun.modules.Utility as utility            
-class cdhit(utility.matchReference):
+class cdhit(utility.metaFastn):
         
     def buildStatement(self):
         '''Filter exact duplicates, if specified in config file'''
@@ -76,7 +76,7 @@ class cdhit(utility.matchReference):
         
         return statement
         
-class trimmomatic(utility.matchReference):
+class trimmomatic(utility.metaFastn):
 
     def buildStatement(self):
         '''Remove adapters using Trimmomatic'''
@@ -171,7 +171,7 @@ class trimmomatic(utility.matchReference):
 #    tool.postProcess()
 
     
-class runSortMeRNA(utility.matchReference):
+class runSortMeRNA(utility.metaFastn):
     """
     Run sortMeRNA. 
     Assumes that reference indexes have been created in advance in a 
@@ -369,7 +369,7 @@ class createSortMeRNAOTUs(runSortMeRNA):
         
         return None
 
-class bmtagger(utility.matchReference):
+class bmtagger(utility.metaFastn):
 
     def buildStatement(self):
         '''Remove host contamination using bmtagger'''
@@ -546,7 +546,7 @@ class bmtagger(utility.matchReference):
 
         return statement, to_unlink
 
-class bbtools(utility.matchReference):
+class bbtools(utility.metaFastn):
 
     def buildStatement(self):
         '''Either softmask low complexity regions, or remove reads with a large
@@ -755,7 +755,7 @@ def summariseReadCounts(infiles, outfile):
                                            output_perc])) + '\n')
 
 # Class for removing host reads with Hisat2 alignment
-class hisat2(utility.matchReference):
+class hisat2(utility.metaFastn):
     def hisatStatement(self):
         
         fastq1 = self.fastq1

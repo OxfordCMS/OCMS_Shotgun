@@ -53,53 +53,7 @@ def symlnk(inf, outf):
             os.remove(outf)
             os.symlink(inf, outf)
 
-class BaseClass(object):
-    """
-    Base class for non-fastq files. Helpfule for getting file extensions, 
-    file prefixes, input directory, output directory, etc.
-    Adapted from CGATMetaSequencing by Matt Jackson
-    """
-
-    def __init__(self, infile, outfile, **PARAMS):
-        self.outdir = os.path.dirname(outfile)
-        self.indir = os.path.dirname(infile)
-        self.infile = infile
-        self.inf_suffix = None
-        self.compressed = False
-        self.outfile = outfile
-        self.PARAMS = PARAMS
-        self.openfile = None
-
-        '''check file exists and is not empty
-        '''
-        assert os.path.exists(self.infile), (
-            f"{self.infile} file not found.")
-
-        assert os.path.getsize(self.infile) > 0, (
-            f"{self.infile} file is of bytesize 0")
-        
-
-        '''autocheck file format and pairedness, 
-           read count must be specified seperately
-        '''
-        # default behaviour inf_suffix=None will get the file extension
-        # OR can pass custom suffix via PARAMS
-        self.getSuffix(self.PARAMS.get('inf_suffix', None))
-        self.prefix = self.infile.rstrip(self.inf_suffix)
-
-        if self.infile.find(".gz")!=-1:
-            self.compressed = True
-
-    '''get infile suffix
-    '''
-    def getSuffix(self, inf_suffix=None):
-        # set suffix
-        if inf_suffix is None:
-            self.inf_suffix = os.path.splitext(self.infile)[-1]
-        else:
-            self.inf_suffix = inf_suffix
-
-class matchReference(object):
+class metaFastn(object):
     """
     Base class for generating run statements to match mWGS reads to 
     reference sequences. Intended to work with single, paired, or
