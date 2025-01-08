@@ -55,18 +55,14 @@ def symlnk(inf, outf):
 
 class metaFastn(object):
     """
-    Base class for generating run statements to match mWGS reads to 
-    reference sequences. Intended to work with single, paired, or
-    paired + singleton fastq files. 
+    Base class for reading in fastn files. At the moment, only works for fastqs. 
+    Intended to work with single, paired, or paired + singleton fastq files. 
 
     Some elements pulled form CGATMetaSequencing by Matt Jackson.
 
     Some options are  assumed to be passed via kwargs, as this and 
     inherited classes are written to work with a PARAMS dict 
     generated from a pipeline.yml config file.
-
-    ** Options:
-    fn_suffix - option to pass something other than .fastq.1.gz
     """
 
     def __init__(self, fastq1, outfile, **PARAMS):
