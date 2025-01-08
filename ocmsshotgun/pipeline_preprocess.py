@@ -66,15 +66,16 @@ import ocmsshotgun.modules.PreProcess as pp
 # set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
 
+indir = PARAMS.get("input.dir", "input.dir")
 # check that input files correspond
-FASTQ1S = utility.check_input()
+FASTQ1S = utility.check_input(indir)
 
 ###############################################################################
 # Deduplicate
 ###############################################################################
 @follows(mkdir('reads_deduped.dir'))
 @transform(FASTQ1S,
-           regex(r'.+/(.+).fastq.1.gz'),
+           regex(fr'{indir}/(.+).fastq.1.gz'),
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''

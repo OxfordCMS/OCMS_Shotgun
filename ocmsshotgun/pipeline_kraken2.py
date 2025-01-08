@@ -63,13 +63,14 @@ import ocmsshotgun.modules.Utility as utility
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check files to be processed
-FASTQ1 = utility.check_input()
+indir = PARAMS.get('general_input.dir', 'input.dir')
+FASTQ1 = utility.check_input(indir)
 
 #get all files within the directory to process
 SEQUENCEFILES = ("*.fastq.1.gz")
 
 SEQUENCEFILES_REGEX = regex(
-    r"(\S+).(fastq.1.gz)")
+    fr"{indir}/(\S+).(fastq.1.gz)")
 
 ########################################################
 ########################################################
@@ -109,9 +110,6 @@ def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
     '''
-    print('=============================================================')
-    print(infile)
-    print(outfile)
     statement = K.bracken(infile, outfile, **PARAMS).buildStatement()
 
     P.run(statement,

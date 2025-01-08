@@ -1,6 +1,6 @@
-location:
+general:
     # input directory (fastq single or paired end reads)
-    input: '.'
+    input.dir: 'input.dir'
     
     # metatranscriptomics fastq directory
     transcriptome: 
