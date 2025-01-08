@@ -16,7 +16,6 @@ class kraken2(utility.metaFastn):
     def buildStatement(self):
         # Note that at the moment I only deal with paired-end
         # reads
-        p1 = self.fastq1
         
         prefix = P.snip(self.outfile, ".k2.report.tsv")
     
@@ -25,20 +24,19 @@ class kraken2(utility.metaFastn):
         options = self.PARAMS["kraken2_options"]
     
         kraken_statement = ('kraken2'
-                            ' --db %(db)s'
-                            ' --output %(prefix)s.classified.tsv'
-                            ' --report %(prefix)s.k2.report.tsv'
+                            f' --db {db}'
+                            f' --output {prefix}.classified.tsv'
+                            f' --report {prefix}.k2.report.tsv'
                             ' --use-names'
-                            ' --threads %(job_threads)s' % locals())
+                            f' --threads {job_threads}')
 
         # paired end reads
         if self.fastq2:
-            p2 = p1.replace(".fastq.1.gz", ".fastq.2.gz")
             statement_entry = (" --paired"
-                               " --gzip-compressed %(p1)s %(p2)s" % locals())
+                               f" --gzip-compressed {self.fastq1} {self.fastq2}")
         # single end reads
         else:
-            statement_entry = " --gzip-compressed %s" % p1
+            statement_entry = f" --gzip-compressed {self.fastq1}"
 
         # build kraken statement
         kraken_statement = kraken_statement + statement_entry
@@ -47,7 +45,7 @@ class kraken2(utility.metaFastn):
             statement_entry = kraken_statement + ' ' + options
 
         # add additional commands
-        statement_entry = 'gzip %(prefix)s.classified.tsv' % locals()
+        statement_entry = f'gzip {prefix}.classified.tsv'
         
         statement = kraken_statement + '; ' +  statement_entry
         
@@ -115,16 +113,14 @@ class bracken():
     
         # bracken parameters
         db = self.PARAMS["bracken_db"]
-        read_len = self.PARAMS["bracken_read_len"]
         options = self.PARAMS["bracken_options"]
-        infile = self.infile
         
         # run bracken at every taxonomic level
         statement = ('bracken' 
-                    ' -d %(db)s'
-                    ' -i %(infile)s'
-                    ' -o bracken.dir/%(prefix)s.abundance.%(level)s.tsv'
-                    ' -w bracken.dir/%(prefix)s.k2b.report.%(level)s.tsv'
-                    ' -l %(level_param)s'
-                     ' %(options)s' % locals())
+                    f' -d {db}'
+                    f' -i {self.infile}'
+                    f' -o bracken.dir/{prefix}.abundance.{level}.tsv'
+                    f' -w bracken.dir/{prefix}.k2b.report.{level}.tsv'
+                    f' -l {level_param}'
+                    f' {options}')
         return statement

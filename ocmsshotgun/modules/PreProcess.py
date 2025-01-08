@@ -36,21 +36,21 @@ class cdhit(utility.metaFastn):
             if to_filter:
                 tmpf1 = P.get_temp_filename('.')
                 tmpf2 = P.get_temp_filename('.')
-                statement = ("zcat %(fastq1)s > %(tmpf1)s &&"
-                             " zcat %(fastq2)s > %(tmpf2)s &&"
+                statement = (f"zcat {self.fastq1} > {tmpf1} &&"
+                             f" zcat {fastq2} > {tmpf2} &&"
                              " cd-hit-dup"
-                             "  -i %(tmpf1)s"
-                             "  -i2 %(tmpf2)s"
-                             "  -o %(outfile1)s"
-                             "  -o2 %(outfile2)s"
-                             "  %(cdhit_options)s"
-                             " &> %(logfile)s &&"
-                             " gzip %(outfile1)s &&"
-                             " gzip %(outfile2)s &&"
-                             " gzip %(logfile)s &&"
-                             " rm -f %(tmpf1)s &&"
-                             " rm -f %(tmpf2)s &&"
-                             " rm -f %(cluster_file)s" % locals())
+                             f"  -i {tmpf1}"
+                             f"  -i2 {tmpf2}"
+                             f"  -o {outfile1}"
+                             f"  -o2 {outfile2}"
+                             f"  {cdhit_options}"
+                             f" &> {logfile} &&"
+                             f" gzip {outfile1} &&"
+                             f" gzip {outfile2} &&"
+                             f" gzip {logfile} &&"
+                             f" rm -f {tmpf1} &&"
+                             f" rm -f {tmpf2} &&"
+                             f" rm -f {cluster_file}")
             else:
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)
                 utility.symlnk(fastq1, self.outfile)
@@ -59,16 +59,16 @@ class cdhit(utility.metaFastn):
         else:
             if to_filter:
                 tmpf1 = P.get_temp_filename('.')
-                statement = ("zcat %(fastq1)s > %(tmpf1)s"
+                statement = (f"zcat {fastq1} > {tmpf1}"
                              " cd-hit-dup"
-                             "  -i %(tmpf1)s"
-                             "  -o %(outfile1)s"
-                             "  %(cdhit_options)s"
-                             " &> %(logfile)s &&"
-                             " gzip %(outfile1)s &&"
-                             " gzip %(logfile)s &&"
-                             " rm -f %(tmpf1)s &&"
-                             " rm -f %(cluster_file)s" % locals())
+                             f"  -i {tmpf1}"
+                             f"  -o {outfile1}"
+                             f"  {cdhit_options}"
+                             f" &> {logfile} &&"
+                             f" gzip {outfile1} &&"
+                             f" gzip {logfile} &&"
+                             f" rm -f {tmpf1} &&"
+                             f" rm -f {cluster_file}")
 
             else:
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)

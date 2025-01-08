@@ -93,7 +93,7 @@ class metaFastn(object):
         try:
             self.openfile = IOTools.open_file(self.fastq1)
         except FileNotFoundError as e:
-            msg = "cannot open file {}".format(self.fastq1)
+            msg = f"cannot open file {self.fastq1}"
             raise Exception(msg) from e
         self.head = [self.openfile.readline().rstrip("\n") for x in range(5)]
 
@@ -126,7 +126,7 @@ class metaFastn(object):
     def getFormat(self):
         extensions=("fna","fa","fasta","fastq")
         for i in extensions:
-            msg = "Read 2 file provided ({}) please use read 1 file".format(self.fastq1)
+            msg = f"Read 2 file provided ({self.fastq1}) please use read 1 file"
             assert not(self.fastq1.endswith((".2",".2.gz"))), msg
             if self.fastq1.endswith((i,i+".1.gz",i+".gz",i+".1")):
                 if i == "fastq":
@@ -135,7 +135,7 @@ class metaFastn(object):
                     self.fileformat="fasta"
         if self.fastq1.find(".gz")!=-1:
             self.compressed = True
-        msg = "file {} is not of the correct format (fasta or fastq).".format(self.fastq1)
+        msg = f"file {self.fastq1} is not of the correct format (fasta or fastq)."
         assert self.fileformat, msg
         if self.fileformat == "fasta":
             assert self.head[0][0] == ">", "invalid header on first line for fasta format"
