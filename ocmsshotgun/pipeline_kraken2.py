@@ -70,7 +70,7 @@ FASTQ1 = utility.check_input(indir)
 SEQUENCEFILES = ("*.fastq.1.gz")
 
 SEQUENCEFILES_REGEX = regex(
-    r"(\S+).(fastq.1.gz)")
+    fr"{indir}/(\S+).(fastq.1.gz)")
 
 ########################################################
 ########################################################
@@ -110,9 +110,6 @@ def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
     '''
-    print('=============================================================')
-    print(infile)
-    print(outfile)
     statement = K.bracken(infile, outfile, **PARAMS).buildStatement()
 
     P.run(statement,
