@@ -245,6 +245,16 @@ def removeHost(infile,outfile):
         statement = tool.postProcess()
         P.run(statement, without_cluster=True)
 
+        # rename hisat output to pipline expected outfile
+        old = glob(os.path.join(tool.outdir, "*_unmapped"))
+        new = [x.replace("unmapped","dehost") for x in old]
+        rename = zip(old, new)
+        statements = []
+        for x in rename:
+            statements.append(f"mv {x[0]} {x[1]}")
+        statement = "; ".join(statements)
+        P.run(statement, without_cluster=True)
+        
         # merging done locally
         tool.mergeHisatMetrics()
         tool.mergeHisatSummary() 
