@@ -246,7 +246,8 @@ def removeHost(infile,outfile):
         P.run(statement, without_cluster=True)
 
         # merging done locally
-        tool.mergeHisatMetrics() 
+        tool.mergeHisatMetrics()
+        tool.mergeHisatSummary() 
     
 ###############################################################################
 # Mask or Remove Low-complexity sequence

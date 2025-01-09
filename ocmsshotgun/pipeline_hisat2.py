@@ -77,8 +77,8 @@ def runHisat2(infile, outfile):
     P.run(statement, without_cluster=True)
 
     # merging done locally
-    tool.mergeHisatMetrics() 
-
+    tool.mergeHisatMetrics()
+    tool.mergeHisatSummary()
 
 @follows(runHisat2)
 def full():

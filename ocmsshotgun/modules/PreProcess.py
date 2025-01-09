@@ -7,6 +7,7 @@ import sqlite3
 import distutils
 import pandas as pd
 import errno
+import json
 from glob import glob
 from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
@@ -843,10 +844,46 @@ class hisat2(utility.matchReference):
                 with open(metric_file, "r") as curr_metric:
                     next(curr_metric)
                     values = curr_metric.readline().rstrip("\n").split("\t")
-                sample_name = os.path.basename(metric_file.strip('.log'))
+                sample_name = metric_file.strip('_trimmed_hisat2_metrics.log')
+                sample_name = os.path.basename(sample_name)
                 values = [sample_name] + values
 
                 f.write("\t".join(values) + '\n')
+
+    def readHisatSummary(self, summary_file):
+        summary_dict = {}    
+        with open(summary_file, "r") as file:
+            for line in file:
+                line = line.strip()
+                
+                # Match key-value pairs with optional counts and percentages
+                match = re.match(r"(.+?):\s+([\d.]+)(?:\s+\(([\d.]+)%\))?", line)
+                if match:
+                    key, count, percent = match.groups() # ignore percent
+                    key = key.strip()
+                    key = key.replace(" ", "_")
+                    summary_dict[key] = count
+        return summary_dict
+    
+    def mergeHisatSummary(self):
+        summary_files = glob(os.path.join(self.outdir, "*_hisat2_summary.log"))
+
+        merged_summary = os.path.join(self.outdir, "merged_hisat2_summary.tsv")
+        summary = {}
+        for summary_file in summary_files:
+                entry = self.readHisatSummary(summary_file)
+                summary[summary_file] = entry
+        
+        # merged summary file samples in rows summary in columns
+        header = ["sample_name"] + list(summary[summary_file].keys())
+        with open(merged_summary, "w") as f:
+            f.write("\t".join(header) + "\n")
+            for summary_file in summary_files:
+                sample_name = os.path.basename(summary_file)
+                sample_name = sample_name.strip("_trimmed_hisat2_summary.log")
+                entry = [sample_name] + list(summary[summary_file].values())
+                entry = [str(x) for x in entry]
+                f.write("\t".join(entry) + "\n")
 
     def postProcess(self):
         samfile = self.outfile.replace(self.fq1_suffix, ".sam")
