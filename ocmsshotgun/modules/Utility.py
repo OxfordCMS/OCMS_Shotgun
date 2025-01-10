@@ -15,7 +15,7 @@ def check_input(datadir='.', paired=True):
         fq1_regex = re.compile('(\S+).(fastq.1.gz)')
     else:
         fq1_regex = re.compile('(\S+).(fastq.gz)')
-    
+
     mask1 = list(map(lambda x: bool(fq1_regex.match(x)),
                      os.listdir(datadir)))
     fastq1s = [os.path.join(datadir, i) \

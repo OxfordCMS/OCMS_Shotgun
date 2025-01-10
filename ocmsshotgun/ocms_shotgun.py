@@ -24,11 +24,12 @@ def main(argv=None):
         print((globals()["__doc__"]))
     else:
         command = argv[1]
-        pipeline = "pipeline_{}".format(command)
         
-        if not os.path.exists(os.path.join(path, pipeline + ".py")):
+        if os.path.exists(os.path.join(path, command + ".py")):
+            pipeline = "pipeline_{}".format(command)
+        else:
             pipeline = command
-
+            
         # remove 'ocms_shotgun' from sys.argv
         del sys.argv[0]
 

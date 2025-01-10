@@ -50,7 +50,8 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check that input files correspond
 indir = PARAMS.get("input.dir", "input.dir")
-FASTQ1S = utility.check_input(indir, paired=False)
+paired = PARAMS.get("paired", "True")
+FASTQ1S = utility.check_input(indir, paired=paired)
 
 @follows(mkdir('hisat2.dir'))
 @transform(FASTQ1S,
