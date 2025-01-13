@@ -65,7 +65,7 @@ def runHisat2(infile, outfile):
 
     statement = [tool.hisatStatement()]
     
-    # sort sam output to bam output and index bam
+    # sort sam output and convert to bam
     statement.append(tool.sam2bamStatement())
     
     statement = " ; ".join(statement)

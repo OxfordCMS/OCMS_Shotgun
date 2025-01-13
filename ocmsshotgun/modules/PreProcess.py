@@ -759,17 +759,15 @@ def summariseReadCounts(infiles, outfile):
 class hisat2(utility.matchReference):
     def hisatStatement(self):
         
-        fastq1 = self.fastq1
         ref_genome = self.PARAMS["hisat2_ref_genome"]
-        
-
-        statement = ["hisat2 -x %(ref_genome)s" % locals()]
+    
+        statement = [f"hisat2 -x {ref_genome}"]
         
         if self.fastq2 is None:
             unmapped = self.outfile.replace(self.fq1_suffix, "_unmapped.fastq.gz")
             mapped = self.outfile.replace(self.fq1_suffix, "_mapped.fastq.gz")
-            entry = ("-U %(fastq1)s --un-gz %(unmapped)s"
-                     " --al-gz %(mapped)s" % locals())
+            entry = (f"-U {self.fastq1} --un-gz {unmapped}"
+                     f" --al-gz {mapped}")
             statement.append(entry)
         elif self.fastq3 is None:
             unmapped = self.outfile.replace(self.fq1_suffix, "_unmapped")
@@ -803,11 +801,11 @@ class hisat2(utility.matchReference):
         hisat2_metrics = self.outfile.replace(self.fq1_suffix, "_hisat2_metrics.log")
         hisat2_summary = self.outfile.replace(self.fq1_suffix, "_hisat2_summary.log")
         nthreads = self.PARAMS["hisat2_job_threads"]
-        entry = ("-S %(samfile)s --summary-file %(hisat2_summary)s"
+        entry = (f"-S {samfile} --summary-file {hisat2_summary}"
                  " --new-summary"
-                 " --met-file %(hisat2_metrics)s"
+                 f" --met-file {hisat2_metrics}"
                  " --met-stderr "
-                 " -p %(nthreads)s --reorder" % locals())
+                 f" -p {nthreads} --reorder")
         statement.append(entry)
 
         statement.append(self.PARAMS["hisat2_options"])
@@ -815,17 +813,15 @@ class hisat2(utility.matchReference):
         statement = " ".join(statement)
         return(statement)
 
-    # method to convert sam output to bam output
-    # sorts and indexes bam file
+    # method to sort and convert sam output to bam output
     def sam2bamStatement(self):
         samfile = self.outfile.replace(self.fq1_suffix, ".sam")
         bamfile = re.sub("sam$", "bam", samfile)
-        statement = "samtools sort %(samfile)s > %(bamfile)s" % locals() 
-        #statement.append(" && samtools index %(bamfile)s" )
+        statement = f"samtools sort {samfile} > {bamfile}"
         
         return(statement)
     
-        # merge hisat stats (per sample) into one table
+    # merge hisat stats (per sample) into one table
     def mergeHisatMetrics(self):
         metric_files = glob(os.path.join(self.outdir, "*_hisat2_metrics.log"))
 
@@ -850,6 +846,7 @@ class hisat2(utility.matchReference):
 
                 f.write("\t".join(values) + '\n')
 
+    # method to read hisat summary file to dictionary
     def readHisatSummary(self, summary_file):
         summary_dict = {}    
         with open(summary_file, "r") as file:
@@ -864,7 +861,8 @@ class hisat2(utility.matchReference):
                     key = key.replace(" ", "_")
                     summary_dict[key] = count
         return summary_dict
-    
+
+    # method to merge sample hisat summaries into one table    
     def mergeHisatSummary(self):
         summary_files = glob(os.path.join(self.outdir, "*_hisat2_summary.log"))
 
@@ -885,6 +883,7 @@ class hisat2(utility.matchReference):
                 entry = [str(x) for x in entry]
                 f.write("\t".join(entry) + "\n")
 
+    # clean up hisat2 outputs
     def postProcess(self):
         samfile = self.outfile.replace(self.fq1_suffix, ".sam")
         baifile = self.outfile.replace(self.fq1_suffix, ".bam.bai")
@@ -906,10 +905,9 @@ class hisat2(utility.matchReference):
             entry.append(f"mv {key} {hisat_fq[key]}")
         statement = statement + entry
 
-        # delete sam and bam.bai files
+        # delete sam and files
         statement.append(f"rm {samfile}")
-        #statement.append(f"rm {baifile}")
-
+        
         statement = " ; ".join(statement)
         
         return(statement)

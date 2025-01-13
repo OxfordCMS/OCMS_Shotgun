@@ -226,8 +226,8 @@ def removeHost(infile,outfile):
         P.run(statement)
         for f in to_unlink:
             os.unlink(f)
-    #Align host sequences with HISAT2 and remove host reads with samtools
-    #converts the output from sam to bam
+    # Align host sequences with HISAT2 and return mapped and unmapped reads
+    # converts the output from sam to bam
     elif PARAMS['host_tool'] == 'hisat':
         tool = pp.hisat2(infile, outfile, **PARAMS)
 
@@ -249,9 +249,7 @@ def removeHost(infile,outfile):
         old = glob(os.path.join(tool.outdir, "*_unmapped"))
         new = [x.replace("unmapped","dehost") for x in old]
         rename = zip(old, new)
-        statements = []
-        for x in rename:
-            statements.append(f"mv {x[0]} {x[1]}")
+        statements = [f"mv {x[0]} {x[1]}" for x in rename]
         statement = "; ".join(statements)
         P.run(statement, without_cluster=True)
         
