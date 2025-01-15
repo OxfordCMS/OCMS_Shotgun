@@ -75,6 +75,7 @@ class matchReference(object):
         self.fq1_suffix = None
         self.fq2_suffix = None
         self.fq3_suffix = None
+        self.prefixstrip = None
         self.prefix = None
         self.outfile = outfile
         self.PARAMS = PARAMS
@@ -93,9 +94,20 @@ class matchReference(object):
         '''autocheck file format and pairedness, 
            read count must be specified seperately
         '''
-        # self.getSuffix(self.PARAMS.get('inf_suffix', None))
         self.getSuffix()
-        self.prefix = os.path.basename(self.fastq1.rstrip(self.fq1_suffix))
+        self.isPaired()
+        if self.prefixstrip is None:
+            self.prefix = os.path.basename(self.fastq1.rstrip(self.fq1_suffix))
+        else:
+            self.prefix = os.path.basename(self.fastq1.rstrip(self.prefixstrip))
+
+    def isPaired(self):
+        if self.fastq1.endswith(".1.gz"):
+            paired_name = self.fastq1.replace(".1",".2")
+            assert len(glob.glob(paired_name)) > 0, (
+                f"cannot find read 2 file at location {paired_name}"
+                f" associated with read 1 file {self.fastq1}")
+            self.fastq2 = paired_name
 
     '''get fastq1 file suffix 
     '''
@@ -104,7 +116,7 @@ class matchReference(object):
     def getSuffix(self):
         # set suffix
         # if self.fastq1.endswith(".fastq.1.gz"):
-        if self.paired:
+        if self.fastq2 is not None:
             self.fq1_suffix = ".fastq.1.gz"
             self.fq2_suffix = '.fastq.2.gz'
             self.fq3_suffix = '.fastq.3.gz'
