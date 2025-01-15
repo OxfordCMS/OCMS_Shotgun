@@ -94,6 +94,7 @@ class matchReference(object):
         '''autocheck file format and pairedness, 
            read count must be specified seperately
         '''
+        self.getFormat()
         self.getSuffix()
         self.isPaired()
         if self.prefixstrip is None:
@@ -101,6 +102,26 @@ class matchReference(object):
         else:
             self.prefix = os.path.basename(self.fastq1.rstrip(self.prefixstrip))
 
+    '''check it is fasta or fastq and if compressed'''    
+    def getFormat(self):
+        extensions=("fasta","fastq")
+        for i in extensions:
+            msg = "Read 2 file provided ({}) please use read 1 file".format(self.fastq1)
+            assert not(self.fastq1.endswith(".2.gz")), msg
+            if self.fastq1.endswith((i+".1.gz",i+".gz")):
+                if i == "fastq":
+                    self.fileformat=i
+                else:
+                    self.fileformat="fasta"
+
+        msg = f"file {self.fastq1} is not of the correct format (fasta or fastq)."
+        assert self.fileformat, msg
+        if self.fileformat == "fasta":
+            assert self.head[0][0] == ">", "invalid header on first line for fasta format"
+        else:
+            assert self.head[0][0] == "@", "invalid header on first line for fastq format"
+            
+    '''check if paired and if containts interleaved pairs or matching files'''
     def isPaired(self):
         if self.fastq1.endswith(".1.gz"):
             paired_name = self.fastq1.replace(".1",".2")
