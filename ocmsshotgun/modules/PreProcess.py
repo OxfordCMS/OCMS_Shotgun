@@ -755,7 +755,8 @@ def summariseReadCounts(infiles, outfile):
                                            lost_host_perc, lost_mask_perc, 
                                            output_perc])) + '\n')
 
-# Class for removing host reads with Hisat2 alignment
+# Class for aligning reads with host genome with Hisat2
+# returning mapped and unmapped reads
 class hisat2(utility.matchReference):
     def hisatStatement(self):
         
@@ -798,12 +799,10 @@ class hisat2(utility.matchReference):
             statement.append("-q")
 
         samfile = self.outfile.replace(self.fq1_suffix, ".sam")
-        hisat2_metrics = self.outfile.replace(self.fq1_suffix, "_hisat2_metrics.log")
         hisat2_summary = self.outfile.replace(self.fq1_suffix, "_hisat2_summary.log")
         nthreads = self.PARAMS["hisat2_job_threads"]
         entry = (f"-S {samfile} --summary-file {hisat2_summary}"
                  " --new-summary"
-                 f" --met-file {hisat2_metrics}"
                  " --met-stderr "
                  f" -p {nthreads} --reorder")
         statement.append(entry)
@@ -820,68 +819,6 @@ class hisat2(utility.matchReference):
         statement = f"samtools sort {samfile} > {bamfile}"
         
         return(statement)
-    
-    # merge hisat stats (per sample) into one table
-    def mergeHisatMetrics(self):
-        metric_files = glob(os.path.join(self.outdir, "*_hisat2_metrics.log"))
-
-        # get header
-        with open(metric_files[0], "r") as f:
-            header = f.readline().split("\t")[:-1]
-
-        # add sample name to log files
-        header = ["sample_name"] + header
-
-        merged_metrics = os.path.join(self.outdir, "merged_hisat2_metrics.tsv")
-        with open(merged_metrics, "w") as f:
-            f.write("\t".join(header) + '\n')
-            # read in each file
-            for metric_file in metric_files:
-                with open(metric_file, "r") as curr_metric:
-                    next(curr_metric)
-                    values = curr_metric.readline().rstrip("\n").split("\t")
-                sample_name = metric_file.strip('_trimmed_hisat2_metrics.log')
-                sample_name = os.path.basename(sample_name)
-                values = [sample_name] + values
-
-                f.write("\t".join(values) + '\n')
-
-    # method to read hisat summary file to dictionary
-    def readHisatSummary(self, summary_file):
-        summary_dict = {}    
-        with open(summary_file, "r") as file:
-            for line in file:
-                line = line.strip()
-                
-                # Match key-value pairs with optional counts and percentages
-                match = re.match(r"(.+?):\s+([\d.]+)(?:\s+\(([\d.]+)%\))?", line)
-                if match:
-                    key, count, percent = match.groups() # ignore percent
-                    key = key.strip()
-                    key = key.replace(" ", "_")
-                    summary_dict[key] = count
-        return summary_dict
-
-    # method to merge sample hisat summaries into one table    
-    def mergeHisatSummary(self):
-        summary_files = glob(os.path.join(self.outdir, "*_hisat2_summary.log"))
-
-        merged_summary = os.path.join(self.outdir, "merged_hisat2_summary.tsv")
-        summary = {}
-        for summary_file in summary_files:
-                entry = self.readHisatSummary(summary_file)
-                summary[summary_file] = entry
-        
-        # merged summary file samples in rows summary in columns
-        header = ["sample_name"] + list(summary[summary_file].keys())
-        with open(merged_summary, "w") as f:
-            f.write("\t".join(header) + "\n")
-            for summary_file in summary_files:
-                sample_name = os.path.basename(summary_file)
-                sample_name = sample_name.strip("_trimmed_hisat2_summary.log")
-                entry = [sample_name] + list(summary[summary_file].values())
-                entry = [str(x) for x in entry]
-                f.write("\t".join(entry) + "\n")
 
     # clean up hisat2 outputs
     def postProcess(self):
@@ -911,3 +848,89 @@ class hisat2(utility.matchReference):
         statement = " ; ".join(statement)
         
         return(statement)
+    
+    # post-processing for pipeline_preprocess
+    def postProcessPP(self):
+        # rename hisat outputs to end in fastq.1.gz notation (if paired end)
+        postprocess_statement = self.postProcess()
+
+        # rename hisat output to pipline expected outfile
+        old = glob(os.path.join(self.outdir, "*_unmapped"))
+        new = [x.replace("unmapped","dehost") for x in old]
+        rename = zip(old, new)
+        rename_statements = [f"mv {x[0]} {x[1]}" for x in rename]
+        
+        statements = [postprocess_statement] + rename_statements
+        statement = "; ".join(statements)
+        return(statement)
+    
+    # method to read hisat summary file to dictionary
+    def readHisatSummary(self, summary_file):
+        summary_dict = {}    
+        with open(summary_file, "r") as file:
+            for line in file:
+                line = line.strip()
+                
+                # Match key-value pairs with optional counts and percentages
+                match = re.match(r"(.+?):\s+([\d.]+)(?:\s+\(([\d.]+)%\))?", line)
+                if match:
+                    key, count, percent = match.groups() # ignore percent
+                    key = key.strip()
+                    key = key.replace(" ", "_")
+                    summary_dict[key] = count
+        return summary_dict
+
+    # method to merge sample hisat summaries into one table    
+    def mergeHisatSummary(self, summary_files, merged_summary):
+        summary = {}
+        for summary_file in summary_files:
+                entry = self.readHisatSummary(summary_file)
+                summary[summary_file] = entry
+        
+        # merged summary file samples in rows summary in columns
+        header = ["sample_name"] + list(summary[summary_file].keys())
+        with open(merged_summary, "w") as f:
+            f.write("\t".join(header) + "\n")
+            for summary_file in summary_files:
+                sample_name = os.path.basename(summary_file)
+                sample_name = sample_name.strip("_hisat2_summary.log")
+                entry = [sample_name] + list(summary[summary_file].values())
+                entry = [str(x) for x in entry]
+                f.write("\t".join(entry) + "\n")
+
+    # wrapper method for running hisat in pipelines
+    def hisat2bam(self):
+        hisat_statement = self.hisatStatement()
+        h2bam_statement = self.sam2bamStatement()
+        statements = [hisat_statement, h2bam_statement]
+        statement = " ; ".join(statements)
+        return(statement)
+    
+    # remove hisat fastq outputs
+    def clean(self, infiles, outfile):
+        to_remove = infiles + [x.replace('unmapped','mapped') for x in infiles]
+        to_remove = to_remove + [x.replace(self.fq1_suffix, self.fastq2) 
+                                 for x in infiles]
+        to_remove = to_remove + [x.replace(self.fq1_suffix, self.fastq2) 
+                                 for x in infiles]
+        to_remove = [x for x in to_remove if os.path.exists(x)]
+
+        open(outfile, "w").close()
+        statements = [f"rm -f {x}; echo 'clean up: deleted {x}' >> {outfile}" 
+                      for x in to_remove]
+
+        statement = "; ".join(statements)
+        return(statement)
+    
+    # remove bam files when running hisat in pipeline_proeprocess
+    def cleanPP(self, infiles, outfile):
+        open(outfile, "w").close()
+        to_remove = [x.replace(self.fq1_suffix, ".bam") for x in infiles]
+        to_remove = [x for x in to_remove if os.path.exists(x)]
+
+        statements = [f"rm -f {x}; echo 'clean up: deleted {x}' >> {outfile}" 
+                      for x in to_remove]
+
+        statement = "; ".join(statements)
+        return(statement)
+    

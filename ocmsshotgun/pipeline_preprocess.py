@@ -207,7 +207,7 @@ def combineRNAClassification(infiles, outfile):
 @transform(removeRibosomalRNA,
            regex(r'reads_rrnaRemoved.dir/(\S+)_rRNAremoved.fastq.1.gz$'),
            r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
-def removeHost(infile,outfile): 
+def alignAndRemoveHost(infile,outfile): 
     '''Align and remove host sequences with bmtagger or HISAT2
     '''
     # bmtagger - aligns with srprism
@@ -231,32 +231,42 @@ def removeHost(infile,outfile):
     elif PARAMS['host_tool'] == 'hisat':
         tool = pp.hisat2(infile, outfile, **PARAMS)
 
-        statement = [tool.hisatStatement()]
+        # build statement to run hisat2 and convert sam to bam
+        statement = tool.hisat2bam()
         
-        # sort sam output to bam output and index bam
-        statement.append(tool.sam2bamStatement())
-        
-        statement = " ; ".join(statement)
         P.run(statement,
             job_threads = PARAMS["hisat2_job_threads"],
             job_memory = PARAMS["hisat2_job_memory"])
         
         # clean up sam files and hisat outputs
-        statement = tool.postProcess()
+        statement = tool.postProcessPP()
         P.run(statement, without_cluster=True)
 
-        # rename hisat output to pipline expected outfile
-        old = glob(os.path.join(tool.outdir, "*_unmapped"))
-        new = [x.replace("unmapped","dehost") for x in old]
-        rename = zip(old, new)
-        statements = [f"mv {x[0]} {x[1]}" for x in rename]
-        statement = "; ".join(statements)
-        P.run(statement, without_cluster=True)
-        
-        # merging done locally
-        tool.mergeHisatMetrics()
-        tool.mergeHisatSummary() 
-    
+@active_if(PARAMS['host_tool'] == 'hisat')
+@follows(alignAndRemoveHost)
+@merge("reads_hostRemoved.dir/*_summary.log",
+       "reads_hostRemoved.dir/merged_hisat2_summary.tsv")
+def mergeHisatSummary(infiles, outfile):
+    # merging done locally
+    # dummy infile
+    infile = infiles[0].replace("_hisat2_summary.log", ".fastq.1.gz")
+    tool = pp.hisat2(infile, outfile, **PARAMS)
+    tool.mergeHisatSummary(infiles, outfile)
+
+@active_if(PARAMS['host_tool'] == 'hisat')
+@merge(alignAndRemoveHost,
+       "reads_hostRemoved.dir/clean_up.log")
+def cleanHisat(infiles, outfile):
+    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    statement = tool.cleanPP(infiles, outfile)
+    print("=============================================================")
+    print(statement)
+    P.run(statement, without_cluster=True)
+
+@follows(mergeHisatSummary, cleanHisat)
+def removeHost():
+    pass
+
 ###############################################################################
 # Mask or Remove Low-complexity sequence
 ###############################################################################

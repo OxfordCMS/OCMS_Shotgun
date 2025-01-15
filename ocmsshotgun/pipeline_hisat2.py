@@ -63,12 +63,8 @@ def runHisat2(infile, outfile):
 
     tool = pp.hisat2(infile, outfile, **PARAMS)
 
-    statement = [tool.hisatStatement()]
-    
-    # sort sam output and convert to bam
-    statement.append(tool.sam2bamStatement())
-    
-    statement = " ; ".join(statement)
+    # build statement to run hisat2 and convert sam to bam
+    statement = tool.hisat2bam()
     P.run(statement,
         job_threads = PARAMS["hisat2_job_threads"],
         job_memory = PARAMS["hisat2_job_memory"])
@@ -77,11 +73,24 @@ def runHisat2(infile, outfile):
     statement = tool.postProcess()
     P.run(statement, without_cluster=True)
 
-    # merging done locally
-    tool.mergeHisatMetrics()
-    tool.mergeHisatSummary()
-
 @follows(runHisat2)
+@merge("hisat2.dir/*_summary.log",
+       "hisat2.dir/merged_hisat2_summary.tsv")
+def mergeHisatSummary(infiles, outfile):
+    # dummy infile
+    infile = infiles[0].replace("_hisat2_summary.log", ".fastq.1.gz")
+    # merging done locally
+    tool = pp.hisat2(infile, outfile, **PARAMS)
+    tool.mergeHisatSummary(infiles, outfile)
+
+@merge(runHisat2,
+       "hisat2.dir/clean_up.log")
+def cleanHisat(infiles, outfile):
+    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    statement = tool.clean(infiles, outfile)
+    P.run(statement, without_cluster=True)
+
+@follows(mergeHisatSummary, cleanHisat)
 def full():
     pass
 
