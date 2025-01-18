@@ -87,6 +87,7 @@ def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
     statement  = K.kraken2(infile, outfile, **PARAMS).buildStatement()
+    
     P.run(statement,
           job_threads = PARAMS["kraken2_job_threads"],
           job_memory = PARAMS["kraken2_job_mem"],
