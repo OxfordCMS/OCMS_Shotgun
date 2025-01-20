@@ -259,8 +259,7 @@ def mergeHisatSummary(infiles, outfile):
 def cleanHisat(infiles, outfile):
     tool = pp.hisat2(infiles[0], outfile, **PARAMS)
     statement = tool.cleanPP(infiles, outfile)
-    print("=============================================================")
-    print(statement)
+
     P.run(statement, without_cluster=True)
 
 @follows(mergeHisatSummary, cleanHisat)

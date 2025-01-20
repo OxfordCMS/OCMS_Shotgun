@@ -94,33 +94,14 @@ class matchReference(object):
         '''autocheck file format and pairedness, 
            read count must be specified seperately
         '''
+        self.isPaired()
         self.getFormat()
         self.getSuffix()
-        self.isPaired()
         if self.prefixstrip is None:
             self.prefix = os.path.basename(self.fastq1.rstrip(self.fq1_suffix))
         else:
             self.prefix = os.path.basename(self.fastq1.rstrip(self.prefixstrip))
 
-    '''check it is fasta or fastq and if compressed'''    
-    def getFormat(self):
-        extensions=("fasta","fastq")
-        for i in extensions:
-            msg = "Read 2 file provided ({}) please use read 1 file".format(self.fastq1)
-            assert not(self.fastq1.endswith(".2.gz")), msg
-            if self.fastq1.endswith((i+".1.gz",i+".gz")):
-                if i == "fastq":
-                    self.fileformat=i
-                else:
-                    self.fileformat="fasta"
-
-        msg = f"file {self.fastq1} is not of the correct format (fasta or fastq)."
-        assert self.fileformat, msg
-        if self.fileformat == "fasta":
-            assert self.head[0][0] == ">", "invalid header on first line for fasta format"
-        else:
-            assert self.head[0][0] == "@", "invalid header on first line for fastq format"
-            
     '''check if paired and if containts interleaved pairs or matching files'''
     def isPaired(self):
         if self.fastq1.endswith(".1.gz"):
@@ -130,16 +111,42 @@ class matchReference(object):
                 f" associated with read 1 file {self.fastq1}")
             self.fastq2 = paired_name
 
-    '''get fastq1 file suffix 
-    '''
+
+    '''check it is fasta or fastq and if compressed'''    
+    def getFormat(self):
+        extensions=("fasta","fastq")
+        for i in extensions:    
+            if self.fastq1.endswith((i+".1.gz",i+".gz")):
+                if i == "fastq":
+                    self.fileformat="fastq"
+                else:
+                    self.fileformat="fasta"
+           
+        msg = f"file {self.fastq1} is not of the correct format (fasta or fastq)."
+        assert self.fileformat, msg
+        if self.fileformat == "fasta":
+            assert self.head[0][0] == ">", (
+                "invalid header on first line for fasta format")
+        else:
+            assert self.head[0][0] == "@", (
+                "invalid header on first line for fastq format")
+            
+    '''get fastq1 file suffix '''
     # allow custom extension to be passed; default extension is ".fastsq.1.gz"
     # inf_suffix used to set fq1_suffix, fq2_suffix, fq3_suffix, and prefix
     def getSuffix(self):
         # set suffix
         # if self.fastq1.endswith(".fastq.1.gz"):
         if self.fastq2 is not None:
-            self.fq1_suffix = ".fastq.1.gz"
-            self.fq2_suffix = '.fastq.2.gz'
-            self.fq3_suffix = '.fastq.3.gz'
+            assert self.fastq1.endswith(f".{self.fileformat}.1.gz"), (
+                f"Paired-end {self.fileformat} files must be in notation"
+                f" '.{self.fileformat}.1.gz'")
+            self.fq1_suffix = f".{self.fileformat}.1.gz"
+            self.fq2_suffix = f'.{self.fileformat}.2.gz'
+            self.fq3_suffix = f'.{self.fileformat}.3.gz'
         else:
-            self.fq1_suffix = ".fastq.gz"
+            assert self.fastq1.endswith(f".{self.fileformat}.gz"), (
+                "Single-end fastq files must be in notation "
+                f"'{self.fileformat}.gz'"
+            )
+            self.fq1_suffix = f".{self.fileformat}.gz"

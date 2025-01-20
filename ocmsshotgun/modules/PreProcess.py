@@ -795,7 +795,7 @@ class hisat2(utility.matchReference):
 
         if self.fileformat == "fasta":
             statement.append("-f")
-        else:
+        elif self.fileformat == "fastq":
             statement.append("-q")
 
         samfile = self.outfile.replace(self.fq1_suffix, ".sam")
