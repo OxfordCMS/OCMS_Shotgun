@@ -33,14 +33,7 @@ def runMetaphlan(infile, outfile):
                   --nproc {threads}
                   --index {db_ver}
                   --bowtie2out metaphlan.dir/{sample}.bowtie2.bz2
-                  --min_cu_len {min_cu_len}
-                  --min_alignment_len {min_align_len}
                   --tax_lev {tax_lev}
-                  --add_viruses {add_vir}
-                  --stat_q {stat_q}
-                  --perc_nonzero {perc_nonzero}
-                  --avoid_disqm {avoid_disqm}
-                  --ignore_viruses {ignore_vir}
                   -o {outfile}
     '''.format(read1=read1,
                read2=read2,
@@ -48,15 +41,11 @@ def runMetaphlan(infile, outfile):
                db_ver=PARAMS["metaphlan_database_version"],
                sample=sample,
                threads=PARAMS["metaphlan_threads"],
-               min_cu_len=PARAMS["metaphlan_min_cu_len"],
-               min_align_len=PARAMS["metaphlan_min_alignment_len"],
                tax_lev=PARAMS["metaphlan_tax_lev"],
-               add_vir=PARAMS["metaphlan_add_viruses"],
-               stat_q=PARAMS["metaphlan_stat_q"],
-               perc_nonzero=PARAMS["metaphlan_perc_nonzero"],
-               avoid_disqm=PARAMS["metaphlan_avoid_disqm"],
-               ignore_vir=PARAMS["metaphlan_ignore_viruses"],
                outfile=outfile)
+    
+    if PARAMS["metaphlan_options"]:
+        statement += ' ' + PARAMS["metaphlan_options"]
                
     P.run(statement,
           job_threads=PARAMS["metaphlan_threads"],
