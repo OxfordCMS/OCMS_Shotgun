@@ -1,0 +1,34 @@
+################################################################
+# Pipeline configuration file for MetaPHlAn4 pipeline
+################################################################
+
+# Pipeline metadata
+projectname: metaphlan4_pipeline
+copyright: CGAT
+version: 0.1
+
+# Pipeline configuration
+metaphlan:
+    # Path to MetaPHlAn database
+    db: /users/powrie/cqh100/shared/metaphlan4/bowtie2index ### NEED TO REPLACE WITH SOMEWHERE IN MIRROR
+    database_version: mpa_vJun23_CHOCOPhlAnSGB_202403
+
+    # Resource parameters
+    threads: 8
+    memory: 16G
+    
+    # Analysis parameters
+    min_cu_len: 0
+    min_alignment_len: 0
+    tax_lev: a  # 'a' for all taxonomic levels
+    add_viruses: 1
+    samout: 0
+
+    # Report options
+    stat_q: 0.1
+    perc_nonzero: 0.33
+    ignore_viruses: 0
+    avoid_disqm: 1
+    
+    # Job options
+    cluster_options: ''
