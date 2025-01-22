@@ -153,7 +153,7 @@ Task = 'pipeline_kraken2.full'
 The pipeline must have input fastq files with the notation `.fastq.1.gz` and `pipeline.yml` in working directory. Set the number of jobs `-p` to 7 times the number of samples (so Bracken can be run on all taxonomic levels in parallel), however please be mindful of the number of jobs.
 
 ```
-ocms_shotgun kraken2 -p 140 -v 5
+ocms_shotgun kraken2 make full -p 140 -v 5
 ```
 
 ### Output

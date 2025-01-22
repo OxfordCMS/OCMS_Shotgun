@@ -23,7 +23,7 @@ class kraken2(utility.matchReference):
         db = self.PARAMS["kraken2_db"]
         job_threads = self.PARAMS["kraken2_job_threads"]
         options = self.PARAMS["kraken2_options"]
-    
+        
         kraken_statement = ('kraken2'
                             ' --db %(db)s'
                             ' --output %(prefix)s.classified.tsv'
@@ -43,9 +43,9 @@ class kraken2(utility.matchReference):
         # build kraken statement
         kraken_statement = kraken_statement + statement_entry
         
-        if options != '':
-            statement_entry = kraken_statement + ' ' + options
-
+        # add in options
+        kraken_statement = kraken_statement + ' ' + options
+            
         # add additional commands
         statement_entry = 'gzip %(prefix)s.classified.tsv' % locals()
         
