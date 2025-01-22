@@ -249,7 +249,7 @@ def alignAndRemoveHost(infile,outfile):
 def mergeHisatSummary(infiles, outfile):
     # merging done locally
     # dummy infile
-    infile = infiles[0].replace("_hisat2_summary.log", ".fastq.1.gz")
+    infile = infiles[0].replace("_hisat2_summary.log", "_dehost.fastq.1.gz")
     tool = pp.hisat2(infile, outfile, **PARAMS)
     tool.mergeHisatSummary(infiles, outfile)
 
@@ -262,7 +262,7 @@ def cleanHisat(infiles, outfile):
 
     P.run(statement, without_cluster=True)
 
-@follows(mergeHisatSummary, cleanHisat)
+@follows(alignAndRemoveHost, mergeHisatSummary, cleanHisat)
 def removeHost():
     pass
 
