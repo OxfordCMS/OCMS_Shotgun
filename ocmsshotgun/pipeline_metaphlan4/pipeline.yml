@@ -9,14 +9,14 @@ version: 0.1
 
 metaphlan:
     # Path to existing MetaPHlAn database
-    db: /users/powrie/cqh100/shared/metaphlan4/bowtie2index
+    db: /gpfs3/well/powrie/shared/metaphlan4/bowtie2index/mpa_vJun23_CHOCOPhlAnSGB_202403
     database_version: mpa_vJun23_CHOCOPhlAnSGB_202403
 
     # Analysis parameters
     threads: 16
     memory: 32G
     tax_lev: a
-    options: ''
+    options: '--offline'
     
     # Job options
     cluster_options: ''

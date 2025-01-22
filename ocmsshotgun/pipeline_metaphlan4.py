@@ -25,7 +25,7 @@ def runMetaphlan(infile, outfile):
     read2 = infile.replace(".1.gz", ".2.gz")
     
     sample = os.path.basename(P.snip(infile, ".fastq.1.gz"))
-    db_path = os.path.join(PARAMS["metaphlan_db"], PARAMS["metaphlan_database_version"])
+    db_path = PARAMS["metaphlan_db"]  # Using the full path directly
     
     statement = '''metaphlan {read1},{read2} 
                   --input_type fastq 
