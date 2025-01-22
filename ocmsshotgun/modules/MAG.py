@@ -33,12 +33,11 @@ class samtools_align(utility.matchReference):
         statement = (
             "zcat %(fastq1)s > %(tmp_fastq1)s && "
             "zcat %(fastq2)s > %(tmp_fastq2)s && "
-            "samtools faidx %(reference_fasta)s && "
+            "bwa index  %(reference_fasta)s && "
             "bwa mem -t %(samtools_n_threads)s %(samtools_options)s %(reference_fasta)s "
             "%(tmp_fastq1)s %(tmp_fastq2)s | "
             "samtools view -Sb - | "
             "samtools sort -@ %(samtools_n_threads)s -o %(outfile1)s && "
-            "samtools index %(outfile1)s && "
             "rm -f %(tmp_fastq1)s %(tmp_fastq2)s && "
             "gzip %(logfile)s"
         ) % locals()

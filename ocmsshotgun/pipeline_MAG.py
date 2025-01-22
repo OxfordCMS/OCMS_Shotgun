@@ -1,12 +1,9 @@
-from ruffus import *
+f
+om ruffus import *
 from cgatcore import pipeline as P
 import sys
 import ocmsshotgun.modules.MAG as mb
 import ocmsshotgun.modules.Utility as utility
-
-# set up params
-PARAMS = P.get_parameters(["pipeline.yml"])
-
 import os
 import re
 import itertools
@@ -22,15 +19,13 @@ elif PARAMS['general']['input'] == 1:
 else:
     DATADIR = PARAMS['general']['input']
 assert os.path.isdir(DATADIR), f'Input directory does not exist: {DATADIR}'
-
-# print(f"Using DATADIR: {DATADIR}")
-# print(f"Pipeline parameters: {PARAMS}")
+i
 
 # Check the input files correspond
 FASTQ1s = utility.check_input(DATADIR)
 
 # Check for FASTA files (pooled or unpooled)
-def check_fasta_files(datadir='.', fasta_suffix='fasta'):
+def check_fasta_files(datadir=DATADIR, fasta_suffix='fasta'):
     """
     Check for FASTA files in the specified directory.
 
@@ -81,7 +76,7 @@ def connect():
     dbh = s3.connect(PARAMS['database']['name'])
 
 ###############################################################################
-# Preprocessing
+# BAM Files Processing
 ###############################################################################
 @follows(mkdir('01_processed_bam_files.dir'))
 @transform(FASTQ1s,
