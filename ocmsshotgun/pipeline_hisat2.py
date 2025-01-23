@@ -70,7 +70,7 @@ def runHisat2(infile, outfile):
         job_memory = PARAMS["hisat2_job_memory"])
     
     # clean up sam files and hisat outputs
-    statement = tool.postProcess()
+    statement = tool.postProcess()[0]
     P.run(statement, without_cluster=True)
 
 @follows(runHisat2)
@@ -78,7 +78,8 @@ def runHisat2(infile, outfile):
        "hisat2.dir/merged_hisat2_summary.tsv")
 def mergeHisatSummary(infiles, outfile):
     # dummy infile
-    infile = infiles[0].replace("_hisat2_summary.log", ".fastq.1.gz")
+    infile = infiles[0].replace("_hisat2_summary.log", "_unmapped.fastq.1.gz")
+    
     # merging done locally
     tool = pp.hisat2(infile, outfile, **PARAMS)
     tool.mergeHisatSummary(infiles, outfile)
@@ -87,7 +88,7 @@ def mergeHisatSummary(infiles, outfile):
        "hisat2.dir/clean_up.log")
 def cleanHisat(infiles, outfile):
     tool = pp.hisat2(infiles[0], outfile, **PARAMS)
-    statement = tool.clean(infiles, outfile)
+    statement = tool.clean(outfile)
     P.run(statement, without_cluster=True)
 
 @follows(mergeHisatSummary, cleanHisat)
