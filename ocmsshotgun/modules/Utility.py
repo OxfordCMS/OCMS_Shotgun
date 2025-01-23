@@ -95,6 +95,7 @@ class matchReference(object):
            read count must be specified seperately
         '''
         self.isPaired()
+        self.hasSingleton()
         self.getFormat()
         self.getSuffix()
         if self.prefixstrip is None:
@@ -110,12 +111,14 @@ class matchReference(object):
                 f"cannot find read 2 file at location {paired_name}"
                 f" associated with read 1 file {self.fastq1}")
             self.fastq2 = paired_name
-            fq3_name = self.fastq1.replace(".1",".3")
-            assert len(glob.glob(fq3_name)) > 0, (
-                f"cannot find singletone fastq 3 file at location {fq3_name}"
-                f" associated with read 1 file {self.fastq1}")
-            self.fastq3 = fq3_name
 
+    '''check for singletons'''
+    def hasSingleton(self):
+        fq3_name = self.fastq1.replace(".1",".3")
+        if os.path.exists(fq3_name):
+            # check file is not empty
+            if os.stat("file").st_size != 0:
+                self.fastq3 = fq3_name
 
     '''check it is fasta or fastq and if compressed'''    
     def getFormat(self):
