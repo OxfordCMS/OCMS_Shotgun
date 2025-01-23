@@ -91,7 +91,7 @@ def cleanHisat(infiles, outfile):
     statement = tool.clean(outfile)
     P.run(statement, without_cluster=True)
 
-@follows(mergeHisatSummary, cleanHisat)
+@follows(mergeHisatSummary)
 def full():
     pass
 

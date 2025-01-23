@@ -262,7 +262,7 @@ def cleanHisat(infiles, outfile):
 
     P.run(statement, without_cluster=True)
 
-@follows(alignAndRemoveHost, mergeHisatSummary, cleanHisat)
+@follows(alignAndRemoveHost, mergeHisatSummary)
 def removeHost():
     pass
 
