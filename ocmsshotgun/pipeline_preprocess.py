@@ -270,7 +270,7 @@ def removeHost():
 # Mask or Remove Low-complexity sequence
 ###############################################################################
 @follows(mkdir('reads_dusted.dir'))
-@transform(removeHost,
+@transform(alignAndRemoveHost,
            regex(r'.+/(.+)_dehost.fastq.1.gz'),
            r'reads_dusted.dir/\1_masked.fastq.1.gz')
 def maskLowComplexity(fastq1, outfile):
@@ -318,7 +318,7 @@ def countInputReads(infile, outfile):
 
 @follows(countInputReads)
 @transform([removeDuplicates, removeAdapters, removeRibosomalRNA,
-            removeHost, maskLowComplexity],
+            alignAndRemoveHost, maskLowComplexity],
            regex(r'.+/(.+).fastq.1.gz'),
            r'read_count_summary.dir/\1.nreads')
 def countOutputReads(infile, outfile):

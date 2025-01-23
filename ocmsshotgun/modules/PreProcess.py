@@ -571,7 +571,7 @@ class bbtools(utility.matchReference):
         fastq1 = self.fastq1
         fastq2 = self.fastq2
         fastq3 = self.fastq3
-        
+
         outfile = self.outfile
         outfile1 = sample_out + '.1.fq.gz'
         outfile2 = sample_out + '.2.fq.gz'
@@ -667,15 +667,6 @@ class bbtools(utility.matchReference):
                              " &> %(outfile)s.log" % locals())
 
         return statement
-
-    def run(self):
-        
-        statement = self.buildStatement()
-        print(statement)
-        P.run(statement, 
-              job_threads=self.PARAMS['dust_job_threads'],
-              job_memory=self.PARAMS['dust_job_memory'],
-              job_options=self.PARAMS.get('dust_job_options', ''))
     
     def postProcess(self):
         sample_out = P.snip(self.outfile, self.fq1_suffix)

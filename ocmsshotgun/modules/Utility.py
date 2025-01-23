@@ -110,6 +110,11 @@ class matchReference(object):
                 f"cannot find read 2 file at location {paired_name}"
                 f" associated with read 1 file {self.fastq1}")
             self.fastq2 = paired_name
+            fq3_name = self.fastq1.replace(".1",".3")
+            assert len(glob.glob(fq3_name)) > 0, (
+                f"cannot find singletone fastq 3 file at location {fq3_name}"
+                f" associated with read 1 file {self.fastq1}")
+            self.fastq3 = fq3_name
 
 
     '''check it is fasta or fastq and if compressed'''    
