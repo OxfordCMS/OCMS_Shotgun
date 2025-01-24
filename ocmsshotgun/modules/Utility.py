@@ -117,7 +117,7 @@ class matchReference(object):
         fq3_name = self.fastq1.replace(".1",".3")
         if os.path.exists(fq3_name):
             # check file is not empty
-            if os.stat("file").st_size != 0:
+            if os.stat(fq3_name).st_size != 0:
                 self.fastq3 = fq3_name
 
     '''check it is fasta or fastq and if compressed'''    
