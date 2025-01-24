@@ -289,6 +289,18 @@ def mergeMetaphlanOutput(infiles, outfile):
     statement = statements + " && " +\
         "merge_metaphlan_tables.py -o %(outf)s %(in_tmp)s" + " && " \
         "gzip %(outf)s"
+    
+    statement2 = statements + " && " +
+        ''' ocms_shotgun combine_tables
+            --glob=
+            --skip-titles
+            -m 0
+            -k 1,5
+            -c 1
+            --log=metaphlan_output.dir/merged_metaphlan_bugs_list..log > %(outfile)s
+        '''
+
+
 
     P.run(statement)
 
