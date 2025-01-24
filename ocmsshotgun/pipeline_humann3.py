@@ -292,6 +292,7 @@ def mergeMetaphlanOutput(infiles, outfile):
 
     P.run(statement)
 
+
     shutil.rmtree(tmpdir)
 
 @split(mergeMetaphlanOutput, "metaphlan_output.dir/metaphlan_*.tsv.gz")
