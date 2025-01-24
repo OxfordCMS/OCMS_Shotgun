@@ -785,7 +785,7 @@ class hisat2(utility.matchReference):
                                                      "_unmapped.fastq.3.gz")
             mapped_unpaired = self.outfile.replace(self.prefixstrip,
                                                    "_mapped.fastq.3.gz")
-            entry = (f"-1 {self.fastq1} -2 {self.fastq2} -r {self.fastq3}"
+            entry = (f"-1 {self.fastq1} -2 {self.fastq2} -U {self.fastq3}"
                      f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
                      f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
             statement.append(entry)
