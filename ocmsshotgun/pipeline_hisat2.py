@@ -73,16 +73,19 @@ def runHisat2(infile, outfile):
     statement = tool.postProcess()[0]
     P.run(statement, without_cluster=True)
 
-@follows(runHisat2)
-@merge("hisat2.dir/*_summary.log",
+@merge(runHisat2,
        "hisat2.dir/merged_hisat2_summary.tsv")
 def mergeHisatSummary(infiles, outfile):
-    # dummy infile
-    infile = infiles[0].replace("_hisat2_summary.log", "_unmapped.fastq.1.gz")
+    # hisat summary logs
+    logs = []
+    for fq in infiles:
+        fq_class = pp.utility.matchReference(fq, outfile, **PARAMS)
+        log = fq.replace(f"_unmapped{fq_class.fq1_suffix}", "_hisat2_summary.log")
+        logs.append(log)
     
     # merging done locally
-    tool = pp.hisat2(infile, outfile, **PARAMS)
-    tool.mergeHisatSummary(infiles, outfile)
+    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    tool.mergeHisatSummary(logs, outfile)
 
 @merge(runHisat2,
        "hisat2.dir/clean_up.log")

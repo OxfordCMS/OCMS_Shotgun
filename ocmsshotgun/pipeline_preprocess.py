@@ -243,15 +243,17 @@ def alignAndRemoveHost(infile,outfile):
         P.run(statement, without_cluster=True)
 
 @active_if(PARAMS['host_tool'] == 'hisat')
-@follows(alignAndRemoveHost)
-@merge("reads_hostRemoved.dir/*_summary.log",
+@merge(alignAndRemoveHost,
        "reads_hostRemoved.dir/merged_hisat2_summary.tsv")
 def mergeHisatSummary(infiles, outfile):
-    # merging done locally
-    # dummy infile
-    infile = infiles[0].replace("_hisat2_summary.log", "_dehost.fastq.1.gz")
-    tool = pp.hisat2(infile, outfile, **PARAMS)
-    tool.mergeHisatSummary(infiles, outfile)
+   # hisat summary logs
+    logs = []
+    for fq in infiles:
+        fq_class = pp.utility.matchReference(fq, outfile, **PARAMS)
+        log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
+        logs.append(log)
+    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    tool.mergeHisatSummary(logs, outfile)
 
 @active_if(PARAMS['host_tool'] == 'hisat')
 @merge(alignAndRemoveHost,
