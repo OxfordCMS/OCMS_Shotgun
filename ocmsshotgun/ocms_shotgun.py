@@ -28,7 +28,7 @@ def main(argv=None):
         
         if not os.path.exists(os.path.join(path, pipeline + ".py")):
             pipeline = command
-
+            
         # remove 'ocms_shotgun' from sys.argv
         del sys.argv[0]
 
