@@ -97,7 +97,7 @@ else:
 def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
-    infiles = utility.matchReference(infile, outfile, **PARAMS)
+    infiles = utility.metaFastn(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
     
     if len(fastqs) == 1:
@@ -149,7 +149,7 @@ def poolTranscriptomeFastqs(infile, outfile):
         shutil.rmtree(outdir)
     os.mkdir(outdir)
 
-    infiles = utility.matchReference(infile, outfile, **PARAMS)
+    infiles = utility.metaFastn(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
 
     if len(fastqs) == 1:

@@ -12,9 +12,6 @@ class humann3(object):
         self.taxonomic_profile = taxonomic_profile
         
     def buildStatement(self):
-        infile = self.infile
-        prefix = self.prefix
-        outpath = self.outpath
         db_metaphlan_path = self.PARAMS["humann3_db_metaphlan_path"]
         db_metaphlan_id = self.PARAMS["humann3_db_metaphlan_id"]
         db_nucleotide = self.PARAMS["humann3_db_nucleotide"]
@@ -28,13 +25,14 @@ class humann3(object):
                 + ' ' + options
         
         statement = ("humann"
-                     " --input %(infile)s"
-                     " --output %(outpath)s"
-                     " --nucleotide-database %(db_nucleotide)s"
-                     " --protein-database %(db_protein)s"
-                     " --search-mode %(search_mode)s"
-                     " --metaphlan-options  \"--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s\""
-                     " %(options)s 2> %(outpath)s/%(prefix)s.log" % locals())
+                     f" --input {self.infile}"
+                     f" --output {self.outpath}"
+                     f" --nucleotide-database {db_nucleotide}"
+                     f" --protein-database {db_protein}"
+                     f" --search-mode {search_mode}"
+                     f" --metaphlan-options  \"--index {db_metaphlan_id}"
+                     f" --bowtie2db={db_metaphlan_path}\""
+                     f" {options} 2> {self.outpath}/{self.prefix}.log")
         
         return statement
 
@@ -45,19 +43,26 @@ class humann3(object):
         if self.taxonomic_profile:
             options = ""
         else:
-            options = (" gzip %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv &&"
-                       " mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s_metaphlan_bugs_list.tsv.gz %(outpath)s &&" % locals())
+            metaphlan_bugs_list = (f"{self.outpath}/{self.prefix}_humann_temp/"
+                                   f"{self.prefix}_metaphlan_bugs_list.tsv")
+            options = (f" gzip {metaphlan_bugs_list} &&"
+                       f" mv {metaphlan_bugs_list}.gz {self.outpath} &&")
         
-        statement =  ("mv %(outpath)s/%(prefix)s_humann_temp/%(prefix)s.log %(outpath)s &&"
-                      " gzip %(outpath)s/%(prefix)s_pathcoverage.tsv &&"
-                      " gzip %(outpath)s/%(prefix)s_pathabundance.tsv &&" 
-                      " gzip %(outpath)s/%(prefix)s_genefamilies.tsv &&"
-                      " %(options)s"
-                      " tar -zcvf %(outpath)s/%(prefix)s_humann_temp.tar.gz %(outpath)s/%(prefix)s_humann_temp &&"
-                      " rm -rf %(outpath)s/%(prefix)s_humann_temp" % locals())
+        humann_log = (f"{self.outpath}/{self.prefix}_humann_temp/"
+                      f"{self.prefix}.log")
+        humann_tmp = f"{self.outpath}/{self.prefix}_humann_temp"
+        statement =  (
+            f"mv {humann_log} {self.outpath} &&"
+            f" gzip {self.outpath}/{self.prefix}_pathcoverage.tsv &&"
+            f" gzip {self.outpath}/{self.prefix}_pathabundance.tsv &&" 
+            f" gzip {self.outpath}/{self.prefix}_genefamilies.tsv &&"
+            f" {options}"
+            f" tar -zcvf {humann_tmp}.tar.gz {humann_tmp} &&"
+            f" rm -rf {humann_tmp}"
+        )
         
         remove_humann_temp = self.PARAMS.get('humann_remove_humann_temp',True)
         if remove_humann_temp:
-            statement = statement + ' && rm -f %(outpath)s/%(prefix)s_humann_temp.tar.gz' % locals()
+            statement = statement + f' && rm -f {humann_tmp}.tar.gz'
         return statement
     

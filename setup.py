@@ -8,7 +8,7 @@ from setuptools import setup, find_packages
 setup(
     # package information
     name='ocms_shotgun',
-    version="0.0.3",
+    version="0.0.4",
     description='OCMS_Shotgun : Oxford Centre for Microbiome Studies pipelines for shotgun metagenome processing',
     author='Sandi Yen, Nicholas Ilott',
     license="MIT",

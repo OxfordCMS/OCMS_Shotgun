@@ -53,11 +53,10 @@ def symlnk(inf, outf):
             os.remove(outf)
             os.symlink(inf, outf)
 
-class matchReference(object):
+class metaFastn(object):
     """
-    Base class for generating run statements to match mWGS reads to 
-    reference sequences. Intended to work with single, paired, or
-    paired + singleton fastq files. 
+    Base class for reading in fastn files. At the moment, only works for fastqs. 
+    Intended to work with single, paired, or paired + singleton fastq files. 
 
     Some elements pulled form CGATMetaSequencing by Matt Jackson.
 
@@ -87,7 +86,7 @@ class matchReference(object):
         try:
             self.openfile = IOTools.open_file(self.fastq1)
         except FileNotFoundError as e:
-            msg = "cannot open file {}".format(self.fastq1)
+            msg = f"cannot open file {self.fastq1}"
             raise Exception(msg) from e
         self.head = [self.openfile.readline().rstrip("\n") for x in range(5)]
 

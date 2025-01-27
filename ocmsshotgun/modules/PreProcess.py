@@ -14,7 +14,7 @@ from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
 import ocmsshotgun.modules.Utility as utility            
-class cdhit(utility.matchReference):
+class cdhit(utility.metaFastn):
         
     def buildStatement(self):
         '''Filter exact duplicates, if specified in config file'''
@@ -37,21 +37,21 @@ class cdhit(utility.matchReference):
             if to_filter:
                 tmpf1 = P.get_temp_filename('.')
                 tmpf2 = P.get_temp_filename('.')
-                statement = ("zcat %(fastq1)s > %(tmpf1)s &&"
-                             " zcat %(fastq2)s > %(tmpf2)s &&"
+                statement = (f"zcat {self.fastq1} > {tmpf1} &&"
+                             f" zcat {fastq2} > {tmpf2} &&"
                              " cd-hit-dup"
-                             "  -i %(tmpf1)s"
-                             "  -i2 %(tmpf2)s"
-                             "  -o %(outfile1)s"
-                             "  -o2 %(outfile2)s"
-                             "  %(cdhit_options)s"
-                             " &> %(logfile)s &&"
-                             " gzip %(outfile1)s &&"
-                             " gzip %(outfile2)s &&"
-                             " gzip %(logfile)s &&"
-                             " rm -f %(tmpf1)s &&"
-                             " rm -f %(tmpf2)s &&"
-                             " rm -f %(cluster_file)s" % locals())
+                             f"  -i {tmpf1}"
+                             f"  -i2 {tmpf2}"
+                             f"  -o {outfile1}"
+                             f"  -o2 {outfile2}"
+                             f"  {cdhit_options}"
+                             f" &> {logfile} &&"
+                             f" gzip {outfile1} &&"
+                             f" gzip {outfile2} &&"
+                             f" gzip {logfile} &&"
+                             f" rm -f {tmpf1} &&"
+                             f" rm -f {tmpf2} &&"
+                             f" rm -f {cluster_file}")
             else:
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)
                 utility.symlnk(fastq1, self.outfile)
@@ -60,16 +60,16 @@ class cdhit(utility.matchReference):
         else:
             if to_filter:
                 tmpf1 = P.get_temp_filename('.')
-                statement = ("zcat %(fastq1)s > %(tmpf1)s"
+                statement = (f"zcat {fastq1} > {tmpf1}"
                              " cd-hit-dup"
-                             "  -i %(tmpf1)s"
-                             "  -o %(outfile1)s"
-                             "  %(cdhit_options)s"
-                             " &> %(logfile)s &&"
-                             " gzip %(outfile1)s &&"
-                             " gzip %(logfile)s &&"
-                             " rm -f %(tmpf1)s &&"
-                             " rm -f %(cluster_file)s" % locals())
+                             f"  -i {tmpf1}"
+                             f"  -o {outfile1}"
+                             f"  {cdhit_options}"
+                             f" &> {logfile} &&"
+                             f" gzip {outfile1} &&"
+                             f" gzip {logfile} &&"
+                             f" rm -f {tmpf1} &&"
+                             f" rm -f {cluster_file}")
 
             else:
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)
@@ -77,7 +77,7 @@ class cdhit(utility.matchReference):
         
         return statement
         
-class trimmomatic(utility.matchReference):
+class trimmomatic(utility.metaFastn):
 
     def buildStatement(self):
         '''Remove adapters using Trimmomatic'''
@@ -172,7 +172,7 @@ class trimmomatic(utility.matchReference):
 #    tool.postProcess()
 
     
-class runSortMeRNA(utility.matchReference):
+class runSortMeRNA(utility.metaFastn):
     """
     Run sortMeRNA. 
     Assumes that reference indexes have been created in advance in a 
@@ -370,7 +370,7 @@ class createSortMeRNAOTUs(runSortMeRNA):
         
         return None
 
-class bmtagger(utility.matchReference):
+class bmtagger(utility.metaFastn):
 
     def buildStatement(self):
         '''Remove host contamination using bmtagger'''
@@ -547,7 +547,7 @@ class bmtagger(utility.matchReference):
 
         return statement, to_unlink
 
-class bbtools(utility.matchReference):
+class bbtools(utility.metaFastn):
 
     def buildStatement(self):
         '''Either softmask low complexity regions, or remove reads with a large
@@ -748,13 +748,12 @@ def summariseReadCounts(infiles, outfile):
 
 # Class for aligning reads with host genome with Hisat2
 # returning mapped and unmapped reads
-class hisat2(utility.matchReference):
+class hisat2(utility.metaFastn):
     def __init__(self, fastq1, outfile, **PARAMS):
         super().__init__(fastq1, outfile, **PARAMS)
         # resetting prefix to include _unmapped or _dehost
         suffix = os.path.basename(self.outfile)
         self.prefixstrip = suffix[suffix.rfind('_'):]
-
     def hisatStatement(self):
         
         ref_genome = self.PARAMS["hisat2_ref_genome"]
