@@ -68,12 +68,12 @@ assert indir == 'input.dir', (
 @transform(removeRibosomalRNA,
            regex(r'reads_rrnaRemoved.dir/(\S+)_rRNAremoved.fastq.1.gz$'),
            r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
-def removeHost(infile,outfile): 
+def alignAndRemoveHost(infile,outfile): 
     '''Align and remove host sequences with bmtagger or HISAT2
     '''
     # bmtagger - aligns with srprism
     if PARAMS['host_tool']  == 'bmtagger':
-        tool = pp.bmtagger(fastq1, outfile, **PARAMS)
+        tool = pp.bmtagger(infile, outfile, **PARAMS)
         statements, tmpfiles = tool.buildStatement()
 
         # one statement for each host genome specified
@@ -103,13 +103,36 @@ def removeHost(infile,outfile):
             job_memory = PARAMS["hisat2_job_memory"])
         
         # clean up sam files and hisat outputs
-        statement = tool.postProcess()
+        statement = tool.postProcessPP()
         P.run(statement, without_cluster=True)
 
-        # merging done locally
-        tool.mergeHisatMetrics() 
+@active_if(PARAMS['host_tool'] == 'hisat')
+@merge(alignAndRemoveHost,
+       "reads_hostRemoved.dir/merged_hisat2_summary.tsv")
+def mergeHisatSummary(infiles, outfile):
+   # hisat summary logs
+    logs = []
+    for fq in infiles:
+        fq_class = pp.utility.matchReference(fq, outfile, **PARAMS)
+        log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
+        logs.append(log)
+    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    tool.mergeHisatSummary(logs, outfile)
 
-@follows(removeHost)
+@active_if(PARAMS['host_tool'] == 'hisat')
+@merge(alignAndRemoveHost,
+       "reads_hostRemoved.dir/clean_up.log")
+def cleanHisat(infiles, outfile):
+    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    statement = tool.cleanPP(infiles, outfile)
+
+    P.run(statement, without_cluster=True)
+
+@follows(alignAndRemoveHost, mergeHisatSummary)
+def removeHost():
+    pass
+
+@follows(removeHost, mergeHisatSummary)
 def full():
     pass
 
