@@ -212,7 +212,7 @@ def alignAndRemoveHost(infile,outfile):
     '''
     # bmtagger - aligns with srprism
     if PARAMS['host_tool']  == 'bmtagger':
-        tool = pp.bmtagger(fastq1, outfile, **PARAMS)
+        tool = pp.bmtagger(infile, outfile, **PARAMS)
         statements, tmpfiles = tool.buildStatement()
 
         # one statement for each host genome specified
