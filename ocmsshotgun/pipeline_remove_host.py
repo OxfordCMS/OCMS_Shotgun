@@ -45,7 +45,7 @@ from cgatcore import iotools as IOTools
 
 import os,sys,re
 
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as utility
 import ocmsshotgun.modules.PreProcess as pp
 
 # set up params

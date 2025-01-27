@@ -9,7 +9,7 @@ from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as utility
 
 class kraken2(utility.metaFastn):
 

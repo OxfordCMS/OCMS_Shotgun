@@ -60,7 +60,7 @@ import itertools
 import distutils
 import pandas as pd
 
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as utility
 import ocmsshotgun.modules.PreProcess as pp
 
 # set up params

@@ -2,13 +2,13 @@
 
 import os
 from cgatcore import pipeline as P
+import ocmstoolkit.modules.Utility as utility
 
-class humann3(object):
+class humann3(utility.metaFastn):
     def __init__(self, infile, outfile, taxonomic_profile=None, **PARAMS):
-        self.infile = infile
+        super().__init__(infile, outfile, **PARAMS)
         self.prefix = P.snip(outfile, '_pathcoverage.tsv.gz', strip_path=True)
         self.outpath = os.path.dirname(os.path.abspath(outfile))
-        self.PARAMS = PARAMS
         self.taxonomic_profile = taxonomic_profile
         
     def buildStatement(self):
@@ -25,7 +25,7 @@ class humann3(object):
                 + ' ' + options
         
         statement = ("humann"
-                     f" --input {self.infile}"
+                     f" --input {self.fastq1}"
                      f" --output {self.outpath}"
                      f" --nucleotide-database {db_nucleotide}"
                      f" --protein-database {db_protein}"

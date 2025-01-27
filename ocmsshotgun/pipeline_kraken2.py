@@ -59,7 +59,7 @@ from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 import ocmsshotgun.modules.Kraken2 as K
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as utility
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check files to be processed

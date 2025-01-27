@@ -13,7 +13,7 @@ from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
-import ocmsshotgun.modules.Utility as utility            
+import ocmstoolkit.modules.Utility as utility            
 class cdhit(utility.metaFastn):
         
     def buildStatement(self):
