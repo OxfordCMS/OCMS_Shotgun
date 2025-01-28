@@ -79,7 +79,7 @@ def mergeHisatSummary(infiles, outfile):
     # hisat summary logs
     logs = []
     for fq in infiles:
-        fq_class = pp.utility.matchReference(fq, outfile, **PARAMS)
+        fq_class = utility.metaFastn(fq, outfile, **PARAMS)
         log = fq.replace(f"_unmapped{fq_class.fq1_suffix}", "_hisat2_summary.log")
         logs.append(log)
     
