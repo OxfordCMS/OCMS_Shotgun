@@ -286,23 +286,24 @@ def mergeMetaphlanOutput(infiles, outfile):
 
     statements = " && ".join(statements)
     in_tmp = " ".join(tmpfiles)
-    statement = statements + " && " +\
+    statement1 = statements + " && " +\
         "merge_metaphlan_tables.py -o %(outf)s %(in_tmp)s" + " && " \
         "gzip %(outf)s"
     
-    statement2 = statements + " && " +
-        ''' ocms_shotgun combine_tables
-            --glob=
-            --skip-titles
-            -m 0
-            -k 1,5
-            -c 1
+    statement2 = statements + " && " + \
+        ''' ocms_shotgun combine_tables + \
+            --glob= humann3.dir/.+/.+_metaphlan_bugs_list.tsv.gz + \
+            --skip-titles + \
+            -m 0 + \
+            -k 1,5 + \
+            -c 1 + \
             --log=metaphlan_output.dir/merged_metaphlan_bugs_list..log > %(outfile)s
         '''
 
+    # Combine both
+    final_statement = statement1 + " && " + statement2
 
-
-    P.run(statement)
+    P.run(final_statement)
 
     shutil.rmtree(tmpdir)
 
