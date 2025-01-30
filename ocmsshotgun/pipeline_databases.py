@@ -288,10 +288,10 @@ def buildMetaphlanDatabases():
 ########################################################
 ########################################################
 ########################################################
-@follows(mkdir(f"minimap2/human/{human_build}/GCC-{gcc_version}/bmtool-{minimap2_version}"))
-@follows(mkdir(f"minimap2/mouse/{mouse_build}/GCC-{gcc_version}/bmtool-{minimap2_version}"))
+@follows(mkdir(f"minimap2/human/{human_build}/GCC-{gcc_version}/minimap2-{minimap2_version}"))
+@follows(mkdir(f"minimap2/mouse/{mouse_build}/GCC-{gcc_version}/minimap2-{minimap2_version}"))
 @transform(getMammalianGenomes,
-           regex(r"genomes/(\S+)/(\S+)/(\S+)\\.fa\\.gz"),
+           regex("genomes/(\S+)/(\S+)/(\S+).fa.gz"),
            fr"minimap2/\1/\2/GCC-{gcc_version}/minimap2-{minimap2_version}/\3.mmi")
 def getMinimap2Index(infile, outfile):
     '''
@@ -305,9 +305,11 @@ def getMinimap2Index(infile, outfile):
 @follows(getMinimap2Index)
 def buildMinimap2Databases():
     pass
+
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows(buildPreprocessDatabases, buildKraken2Databases)
+@follows(buildPreprocessDatabases, buildKraken2Databases, 
+         buildMinimap2Databases)
 def full():
     pass
 
