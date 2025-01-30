@@ -19,6 +19,9 @@ genomes:
 # have loaded
 ########################################
 
+hisat2:
+    version: 2.2.1
+
 srprism:
     version: 3.1.1
 
