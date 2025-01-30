@@ -273,7 +273,8 @@ def mergeMetaphlanOutput(infiles, outfile):
     '''Merge respective output files from humann's internal metaphlan run.
     Note this uses metaphlan custom scripts.'''
 
-    # Script can't handle compressed input
+    # the mergeing script does not handle
+    # compressed files
     infiles = [x for x in infiles]
     tmpdir = P.get_temp_dir('.')
     tmpfiles = [os.path.join(tmpdir, P.snip(x, '.gz', strip_path=True)) \
@@ -291,9 +292,39 @@ def mergeMetaphlanOutput(infiles, outfile):
         "gzip %(outf)s"
 
     P.run(statement)
-
     shutil.rmtree(tmpdir)
 
+###############################################################################
+# Handle counts files that are generated
+###############################################################################
+@follows(mergeMetaphlanOutput)
+@collate(runHumann3,
+         regex("humann3.dir/.+/.+_metaphlan_bugs_list.tsv.gz"),
+         r"metaphlan_output.dir/merged_metaphlan_counts.tsv.gz")
+def mergeMetaphlanCounts(infiles, outfile):
+    '''
+    Merge count files from humann's internal metaphlan run.
+    '''
+    infiles = glob.glob("humann3.dir/*/*_metaphlan_bugs_list.tsv.gz")
+    headers = [P.snip(os.path.basename(x), "_metaphlan_bugs_list.tsv.gz") for x in infiles]
+    headers = ",".join(headers)
+    statement = '''ocms_shotgun combine_tables
+            --glob=humann3.dir/*/*_metaphlan_bugs_list.tsv.gz
+            --skip-titles
+            --header-names=%(headers)s
+            -m 0
+            -k 5
+            -c 1
+            --log=metaphlan_output.dir/merged_metaphlan_counts.log
+            | gzip
+            > %(outfile)s
+        '''
+
+    P.run(statement)
+
+###############################################################################
+# Handle counts files that are generated
+###############################################################################
 @split(mergeMetaphlanOutput, "metaphlan_output.dir/metaphlan_*.tsv.gz")
 def splitMetaphlanByTaxonomy(infile, outfiles):
     '''split merged metaphlan file by taxonomic levels'''
@@ -304,7 +335,6 @@ def splitMetaphlanByTaxonomy(infile, outfiles):
     
     statement = '''ocms_shotgun split_metaphlan -i %(infile)s -o metaphlan_output.dir'''
     P.run(statement)
-
 
 ###############################################################################
 @follows("mergeHumannOutput",
@@ -334,7 +364,9 @@ def build_report():
 def runHumann():
     pass
 
-@follows(renormalizeHumannOutput, splitMetaphlanByTaxonomy)
+@follows(renormalizeHumannOutput,
+         splitMetaphlanByTaxonomy,
+         mergeMetaphlanCounts)
 def full():
     pass
 
