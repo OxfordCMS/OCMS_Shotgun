@@ -65,16 +65,16 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 ########################################################
 ########################################################
 
-gcc_version = PARAMS.get("gcc")
-python_version = PARAMS.get("python")
-human_build = PARAMS.get("genomes_human")
-mouse_build = PARAMS.get("genomes_mouse")
-srprism_version = PARAMS.get("srprism_version")
-bmtool_version = PARAMS.get("bmtool_version")
-sortmerna_version = PARAMS.get("sortmerna_version")
-kraken2_version = PARAMS.get("kraken2_version")
-metaphlan_version = PARAMS.get("metaphlan_version")
-hisat2_version = PARAMS.get("hisat2_version")
+gcc_version = PARAMS["gcc"]
+python_version = PARAMS["python"]
+human_build = PARAMS["genomes_human"]
+mouse_build = PARAMS["genomes_mouse"]
+srprism_version = PARAMS["srprism_version"]
+bmtool_version = PARAMS["bmtool_version"]
+sortmerna_version = PARAMS["sortmerna_version"]
+kraken2_version = PARAMS["kraken2_version"]
+metaphlan_version = PARAMS["metaphlan_version"]
+hisat2_version = PARAMS["hisat2_version"]
 
 ########################################################
 ########################################################
