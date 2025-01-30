@@ -73,21 +73,17 @@ def runHisat2(infile, outfile):
     statement = tool.postProcess()[0]
     P.run(statement, without_cluster=True)
 
-@mkdir('frombam.dir')
-@transform(runHisat2,
-           regex(r"hisat2.dir/(\S+)(_trimmed)_unmapped(.fastq.*gz)"),
+@mkdir('bamfiltered.dir')
+@transform(FASTQ1S,
+           regex(fr"{indir}/(\S+)(_trimmed)(.fastq.*gz)"),
            add_inputs([fr"{indir}/\1\2\3", r"hisat2.dir/\1\2.bam"]),
            r"bamfiltered.dir/\1_unmapped\3")
 def bamfilter(infiles, outfile):
     fastq = infiles[1][0]
     bamfile = infiles[1][1]
-    uncompressed_out = outfile.rstrip(".gz")
-    statement = (f"zcat {fastq} |"
-                 " ocms_shotgun fastq2filteredfastq"
-                 f" -b {bamfile}"
-                 f" -r unmapped"
-                 f" > {uncompressed_out}"
-                 f" && gzip {uncompressed_out}")
+    
+    tool = pp.hisat2(fastq, outfile, **PARAMS)
+    statement = tool.bamfilter(bamfile)
     
     P.run(statement, job_threads = 4, job_memory="15G")
 @merge(runHisat2,
