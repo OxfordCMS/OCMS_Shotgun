@@ -298,7 +298,7 @@ def getMinimap2Index(infile, outfile):
     get minimap2 indexes
     '''
     tool = DB.MINIMAP2db(PARAMS, 'minimap2')
-    statement = tool.build_statment(infile, outfile)
+    statement = tool.build_statement(infile, outfile)
 
     P.run(statement)
 

@@ -159,7 +159,7 @@ class METAPHLANdb(DB):
         return(statement)
 
 class MINIMAP2db(DB):
-    def build_statment(self, infile, outfile):
+    def build_statement(self, infile, outfile):
         statement = (f"minimap2 -d {outfile} {infile}")
 
         return statement
