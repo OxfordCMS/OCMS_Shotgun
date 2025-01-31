@@ -55,8 +55,8 @@ FASTQ1S = utility.check_input(indir, paired=paired)
 
 @follows(mkdir('hisat2.dir'))
 @transform(FASTQ1S,
-           regex(fr'{indir}/(\S+)(.fastq.*gz)'),
-           r'hisat2.dir/\1_unmapped\2')
+           regex(fr'{indir}/(\S+)(.fastq)(\.[1])?.gz'),
+           r'hisat2.dir/\1_unmapped\2\3.gz')
 def runHisat2(infile, outfile): 
     '''Align sequences with HISAT2 and converts sam to bam
     '''
