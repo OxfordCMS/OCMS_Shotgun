@@ -46,13 +46,14 @@ def connect():
 ###############################################################################
 # Pooling samples (optional)
 ###############################################################################
+@active_if(PARAMS['preprocess']['pooling'])
 @follows(mkdir('01_input_pooled.dir'))
 @collate(FASTQ1s,
          regex(PARAMS['preprocess']['pool_input_regex']),  # Use regex from YAML
          r"01_input_pooled.dir/" + PARAMS['preprocess']['pool_output_regex'])  # Output pattern from YAML
 def poolSamples(infiles, out_fastq1):
     '''Pool samples based on the provided regular expression and handle paired reads.'''
-    # print(f"Pooling samples from: {infiles} to {out_fastq1}")
+     print(f"Pooling samples from: {infiles} to {out_fastq1}")
 
     samples = [utility.matchReference(x) for x in infiles]
 
@@ -127,7 +128,7 @@ def runReadProcessing(infile, outfile):
     else:
         os.symlink(infile, outfile)
 
-    
+   
 ###############################################################################
 # Run Assembly Tools
 ###############################################################################
@@ -294,7 +295,6 @@ def runQUAST(contig_file, outfile):
           
 
 ##############################################################################
-
 def main(argv=None):
     if argv is None:
         argv=sys.argv
