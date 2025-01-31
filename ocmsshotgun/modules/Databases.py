@@ -36,6 +36,18 @@ class DB:
                                    "GCC-"+self.gcc_version,
                                    self.tool+"-"+self.version)
 
+
+class HISAT2(DB):
+
+    def build_statement(self, infile, outfile):
+
+        to_index = infile.replace(".gz", "")
+        outbase = outfile.replace(".ht2", "")
+        statement = '''gunzip %(infile)s; 
+                       hisat2-build %(to_index)s %(outbase)s;
+                       gzip %(to_index)s''' % locals()
+        return(statement)
+    
 class SRPRISMdb(DB):
 
     def build_statement(self, infile, outfile):

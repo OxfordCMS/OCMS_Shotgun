@@ -110,7 +110,8 @@ sortmerna:
 
     job_memory: 60G
 
-
+# tool to use for host alignment and filtering. bmtagger or hisat
+host_tool: hisat
 
 bmtagger:
 
@@ -132,8 +133,17 @@ bmtagger:
 
     job_memory: 25G
 
+hisat2:
+    # index for reference genome
+    ref_genome: /well/kir/mirror/genomes/hisat2/hg38.ensembl91.genome.dir/hg38
 
+    # additional hisat2 options
+    options: ''
 
+    # cluster options
+    job_threads: 10
+    job_memory: 2G
+  
 ################################################################
 # Masking or removal of repetitive sequence
 ################################################################

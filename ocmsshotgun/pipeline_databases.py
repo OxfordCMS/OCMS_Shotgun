@@ -65,15 +65,16 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 ########################################################
 ########################################################
 
-gcc_version = PARAMS.get("gcc")
-python_version = PARAMS.get("python")
-human_build = PARAMS.get("genomes_human")
-mouse_build = PARAMS.get("genomes_mouse")
-srprism_version = PARAMS.get("srprism_version")
-bmtool_version = PARAMS.get("bmtool_version")
-sortmerna_version = PARAMS.get("sortmerna_version")
-kraken2_version = PARAMS.get("kraken2_version")
-metaphlan_version = PARAMS.get("metaphlan_version")
+gcc_version = PARAMS["gcc"]
+python_version = PARAMS["python"]
+human_build = PARAMS["genomes_human"]
+mouse_build = PARAMS["genomes_mouse"]
+srprism_version = PARAMS["srprism_version"]
+bmtool_version = PARAMS["bmtool_version"]
+sortmerna_version = PARAMS["sortmerna_version"]
+kraken2_version = PARAMS["kraken2_version"]
+metaphlan_version = PARAMS["metaphlan_version"]
+hisat2_version = PARAMS["hisat2_version"]
 
 ########################################################
 ########################################################
@@ -99,6 +100,27 @@ def getMammalianGenomes(infile, outfiles):
     statement = DB.get_mammalian_genomes() % globals()
     P.run(statement)
 
+########################################################
+########################################################
+########################################################
+# Mammalian datasets: plain fasta files 
+########################################################
+########################################################
+########################################################
+
+@follows(mkdir(f"HISAT2/human/{human_build}/GCC-{gcc_version}/hisat2-{hisat2_version}"))
+@follows(mkdir(f"HISAT2/mouse/{mouse_build}/GCC-{gcc_version}/hisat2-{hisat2_version}"))
+@transform(getMammalianGenomes,
+           regex("genomes/(\S+)/(\S+)/(\S+).fa.gz"),
+           r"HISAT2/\1/\2/GCC-%(gcc_version)s/hisat2-%(hisat2_version)s/\2.ht2" % globals())
+def buildHisat2(infile, outfile):
+    '''
+    build hisat2 indexes
+    '''
+    statement = DB.HISAT2(PARAMS, "hisat2").build_statement(infile, outfile) + "; touch %(outfile)s"
+    P.run(statement)
+
+    
 ########################################################
 ########################################################
 ########################################################
@@ -183,7 +205,8 @@ def buildSortmerna(infile, outfile):
 ########################################################
 ########################################################
 
-@follows(buildSrprismIndex,
+@follows(buildHisat2,
+         buildSrprismIndex,
          buildBitmask,
          buildSortmerna)
 def buildPreprocessDatabases():

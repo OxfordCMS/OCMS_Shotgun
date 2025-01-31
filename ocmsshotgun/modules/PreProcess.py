@@ -7,6 +7,7 @@ import sqlite3
 import distutils
 import pandas as pd
 import errno
+import json
 from glob import glob
 from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
@@ -537,7 +538,7 @@ class bmtagger(utility.matchReference):
                          " --to-drop-single %(to_remove)s"
                          " --fastq-out1 %(outfile)s"
                          " --fastq-drop1 %(fastq_host)s"
-                         " &>> %(outfile)s.log")
+                         " &>> %(outfile)s.log" % locals())
         
             P.run(statement)
             
@@ -570,7 +571,7 @@ class bbtools(utility.matchReference):
         fastq1 = self.fastq1
         fastq2 = self.fastq2
         fastq3 = self.fastq3
-        
+
         outfile = self.outfile
         outfile1 = sample_out + '.1.fq.gz'
         outfile2 = sample_out + '.2.fq.gz'
@@ -666,15 +667,6 @@ class bbtools(utility.matchReference):
                              " &> %(outfile)s.log" % locals())
 
         return statement
-
-    def run(self):
-        
-        statement = self.buildStatement()
-        print(statement)
-        P.run(statement, 
-              job_threads=self.PARAMS['dust_job_threads'],
-              job_memory=self.PARAMS['dust_job_memory'],
-              job_options=self.PARAMS.get('dust_job_options', ''))
     
     def postProcess(self):
         sample_out = P.snip(self.outfile, self.fq1_suffix)
@@ -753,3 +745,206 @@ def summariseReadCounts(infiles, outfile):
                                            lost_adapt_perc, lost_rrna_perc, 
                                            lost_host_perc, lost_mask_perc, 
                                            output_perc])) + '\n')
+
+# Class for aligning reads with host genome with Hisat2
+# returning mapped and unmapped reads
+class hisat2(utility.matchReference):
+    def __init__(self, fastq1, outfile, **PARAMS):
+        super().__init__(fastq1, outfile, **PARAMS)
+        # resetting prefix to include _unmapped or _dehost
+        suffix = os.path.basename(self.outfile)
+        self.prefixstrip = suffix[suffix.rfind('_'):]
+
+    def hisatStatement(self):
+        
+        ref_genome = self.PARAMS["hisat2_ref_genome"]
+    
+        statement = [f"hisat2 -x {ref_genome}"]
+        
+        if self.fastq2 is None:
+            unmapped = self.outfile.replace(self.prefixstrip, "_unmapped.fastq.gz")
+            mapped = self.outfile.replace(self.prefixstrip, "_mapped.fastq.gz")
+            entry = (f"-U {self.fastq1} --un-gz {unmapped}"
+                     f" --al-gz {mapped}")
+            statement.append(entry)
+        elif self.fastq3 is None:
+            unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
+            mapped = self.outfile.replace(self.prefixstrip, "_mapped")
+            unmapped_unpaired = self.outfile.replace(self.prefixstrip, 
+                                                     "_unmapped.fastq.3.gz")
+            mapped_unpaired = self.outfile.replace(self.prefixstrip,
+                                                   "_mapped.fastq.3.gz")
+            entry = (f"-1 {self.fastq1} -2 {self.fastq2}"
+                     f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
+                     f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
+            statement.append(entry)
+        elif self.fastq3 is not None:
+            unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
+            mapped = self.outfile.replace(self.prefixstrip, "_mapped")
+            unmapped_unpaired = self.outfile.replace(self.prefixstrip, 
+                                                     "_unmapped.fastq.3.gz")
+            mapped_unpaired = self.outfile.replace(self.prefixstrip,
+                                                   "_mapped.fastq.3.gz")
+            entry = (f"-1 {self.fastq1} -2 {self.fastq2} -U {self.fastq3}"
+                     f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
+                     f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
+            statement.append(entry)
+
+        if self.fileformat == "fasta":
+            statement.append("-f")
+        elif self.fileformat == "fastq":
+            statement.append("-q")
+
+        samfile = self.outfile.replace(self.prefixstrip, ".sam")
+        hisat2_summary = self.outfile.replace(self.prefixstrip, "_hisat2_summary.log")
+
+        nthreads = self.PARAMS["hisat2_job_threads"]
+        entry = (f"-S {samfile} --summary-file {hisat2_summary}"
+                 " --new-summary"
+                 " --met-stderr "
+                 f" -p {nthreads} --reorder")
+        statement.append(entry)
+
+        statement.append(self.PARAMS["hisat2_options"])
+
+        statement = " ".join(statement)
+        return statement
+
+    # method to sort and convert sam output to bam output
+    def sam2bamStatement(self):
+        samfile = self.outfile.replace(self.prefixstrip, ".sam")
+        bamfile = re.sub("sam$", "bam", samfile)
+        statement = f"samtools sort {samfile} > {bamfile}"
+        
+        return statement
+
+    # clean up hisat2 outputs
+    def postProcess(self):
+        samfile = self.outfile.replace(self.prefixstrip, ".sam")
+        
+        # rename hisat output of paired end reads
+        hisat_fq = {
+            self.outfile.replace(self.prefixstrip, "_mapped.1"):
+            self.outfile.replace(self.prefixstrip, "_mapped.fastq.1.gz"),
+            self.outfile.replace(self.prefixstrip, "_mapped.2"):
+            self.outfile.replace(self.prefixstrip, "_mapped.fastq.2.gz"),
+            self.outfile.replace(self.prefixstrip, "_unmapped.1"):
+            self.outfile.replace(self.prefixstrip, "_unmapped.fastq.1.gz"),
+            self.outfile.replace(self.prefixstrip, "_unmapped.2"):
+            self.outfile.replace(self.prefixstrip, "_unmapped.fastq.2.gz")
+        }
+        statements = []
+        iter = [x for x in hisat_fq.keys() if os.path.exists(x)]
+        for key in iter:
+            statements.append(f"mv {key} {hisat_fq[key]}")
+
+        # delete sam and files
+        statements.append(f"rm {samfile}")
+        
+        statement = " && ".join(statements)
+        
+        return statement, hisat_fq
+    
+    # post-processing for pipeline_preprocess
+    def postProcessPP(self):
+        # rename hisat outputs to end in fastq.1.gz notation (if paired end)
+        postprocess_statement, hisat_fq = self.postProcess()
+
+        # add fastq3 to dictionary
+        unmapped_fq3 = self.outfile.replace(self.prefixstrip,
+                                            "_unmapped.fastq.3.gz")
+        mapped_fq3 = self.outfile.replace(self.prefixstrip,
+                                          "_mapped.fastq.3.gz")
+        hisat_fq[unmapped_fq3] = unmapped_fq3
+        hisat_fq[mapped_fq3] = mapped_fq3
+        
+        # check if files exist
+        hisat_fq_found = {}
+        for file in hisat_fq.keys():
+            if os.path.exists(file):
+                hisat_fq_found[file] = hisat_fq[file]
+        
+        # rename hisat output to pipline expected outfile
+        new = [x.replace("unmapped","dehost") for x in hisat_fq_found.values()]
+        new = [x.replace("mapped", "host") for x in new]
+        rename = zip(hisat_fq.values(), new)
+        rename_statements = [f"mv {x[0]} {x[1]}" for x in rename]
+        
+        statements = [postprocess_statement] + rename_statements
+        statement = " && ".join(statements)
+
+        return statement
+    
+    # method to read hisat summary file to dictionary
+    def readHisatSummary(self, summary_file):
+        summary_dict = {}    
+        with open(summary_file, "r") as file:
+            for line in file:
+                line = line.strip()
+                
+                # Match key-value pairs with optional counts and percentages
+                match = re.match(r"(.+?):\s+([\d.]+)(?:\s+\(([\d.]+)%\))?", line)
+                if match:
+                    key, count, percent = match.groups() # ignore percent
+                    key = key.strip()
+                    key = key.replace(" ", "_")
+                    summary_dict[key] = count
+        return summary_dict
+
+    # method to merge sample hisat summaries into one table    
+    def mergeHisatSummary(self, summary_files, merged_summary):
+        summary = {}
+        for summary_file in summary_files:
+                entry = self.readHisatSummary(summary_file)
+                summary[summary_file] = entry
+        
+        # merged summary file samples in rows summary in columns
+        header = ["sample_name"] + list(summary[summary_file].keys())
+        with open(merged_summary, "w") as f:
+            f.write("\t".join(header) + "\n")
+            for summary_file in summary_files:
+                sample_name = os.path.basename(summary_file)
+                sample_name = sample_name.strip("_hisat2_summary.log")
+                entry = [sample_name] + list(summary[summary_file].values())
+                entry = [str(x) for x in entry]
+                f.write("\t".join(entry) + "\n")
+
+    # wrapper method for running hisat in pipelines
+    def hisat2bam(self):
+        hisat_statement = self.hisatStatement()
+        h2bam_statement = self.sam2bamStatement()
+        statements = [hisat_statement, h2bam_statement]
+        statement = " && ".join(statements)
+        
+        return(statement)
+    
+    # remove hisat fastq outputs
+    def clean(self, outfile):
+        # initialize log file
+        open(outfile, "w").close()
+
+        to_remove = glob(f"{self.outdir}/*.fastq*gz")
+        statements = [f"rm -f {x} && echo 'clean up: deleted {x}' >> {outfile}" 
+                      for x in to_remove]
+
+        statement = " && ".join(statements)
+        return statement
+    
+    # remove bam files when running hisat in pipeline_proeprocess
+    def cleanPP(self, infiles, outfile):
+        # initialize log file
+        open(outfile, "w").close()
+
+        # identify bam file
+        to_remove = glob(f"{self.outdir}/*.bam")
+
+        statements = []
+        for x in to_remove:
+            entry = (f"rm -f {x} "
+                     f"&& echo 'clean up: deleted {x}' >> {outfile}")
+            statements.append(entry)
+        
+        statement = " && ".join(statements)
+
+        return statement
+    
