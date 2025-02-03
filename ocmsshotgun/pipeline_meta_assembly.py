@@ -9,8 +9,8 @@ import shutil
 import sqlite3 as s3
 import pandas as pd
 import cgatcore.pipeline as P
-import modules.Utility as utility
-import modules.MetaAssembly as PMA
+import ocmsshotgun.modules.Utility as utility
+import ocmsshotgun.modules.MetaAssembly as PMA
 
 ###############################################################################
 # General setup
@@ -40,7 +40,7 @@ def connect():
 
     dbh = s3.connect(PARAMS['database']['name'])
 
-    return dbh
+    return dbhx, out_fastq1, PARAMS
 
 
 ###############################################################################
@@ -53,9 +53,9 @@ def connect():
          r"01_input_pooled.dir/" + PARAMS['preprocess']['pool_output_regex'])  # Output pattern from YAML
 def poolSamples(infiles, out_fastq1):
     '''Pool samples based on the provided regular expression and handle paired reads.'''
-     print(f"Pooling samples from: {infiles} to {out_fastq1}")
+    print(f"Pooling samples from: {infiles} to {out_fastq1}")
 
-    samples = [utility.matchReference(x) for x in infiles]
+    samples = [utility.matchReference(x, out_fastq1, **PARAMS) for x in infiles]
 
     # A list of the fastq1 files
     in_fastqs1 = [fq.fastq1 for fq in samples]
@@ -70,7 +70,7 @@ def poolSamples(infiles, out_fastq1):
         out_fastq2 = P.snip(out_fastq1, samples[0].fq1_suffix) + samples[0].fq2_suffix
             
     # Check for singleton read files (not essential for all samples to have singletons)
-    in_fastqs3 = [fq.fastq3 for fq in samples]
+    in_fastqs3 = [fq.fastq3 for fq in samples if fq.fastq3 is not None]
     if any(in_fastqs3):
         out_fastq3 = P.snip(out_fastq1, samples[0].fq1_suffix) + samples[0].fq3_suffix
 
@@ -100,7 +100,7 @@ def poolSamples(infiles, out_fastq1):
 # Read Processing
 ###############################################################################
 @follows(mkdir('02_processed_reads.dir'))
-@transform(poolSamples,
+@transform(poolSamples if PARAMS['preprocess']['pooling'] else FASTQ1s,
            regex('.+/(.+).fastq.1.gz'),
            r'02_processed_reads.dir/\1_corrected.fastq.1.gz')
 def runReadProcessing(infile, outfile):
