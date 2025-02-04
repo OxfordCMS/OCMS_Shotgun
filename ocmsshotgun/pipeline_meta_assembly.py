@@ -44,9 +44,8 @@ def connect():
 
 
 ###############################################################################
-# Pooling samples (optional)
+# Pooling samples
 ###############################################################################
-@active_if(PARAMS['preprocess']['pooling'])
 @follows(mkdir('01_input_pooled.dir'))
 @collate(FASTQ1s,
          regex(PARAMS['preprocess']['pool_input_regex']),  # Use regex from YAML
@@ -100,7 +99,7 @@ def poolSamples(infiles, out_fastq1):
 # Read Processing
 ###############################################################################
 @follows(mkdir('02_processed_reads.dir'))
-@transform(poolSamples if PARAMS['preprocess']['pooling'] else FASTQ1s,
+@transform(poolSamples,
            regex('.+/(.+).fastq.1.gz'),
            r'02_processed_reads.dir/\1_corrected.fastq.1.gz')
 def runReadProcessing(infile, outfile):
@@ -293,6 +292,66 @@ def runQUAST(contig_file, outfile):
           job_threads=PARAMS['quast']['meta_threads'],
           job_memory=PARAMS['quast']['meta_memory'])
           
+@follows(mkdir('quast_commulative_reports.dir'))
+#@merge(glob.glob("./*spades_assembly.dir/*_quast.dir/combined_reference/report.tsv"),
+#       "quast_commulative_reports.dir/merged_spades_quast_report.tsv.gz")
+@merge(
+    regex(r'(.+)_spades_assembly.dir/(.+)_quast.dir/combined_reference/report.tsv'),
+    r'quast_commulative_reports.dir/merged_spades_quast_report.tsv.gz'
+)
+
+def mergeSPAdesQUASTreport(infiles, outfile):    
+    '''
+    Merge quast report for individual sample when pooling is disabled.
+    '''
+
+    # Find all QUAST report files
+    infiles = glob.glob("./*spades_assembly.dir/*_quast.dir/combined_reference/report.tsv")
+    
+    # Extract sample names from the file paths
+    headers = [os.path.basename(os.path.dirname(os.path.dirname(x))).replace("_quast.dir", "") for x in infiles]
+    print(headers)  
+    headers = ",".join(headers)
+    statement = '''ocms_shotgun combine_tables
+            --glob=*spades_assembly.dir/*_quast.dir/combined_reference/report.tsv
+            --skip-titles
+            --header-names=%(headers)s
+            -m 0
+            -k 2
+            -c 1
+            --log=quast_commulative_reports.dir/merged_spades_quast_reports.log
+            | gzip
+            > %(outfile)s
+        '''
+    P.run(statement)
+
+@merge(
+    regex(r'(.+)_megahit_assembly.dir/(.+)_quast.dir/combined_reference/report.tsv'),
+    r'quast_commulative_reports.dir/merged_megahit_quast_report.tsv.gz'
+)
+def mergeMegahitQUASTreport(infiles, outfile):
+    '''
+    Merge quast report of pooled samples assembled by megahit
+    '''
+        # Find all QUAST report files
+    infiles = glob.glob("./*megahit_assembly.dir/*_quast.dir/combined_reference/report.tsv")
+
+    # Extract sample names from the file paths
+    headers = [os.path.basename(os.path.dirname(os.path.dirname(x))).replace("_quast.dir", "") for x in infiles]
+    print(headers)
+    headers = ",".join(headers)
+    statement = '''ocms_shotgun combine_tables
+            --glob=*megahit_assembly.dir/*_quast.dir/combined_reference/report.tsv
+            --skip-titles
+            --header-names=%(headers)s
+            -m 0
+            -k 2
+            -c 1
+            --log=quast_commulative_reports.dir/merged_megahit_quast_reports.log
+            | gzip
+            > %(outfile)s
+        '''
+    P.run(statement)
 
 ##############################################################################
 def main(argv=None):
