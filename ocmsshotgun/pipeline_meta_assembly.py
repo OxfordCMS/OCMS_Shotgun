@@ -294,24 +294,24 @@ def runQUAST(contig_file, outfile):
 
 #Merge QUAST reprots for megahit and metaSPades assemblies
 @collate(runQUAST,
-         regex(r'(.+)_assembly\.dir/.*quast\.dir/combined_reference/report\.tsv'),
-         r'\1_merged_quast_assembly_stats.tsv.gz')
+         regex(r'(.+)_assembly\.dir/(.+)_quast\.dir/combined_reference/report\.tsv'),
+         r'\1_quast_assembly_stats.tsv.gz')
 
 def mergeQUASToutput(infiles, outfile):    
     '''
     Merge quast reports of SPAdes and Megahit assemblies.
     '''
     
-    out_dir = os.path.dirname(outfile)
-    out_log = os.path.join(out_dir, "merged_quast_reports.log") 
-
+    out_log = P.snip(outfile, '.tsv.gz') + ".log"
+    infiles = ' '.join(infiles)
+ 
     statement = ("ocms_shotgun combine_tables"
-                 " --glob=*_assembly.dir/*_quast.dir/combined_reference/report.tsv"
                  " --skip-titles"
+                 " %(infiles)s "
                  " -m 0"
                  " -k 2"
                  " -c 1"
-                 " --log=%(out_log)s | gzip > %(outfile)s")
+                 " --log=%(out_log)s | sed 's/^Assembly/Statistics/' | gzip > %(outfile)s")
 
     P.run(statement)
 
