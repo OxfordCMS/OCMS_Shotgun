@@ -917,17 +917,6 @@ class hisat2(utility.metaFastn):
         
         return(statement)
     
-    def bamfilter(self, bamfile):
-        uncompressed_out = self.outfile.rstrip(".gz")
-        statement = (f"zcat {self.fastq1} |"
-                    " ocms_shotgun fastq2filteredfastq"
-                    f" -b {bamfile}"
-                    f" -r unmapped"
-                    f" -o {uncompressed_out}"
-                    f" && gzip {uncompressed_out}")
-
-        return statement
-    
     # remove hisat fastq outputs
     def clean(self, outfile):
         # initialize log file
