@@ -72,7 +72,7 @@ import shutil
 from ruffus import *
 from cgatcore import pipeline as P
 
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as utility
 import ocmsshotgun.modules.Humann3 as H
 
 # load options from the config file
@@ -97,7 +97,7 @@ else:
 def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
-    infiles = utility.matchReference(infile, outfile, **PARAMS)
+    infiles = utility.metaFastn(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
     
     if len(fastqs) == 1:
@@ -114,7 +114,7 @@ def poolInputFastqs(infile, outfile):
 ###############################################################################
 @follows(mkdir("humann3.dir"))
 @subdivide(poolInputFastqs,
-           regex(f"{indir}/(.+).fastq.gz"),
+           regex("input_merged.dir/(.+).fastq.gz"),
            r"humann3.dir/\1/\1_*.tsv.gz")
 def runHumann3(infile, outfiles):
     '''functional profile with humann3'''
@@ -149,7 +149,7 @@ def poolTranscriptomeFastqs(infile, outfile):
         shutil.rmtree(outdir)
     os.mkdir(outdir)
 
-    infiles = utility.matchReference(infile, outfile, **PARAMS)
+    infiles = utility.metaFastn(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
 
     if len(fastqs) == 1:

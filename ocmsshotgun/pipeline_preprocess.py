@@ -60,7 +60,7 @@ import itertools
 import distutils
 import pandas as pd
 
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as utility
 import ocmsshotgun.modules.PreProcess as pp
 
 # set up params
@@ -249,7 +249,7 @@ def mergeHisatSummary(infiles, outfile):
    # hisat summary logs
     logs = []
     for fq in infiles:
-        fq_class = pp.utility.matchReference(fq, outfile, **PARAMS)
+        fq_class = utility.metaFastn(fq, outfile, **PARAMS)
         log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
         logs.append(log)
     tool = pp.hisat2(infiles[0], outfile, **PARAMS)
