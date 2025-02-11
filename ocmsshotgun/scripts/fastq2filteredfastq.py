@@ -113,7 +113,6 @@ class bamFilter():
                         mate = unmated.pop(qname)
                         filtered_qname = self.filter_mapping_pe(
                             alignment, mate)
-                        self.counter.output_reads += 1
                     # if haven't found mate yet, keep in dictionary temporarily
                     else:
                         unmated[qname] = alignment
@@ -121,11 +120,11 @@ class bamFilter():
                 # single end reads
                 else:
                     filtered_qname = self.filter_mapping_se(alignment)
-                    self.counter.output_reads += 1
 
                 # add mapped qname to dictionary if read is mapped
                 if filtered_qname:
                     mapped.update(filtered_qname)
+                    self.counter.output_reads += len(filtered_qname.keys())
 
             # Process remaining singletons at the end
             for remaining_read in unmated.values():
