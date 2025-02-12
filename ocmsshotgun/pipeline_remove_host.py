@@ -53,7 +53,7 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check that input files correspond
 indir = PARAMS.get('general_input', 'input.dir')
-FASTQ1S = Utility.check_input(indir)
+FASTQ1S = Utility.get_fastns(indir)
 
 # forcing input.dir as input source because of filterMapping add_input.
 # looking for a more flexible way of interacting with add_input

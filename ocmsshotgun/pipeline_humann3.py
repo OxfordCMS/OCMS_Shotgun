@@ -79,10 +79,10 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 indir = PARAMS.get('general_input.dir','input.dir')
 
 # check all files to be processed
-FASTQ1s = Utility.check_input(indir)
+FASTQ1s = Utility.get_fastns(indir)
 
 if PARAMS['general_transcriptome']:
-    FASTQ2s = Utility.check_input(PARAMS['general_transcriptome'])
+    FASTQ2s = Utility.get_fastns(PARAMS['general_transcriptome'])
 else:
     FASTQ2s = None
 

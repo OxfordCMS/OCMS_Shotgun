@@ -52,13 +52,8 @@ from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
-import cgat.Fastq as Fastq
-
-import os,sys,re
-import sqlite3
-import itertools
-import distutils
-import pandas as pd
+import os,sys
+import warnings
 
 import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.PreProcess as PP
@@ -68,8 +63,10 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 
 indir = PARAMS.get("input.dir", "input.dir")
 # check that input files correspond
-FASTQ1S = Utility.check_input(indir)
-
+FASTQ1S = Utility.get_fastns(indir)
+warnings.warn("=================================================")
+out = '\n'.join(FASTQ1S)
+warnings.warn(f"\n{out}")
 ###############################################################################
 # Deduplicate
 ###############################################################################

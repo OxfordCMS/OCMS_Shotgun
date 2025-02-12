@@ -61,7 +61,7 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check files to be processed
 indir = PARAMS.get('general_input.dir', 'input.dir')
-FASTQ1 = Utility.check_input(indir)
+FASTQ1 = Utility.get_fastns(indir)
 
 #get all files within the directory to process
 SEQUENCEFILES = ("*.fastq.1.gz")
