@@ -1,6 +1,7 @@
 # Module for generic shotgun preprocessing steps
 
 import os,sys,re
+import math
 import shutil
 import itertools
 import sqlite3
@@ -9,11 +10,32 @@ import pandas as pd
 import errno
 import json
 from glob import glob
+import cgat.Fastq as fq
 from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
 import ocmsshotgun.modules.Utility as utility            
+
+def calculate_memory(fastq, mem, scale=1.5):
+    '''Receives as input a fastq and a string. If string ==
+    scalable, then calculate memory based on number of reads
+    in fastq. Returns memory requirement in Gb
+    '''
+    if mem.lower() == 'scalable':
+        n = 0
+        for i in fq.iterate(iotools.open_file(fastq)):
+            n += 1
+        n = n/1e6*scale
+        mem = str(math.ceil(n)) + 'G'
+
+    else:
+        assert mem.endswith('G'), 'Expected memory to be in G'
+        
+    return mem
+
+
+
 class cdhit(utility.matchReference):
         
     def buildStatement(self):

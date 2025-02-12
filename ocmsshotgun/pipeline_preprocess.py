@@ -81,9 +81,10 @@ def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
     statement = pp.cdhit(fastq1, outfile, **PARAMS).buildStatement()
 
+    job_memory = pp.calculate_memory(fastq1m PARAMS['cdhit_job_memory'])
     P.run(statement,
           job_threads=PARAMS['cdhit_job_threads'], 
-          job_memory=PARAMS['cdhit_job_memory'],
+          job_memory=job_memory,
           job_options=PARAMS.get('cdhit_job_options',''))
 
 ###############################################################################

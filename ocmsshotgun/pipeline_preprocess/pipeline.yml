@@ -36,8 +36,9 @@ cdhit:
     options: ''
 
     # Cluster options
-    job_threads: 4    
+    job_threads: 1
 
+    # If Scalable, then will be calculated on the fly
     job_memory: 48G
 
 
