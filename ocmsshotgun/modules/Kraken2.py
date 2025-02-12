@@ -9,11 +9,11 @@ from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 
-import ocmstoolkit.modules.Utility as utility
+import ocmstoolkit.modules.Utility as Utility
 
-class kraken2(utility.metaFastn):
+class Kraken2(Utility.BaseTool):
 
-    def buildStatement(self):
+    def buildStatement(self, fastn_obj):
         # Note that at the moment I only deal with paired-end
         # reads
         
@@ -31,12 +31,12 @@ class kraken2(utility.metaFastn):
                             f' --threads {job_threads}')
 
         # paired end reads
-        if self.fastq2:
+        if fastn_obj.fastn2:
             statement_entry = (" --paired"
-                               f" --gzip-compressed {self.fastq1} {self.fastq2}")
+                               f" --gzip-compressed {fastn_obj.fastn1} {fastn_obj.fastn2}")
         # single end reads
         else:
-            statement_entry = f" --gzip-compressed {self.fastq1}"
+            statement_entry = f" --gzip-compressed {fastn_obj.fastn1}"
 
         # build kraken statement
         kraken_statement = kraken_statement + statement_entry
@@ -85,11 +85,7 @@ def check_bracken_levels(expected_files, outfile):
     else:
         open(outfile, 'a').close()
 
-class bracken():
-    def __init__(self, infile, outfile, **PARAMS):
-        self.infile = infile
-        self.outfile = outfile
-        self.PARAMS = PARAMS
+class Bracken(Utility.BaseTool):
 
     def buildStatement(self):
         '''

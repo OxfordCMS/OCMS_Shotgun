@@ -43,17 +43,17 @@ from ruffus import *
 from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 
-import os,sys,re
+import os,sys
 
-import ocmstoolkit.modules.Utility as utility
-import ocmsshotgun.modules.PreProcess as pp
+import ocmstoolkit.modules.Utility as Utility
+import ocmsshotgun.modules.PreProcess as PP
 
 # set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check that input files correspond
 indir = PARAMS.get('general_input', 'input.dir')
-FASTQ1S = utility.check_input(indir)
+FASTQ1S = Utility.check_input(indir)
 
 # forcing input.dir as input source because of filterMapping add_input.
 # looking for a more flexible way of interacting with add_input
@@ -73,8 +73,8 @@ def alignAndRemoveHost(infile,outfile):
     '''
     # bmtagger - aligns with srprism
     if PARAMS['host_tool']  == 'bmtagger':
-        tool = pp.bmtagger(infile, outfile, **PARAMS)
-        statements, tmpfiles = tool.buildStatement()
+        tool = PP.bmtagger(infile, outfile, **PARAMS)
+        statements, tmpfiles = tool.buildStatement(Utility.MetaFastn(infile))
 
         # one statement for each host genome specified
         for statement in statements:
@@ -83,19 +83,16 @@ def alignAndRemoveHost(infile,outfile):
                 job_memory=PARAMS['bmtagger_job_memory'],
                 job_options=PARAMS.get('bmtagger_job_options',''))
         
-        statement, to_unlink  = tool.postProcess(tmpfiles)
+        statement, to_unlink  = tool.postProcess(Utility.MetaFastn(infile), tmpfiles)
         P.run(statement)
         for f in to_unlink:
             os.unlink(f)
     #Align host sequences with HISAT2 and remove host reads with samtools
     #converts the output from sam to bam
     elif PARAMS['host_tool'] == 'hisat':
-        tool = pp.hisat2(infile, outfile, **PARAMS)
+        tool = PP.hisat2(infile, outfile, **PARAMS)
 
-        statement = [tool.hisatStatement()]
-        
-        # sort sam output to bam output and index bam
-        statement.append(tool.sam2bamStatement())
+        statement = tool.hisat2bam(Utility.MetaFastn(infile))
         
         statement = " ; ".join(statement)
         P.run(statement,
@@ -113,18 +110,18 @@ def mergeHisatSummary(infiles, outfile):
    # hisat summary logs
     logs = []
     for fq in infiles:
-        fq_class = utility.metaFastn(fq, outfile, **PARAMS)
+        fq_class = Utility.MetaFastn(fq)
         log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
         logs.append(log)
-    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    tool = PP.hisat2(infiles[0], outfile, **PARAMS)
     tool.mergeHisatSummary(logs, outfile)
 
 @active_if(PARAMS['host_tool'] == 'hisat')
 @merge(alignAndRemoveHost,
        "reads_hostRemoved.dir/clean_up.log")
 def cleanHisat(infiles, outfile):
-    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
-    statement = tool.cleanPP(infiles, outfile)
+    tool = PP.hisat2(infiles[0], outfile, **PARAMS)
+    statement = tool.cleanPP(outfile)
 
     P.run(statement, without_cluster=True)
 

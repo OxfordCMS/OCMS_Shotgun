@@ -13,15 +13,15 @@ from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
-import ocmstoolkit.modules.Utility as utility            
-class cdhit(utility.metaFastn):
+import ocmstoolkit.modules.Utility as Utility            
+class cdhit(Utility.BaseTool):
         
-    def buildStatement(self):
+    def buildStatement(self, fastn_obj):
         '''Filter exact duplicates, if specified in config file'''
         
-        fastq1 = self.fastq1
-        fastq2 = self.fastq2
-        sample_out = P.snip(self.outfile, self.fq1_suffix)
+        fastq1 = fastn_obj.fastn1
+        fastq2 = fastn_obj.fastn2
+        sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
         
         outfile1 = P.snip(self.outfile, '.gz')
         logfile = sample_out + '.log'
@@ -30,14 +30,14 @@ class cdhit(utility.metaFastn):
         cdhit_options = self.PARAMS['cdhit_options']
         to_filter = self.PARAMS['cdhit_dedup']
         
-        if self.fastq2:
-            outfile2 = re.sub(self.fq1_suffix, self.fq2_suffix, self.outfile)
+        if fastn_obj.fastn2:
+            outfile2 = re.sub(fastn_obj.fn1_suffix, fastn_obj.fn2_suffix, self.outfile)
             outfile2 = P.snip(outfile2, '.gz')
             
             if to_filter:
                 tmpf1 = P.get_temp_filename('.')
                 tmpf2 = P.get_temp_filename('.')
-                statement = (f"zcat {self.fastq1} > {tmpf1} &&"
+                statement = (f"zcat {fastn_obj.fastn1} > {tmpf1} &&"
                              f" zcat {fastq2} > {tmpf2} &&"
                              " cd-hit-dup"
                              f"  -i {tmpf1}"
@@ -54,8 +54,8 @@ class cdhit(utility.metaFastn):
                              f" rm -f {cluster_file}")
             else:
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)
-                utility.symlnk(fastq1, self.outfile)
-                utility.symlnk(fastq2, outfile2 + '.gz')
+                Utility.symlnk(fastq1, outfile1 + '.gz')
+                Utility.symlnk(fastq2, outfile2 + '.gz')
 
         else:
             if to_filter:
@@ -73,18 +73,18 @@ class cdhit(utility.metaFastn):
 
             else:
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)
-                utility.symlnk(fastq1, outfile)     
+                Utility.symlnk(fastq1, self.outfile)     
         
         return statement
         
-class trimmomatic(utility.metaFastn):
+class trimmomatic(Utility.BaseTool):
 
-    def buildStatement(self):
+    def buildStatement(self, fastn_obj):
         '''Remove adapters using Trimmomatic'''
-        fastq1 = self.fastq1
-        fastq2 = self.fastq2
+        fastq1 = fastn_obj.fastn1
+        fastq2 = fastn_obj.fastn2
         outfile1 = self.outfile
-        sample_out = P.snip(self.outfile, self.fq1_suffix)
+        sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
         logfile = sample_out + '.trim.log'
         logfile2 = sample_out + '.log'
         
@@ -103,11 +103,11 @@ class trimmomatic(utility.metaFastn):
         trimmomatic_quality_trailing = self.PARAMS["trimmomatic_quality_trailing"]
         trimmomatic_minlen = self.PARAMS["trimmomatic_minlen"]
 
-        if self.fastq2:
-            outfile2 = re.sub(self.fq1_suffix, self.fq2_suffix, self.outfile)
-            outf1_singletons = sample_out + re.sub("1", "1s", self.fq1_suffix)
-            outf2_singletons = sample_out + re.sub("2", "2s", self.fq2_suffix)
-            outf_singletons = sample_out + self.fq3_suffix
+        if fastn_obj.fastn2:
+            outfile2 = re.sub(fastn_obj.fn1_suffix, fastn_obj.fn2_suffix, self.outfile)
+            outf1_singletons = sample_out + re.sub("1", "1s", fastn_obj.fn1_suffix)
+            outf2_singletons = sample_out + re.sub("2", "2s", fastn_obj.fn2_suffix)
+            outf_singletons = sample_out + fastn_obj.fn3_suffix
             
             statement = ("java -Xmx5g -jar %(trimmomatic_jar_path)s PE"
                          " -threads %(trimmomatic_n_threads)s"
@@ -172,7 +172,7 @@ class trimmomatic(utility.metaFastn):
 #    tool.postProcess()
 
     
-class runSortMeRNA(utility.metaFastn):
+class runSortMeRNA(Utility.BaseTool):
     """
     Run sortMeRNA. 
     Assumes that reference indexes have been created in advance in a 
@@ -183,7 +183,7 @@ class runSortMeRNA(utility.metaFastn):
         super().__init__(fastq1, outfile, **PARAMS)
         self.sortmerna_skip_singletons = self.PARAMS.get('sortmerna_skip_singletons', False)
         
-    def buildStatement(self):
+    def buildStatement(self, fastn_obj):
         """
         Generate run statement for processing single, paired, or paired
         + singleton samples. 
@@ -206,10 +206,10 @@ class runSortMeRNA(utility.metaFastn):
         tmpf_readb = os.path.join(tmpf, 'readb')
 
         job_threads = self.PARAMS.get("sortmerna_job_threads")
-        if not self.fastq2:
+        if not fastn_obj.fastn2:
             # Run sortMeRNA for single reads
-            in_fastq1 = self.fastq1
-            in_prefix = P.snip(in_fastq1, '_deadapt'+self.fq1_suffix, strip_path=True)
+            in_fastq1 = fastn_obj.fastn1
+            in_prefix = P.snip(in_fastq1, '_deadapt'+fastn_obj.fn1_suffix, strip_path=True)
             out_prefix = os.path.join(self.outdir, in_prefix)
 
             # Run sortMeRNA for single reads
@@ -229,9 +229,9 @@ class runSortMeRNA(utility.metaFastn):
 
         else:
             # Run sortMeRNA for paired reads
-            in_fastq1 = self.fastq1
-            in_fastq2 = self.fastq2
-            in_prefix = P.snip(in_fastq1, '_deadapt'+self.fq1_suffix, strip_path=True)
+            in_fastq1 = fastn_obj.fastn1
+            in_fastq2 = fastn_obj.fastn2
+            in_prefix = P.snip(in_fastq1, '_deadapt'+fastn_obj.fn1_suffix, strip_path=True)
             out_prefix = os.path.join(self.outdir, in_prefix)
             # Run sortMeRNA for single reads
             statement = ("sortmerna"
@@ -251,8 +251,8 @@ class runSortMeRNA(utility.metaFastn):
                          " --zip-out"
                          " %(sortmerna_options)s" % locals())
         
-        if not self.sortmerna_skip_singletons and IOTools.open_file(self.fastq3).read(1):
-            in_fastq3 = self.fastq3
+        if not self.sortmerna_skip_singletons and IOTools.open_file(fastn_obj.fastn3).read(1):
+            in_fastq3 = fastn_obj.fastn3
             statement_2 = ("sortmerna"
                            # " --index 0" # skip indexing, assume in idx-dir
                            " --fastx"
@@ -277,37 +277,37 @@ class runSortMeRNA(utility.metaFastn):
 
         return statement
         
-    def postProcess(self):
+    def postProcess(self, fastn_obj):
         ''' Rename files output by sortmeRNA to appropriate suffix
         At some point this would be good to become more flexible wrt FQ1_SUFFIX'''
 
         outf_prefix = os.path.join(self.outdir, 
-                                   P.snip(self.fastq1, '_deadapt'+self.fq1_suffix, strip_path=True))
+                                   P.snip(fastn_obj.fastn1, '_deadapt'+fastn_obj.fn1_suffix, strip_path=True))
 
         # rename fastq1 files
         os.rename(outf_prefix + '_aligned_fwd.fq.gz', 
-                  outf_prefix + '_rRNA'+self.fq1_suffix)
+                  outf_prefix + '_rRNA'+fastn_obj.fn1_suffix)
         os.rename(outf_prefix + '_unaligned_fwd.fq.gz', 
-                  outf_prefix + '_rRNAremoved'+self.fq1_suffix)
+                  outf_prefix + '_rRNAremoved'+fastn_obj.fn1_suffix)
 
         # rename fastq2 files
-        if self.fastq2:
+        if fastn_obj.fastn2:
             os.rename(outf_prefix + '_aligned_rev.fq.gz', 
-                      outf_prefix + '_rRNA'+self.fq2_suffix)
+                      outf_prefix + '_rRNA'+fastn_obj.fn2_suffix)
             os.rename(outf_prefix + '_unaligned_rev.fq.gz', 
-                      outf_prefix + '_rRNAremoved'+self.fq2_suffix)
+                      outf_prefix + '_rRNAremoved'+fastn_obj.fn2_suffix)
 
         # rename fastq3 files
-        if not self.sortmerna_skip_singletons and IOTools.open_file(self.fastq3).read(1):            
+        if not self.sortmerna_skip_singletons and IOTools.open_file(fastn_obj.fastn3).read(1):            
             os.rename(f3_aligned,
-                      outf_prefix + '_rRNA' + self.fq3_suffix)
+                      outf_prefix + '_rRNA' + fastn_obj.fn3_suffix)
 
             f3_unaligned = glob(os.path.join(self.outdir, "*unaligned_singleton*"))[0]            
             os.rename(f3_unaligned,
-                      outf_prefix +  '_rRNAremoved' + self.fq3_suffix)
+                      outf_prefix +  '_rRNAremoved' + fastn_obj.fn3_suffix)
         else:
-            utility.symlnk(self.fastq3, 
-                           os.path.join(outf_prefix + "_rRNAremoved" + self.fq3_suffix))
+            utility.symlnk(fastn_obj.fastn3, 
+                           os.path.join(outf_prefix + "_rRNAremoved" + fastn_obj.fn3_suffix))
         return None
 
 
@@ -337,27 +337,27 @@ class createSortMeRNAOTUs(runSortMeRNA):
         self.outdir = tmpf
         self.outfile = outfile
     
-    def postProcess(self):
+    def postProcess(self, fastn_obj):
         '''Rename files output by sortmerna, including otu_map table.''' 
 
         tmpf_prefix = os.path.join(self.outdir, 
-                                   P.snip(self.fastq1, '_deadapt'+self.fq1_suffix, strip_path=True))
+                                   P.snip(fastn_obj.fastn1, '_deadapt'+fastn_obj.fn1_suffix, strip_path=True))
         outf_prefix = os.path.join(os.path.dirname(self.outdir),
-                                   P.snip(self.fastq1, '_deadapt'+self.fq1_suffix, strip_path=True))
+                                   P.snip(fastn_obj.fastn1, '_deadapt'+fastn_obj.fn1_suffix, strip_path=True))
 
         # rename fastq1 files
-        os.rename(tmpf_prefix + '_aligned_fwd.fq.gz', outf_prefix + '_rRNA'+self.fq1_suffix)
-        os.rename(tmpf_prefix + '_unaligned_fwd.fq.gz', outf_prefix + '_rRNAremoved'+self.fq1_suffix)
+        os.rename(tmpf_prefix + '_aligned_fwd.fq.gz', outf_prefix + '_rRNA'+fastn_obj.fn1_suffix)
+        os.rename(tmpf_prefix + '_unaligned_fwd.fq.gz', outf_prefix + '_rRNAremoved'+fastn_obj.fn1_suffix)
 
         # rename fastq2 files
-        if self.fastq2:
-            os.rename(tmpf_prefix + '_aligned_rev.fq.gz', outf_prefix + '_rRNA'+self.fq2_suffix)
-            os.rename(tmpf_prefix + '_unaligned_rev.fq.gz', outf_prefix + '_rRNAremoved'+self.fq2_suffix)
+        if fastn_obj.fastn2:
+            os.rename(tmpf_prefix + '_aligned_rev.fq.gz', outf_prefix + '_rRNA'+fastn_obj.fn2_suffix)
+            os.rename(tmpf_prefix + '_unaligned_rev.fq.gz', outf_prefix + '_rRNAremoved'+fastn_obj.fn2_suffix)
 
         # rename 'denovo' otus
         if re.search('de_novo_otu', self.sortmerna_options):
-            os.rename(tmpf_prefix + '_aligned_denovo_fwd.fq.gz', outf_prefix + '_denovo'+self.fq1_suffix)
-            os.rename(tmpf_prefix + '_aligned_denovo_rev.fq.gz', outf_prefix + '_denovo'+self.fq2_suffix)
+            os.rename(tmpf_prefix + '_aligned_denovo_fwd.fq.gz', outf_prefix + '_denovo'+fastn_obj.fn1_suffix)
+            os.rename(tmpf_prefix + '_aligned_denovo_rev.fq.gz', outf_prefix + '_denovo'+fastn_obj.fn2_suffix)
 
         # rename log file 
         os.rename(tmpf_prefix + '_aligned.log', outf_prefix + '.log')
@@ -370,11 +370,11 @@ class createSortMeRNAOTUs(runSortMeRNA):
         
         return None
 
-class bmtagger(utility.metaFastn):
+class bmtagger(Utility.BaseTool):
 
-    def buildStatement(self):
+    def buildStatement(self, fastn_obj):
         '''Remove host contamination using bmtagger'''
-        outf_host = P.snip(self.outfile, '_dehost'+self.fq1_suffix) + '_host.txt'
+        outf_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host.txt'
         outf_host_stub = P.snip(outf_host, '.txt') + '_toremove'
 
         # Currently disabled. Has no effect. See drop_fastq.py
@@ -389,14 +389,14 @@ class bmtagger(utility.metaFastn):
         #            " kept as singletons (assuming they are not also identified"
         #            " as host)")
 
-        fastq1 = self.fastq1
+        fastq1 = fastn_obj.fastn1
         outfile = self.outfile
         bmtagger_exec = self.PARAMS['bmtagger_executable']
         assert bmtagger_exec in ["bmtagger.sh", "bmtagger_mod.sh"], "must specify bmtagger.sh or bmtagger_mod.sh"
 
-        if self.fastq2:
-            fastq2 = self.fastq2
-            fastq3 = self.fastq3
+        if fastn_obj.fastn2:
+            fastq2 = fastn_obj.fastn2
+            fastq3 = fastn_obj.fastn3
             
             to_remove_paired =  P.get_temp_filename('.')            
             to_remove_singletons = P.get_temp_filename('.')
@@ -439,7 +439,7 @@ class bmtagger(utility.metaFastn):
                               "  %(outf_host_stub)s_paired%(n)s" % locals())
 
                 # Screen the singletons
-                if os.path.exists(self.fastq3) and IOTools.open_file(self.fastq3).read(1):
+                if os.path.exists(fastn_obj.fastn3) and IOTools.open_file(fastn_obj.fastn3).read(1):
                     statement2 = ("zcat %(fastq3)s > %(tmpf3)s &&"
                                   " %(bmtagger_exec)s"
                                   "  -b %(bitmask)s"
@@ -489,25 +489,25 @@ class bmtagger(utility.metaFastn):
                 
         return statements, to_remove_tmp
 
-    def postProcess(self, to_remove_tmp):
+    def postProcess(self, fastn_obj, to_remove_tmp):
 
-        if self.fastq2:
+        if fastn_obj.fastn2:
             # Drop host contaminated reads
             # A hack due to the fact that BMTagger truncates fastq identifiers
             # TO DO: Look at bmtagger/.../bin/extract_fullseq
             
-            fastq1 = self.fastq1
-            fastq2 = self.fastq2
+            fastq1 = fastn_obj.fastn1
+            fastq2 = fastn_obj.fastn2
             
             fastq1_out = self.outfile
-            fastq2_out = P.snip(self.outfile, self.fq1_suffix) + self.fq2_suffix
+            fastq2_out = P.snip(self.outfile, fastn_obj.fn1_suffix) + fastn_obj.fn2_suffix
             
-            fastq1_host = P.snip(self.outfile, '_dehost'+self.fq1_suffix) + '_host'+self.fq1_suffix
-            fastq2_host = P.snip(self.outfile, '_dehost'+self.fq1_suffix) + '_host'+self.fq2_suffix
+            fastq1_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn1_suffix
+            fastq2_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn2_suffix
             
-            fastq3 = self.fastq3
-            fastq3_out = P.snip(self.outfile, self.fq1_suffix) + self.fq3_suffix
-            fastq3_host = P.snip(self.outfile, '_dehost'+self.fq1_suffix) + '_host'+self.fq3_suffix
+            fastq3 = fastn_obj.fastn3
+            fastq3_out = P.snip(self.outfile, fastn_obj.fn1_suffix) + fastn_obj.fn3_suffix
+            fastq3_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn3_suffix
             to_remove_paired = to_remove_tmp[0]
             to_remove_singletons = to_remove_tmp[1]
 
@@ -529,10 +529,10 @@ class bmtagger(utility.metaFastn):
 
         else:
             
-            fastq1 = self.fastq1
+            fastq1 = fastn_obj.fastn1
             outfile = self.outfile
             to_remove = to_remove_tmp[0]
-            fastq_host = P.snip(self.outfile, '_dehost'+self.fq1_suffix) + '_host'+self.fq1_suffix
+            fastq_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn1_suffix
             statement = ("ocms_shotgun drop_fastqs"
                          " --fastq1 %(fastq1)s"
                          " --to-drop-single %(to_remove)s"
@@ -547,9 +547,9 @@ class bmtagger(utility.metaFastn):
 
         return statement, to_unlink
 
-class bbtools(utility.metaFastn):
+class bbtools(Utility.BaseTool):
 
-    def buildStatement(self):
+    def buildStatement(self, fastn_obj):
         '''Either softmask low complexity regions, or remove reads with a large
         proportion of low complexity. 
 
@@ -566,24 +566,24 @@ class bbtools(utility.metaFastn):
         bb_options= ' '.join(self.PARAMS['dust_options'].split(','))
         job_threads = self.PARAMS.get("dust_job_threads")
 
-        sample_out = P.snip(self.outfile, self.fq1_suffix)
+        sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
         
-        fastq1 = self.fastq1
-        fastq2 = self.fastq2
-        fastq3 = self.fastq3
+        fastq1 = fastn_obj.fastn1
+        fastq2 = fastn_obj.fastn2
+        fastq3 = fastn_obj.fastn3
 
         outfile = self.outfile
         outfile1 = sample_out + '.1.fq.gz'
         outfile2 = sample_out + '.2.fq.gz'
         outfile3 = sample_out + '.3.fq.gz'
-        out_disc1 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+        out_disc1 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
             + '_discarded.fastq.1.fq.gz'
-        out_disc2 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+        out_disc2 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
             + '_discarded.fastq.2.fq.gz'
-        out_disc3 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+        out_disc3 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
             + '_discarded.fastq.3.fq.gz'
         
-        if self.fastq2:
+        if fastn_obj.fastn2:
             if self.PARAMS['dust_discard_low_complexity']:
                 statement1 = ("bbduk.sh"
                               "  in=%(fastq1)s"
@@ -668,34 +668,34 @@ class bbtools(utility.metaFastn):
 
         return statement
     
-    def postProcess(self):
-        sample_out = P.snip(self.outfile, self.fq1_suffix)
-        fastq1 = self.fastq1
-        fastq2 = self.fastq2
-        fastq3 = sample_out + self.fq3_suffix
+    def postProcess(self, fastn_obj):
+        sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
+        fastq1 = fastn_obj.fastn1
+        fastq2 = fastn_obj.fastn2
+        fastq3 = sample_out + fastn_obj.fn3_suffix
         outfile = self.outfile
         outfile1 = sample_out + '.1.fq.gz'
         outfile2 = sample_out + '.2.fq.gz'
         outfile3 = sample_out + '.3.fq.gz'
-        out_disc1 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+        out_disc1 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
             + '_discarded.fastq.1.fq.gz'
-        out_disc2 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+        out_disc2 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
             + '_discarded.fastq.2.fq.gz'
-        out_disc3 = P.snip(self.outfile, '_masked' + self.fq1_suffix) \
+        out_disc3 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
             + '_discarded.fastq.3.fq.gz'
-        if self.fastq2:
+        if fastn_obj.fastn2:
             # Renaming files because of bbmap idiosyncracies
-            of1 = P.snip(outfile1, '.1.fq.gz') + self.fq1_suffix
-            of2 = P.snip(outfile2, '.2.fq.gz') + self.fq2_suffix
-            of3 = P.snip(outfile3, '.3.fq.gz') + self.fq3_suffix
+            of1 = P.snip(outfile1, '.1.fq.gz') + fastn_obj.fn1_suffix
+            of2 = P.snip(outfile2, '.2.fq.gz') + fastn_obj.fn2_suffix
+            of3 = P.snip(outfile3, '.3.fq.gz') + fastn_obj.fn3_suffix
             os.rename(outfile1, of1)
             os.rename(outfile2, of2)
             os.rename(outfile3, of3)
 
             if self.PARAMS['dust_discard_low_complexity']:
-                od1 = P.snip(out_disc1, '.1.fq.gz') + self.fq1_suffix
-                od2 = P.snip(out_disc2, '.2.fq.gz') + self.fq2_suffix
-                od3 = P.snip(out_disc3, '.3.fq.gz') + self.fq3_suffix
+                od1 = P.snip(out_disc1, '.1.fq.gz') + fastn_obj.fn1_suffix
+                od2 = P.snip(out_disc2, '.2.fq.gz') + fastn_obj.fn2_suffix
+                od3 = P.snip(out_disc3, '.3.fq.gz') + fastn_obj.fn3_suffix
                 os.rename(out_disc1, od1)
                 os.rename(out_disc2, od2)
                 os.rename(out_disc3, od3)
@@ -703,7 +703,7 @@ class bbtools(utility.metaFastn):
         else:
             os.rename(outfile1, outfile)
             if self.PARAMS['dust_discard_low_complexity']:
-                od1 = P.snip(out_disc1, '.1.fq.gz') + self.fq1_suffix
+                od1 = P.snip(out_disc1, '.1.fq.gz') + fastn_obj.fn1_suffix
             os.rename(out_disc, od1)
 
 
@@ -748,50 +748,50 @@ def summariseReadCounts(infiles, outfile):
 
 # Class for aligning reads with host genome with Hisat2
 # returning mapped and unmapped reads
-class hisat2(utility.metaFastn):
+class hisat2(Utility.BaseTool):
     def __init__(self, fastq1, outfile, **PARAMS):
         super().__init__(fastq1, outfile, **PARAMS)
         # resetting prefix to include _unmapped or _dehost
         suffix = os.path.basename(self.outfile)
         self.prefixstrip = suffix[suffix.rfind('_'):]
-    def hisatStatement(self):
+    def hisatStatement(self, fastn_obj):
         
         ref_genome = self.PARAMS["hisat2_ref_genome"]
     
         statement = [f"hisat2 -x {ref_genome}"]
         
-        if self.fastq2 is None:
+        if fastn_obj.fastn2 is None:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped.fastq.gz")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped.fastq.gz")
-            entry = (f"-U {self.fastq1} --un-gz {unmapped}"
+            entry = (f"-U {fastn_obj.fastn1} --un-gz {unmapped}"
                      f" --al-gz {mapped}")
             statement.append(entry)
-        elif self.fastq3 is None:
+        elif fastn_obj.fastn3 is None:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped")
             unmapped_unpaired = self.outfile.replace(self.prefixstrip, 
                                                      "_unmapped.fastq.3.gz")
             mapped_unpaired = self.outfile.replace(self.prefixstrip,
                                                    "_mapped.fastq.3.gz")
-            entry = (f"-1 {self.fastq1} -2 {self.fastq2}"
+            entry = (f"-1 {fastn_obj.fastn1} -2 {fastn_obj.fastn2}"
                      f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
                      f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
             statement.append(entry)
-        elif self.fastq3 is not None:
+        elif fastn_obj.fastn3 is not None:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped")
             unmapped_unpaired = self.outfile.replace(self.prefixstrip, 
                                                      "_unmapped.fastq.3.gz")
             mapped_unpaired = self.outfile.replace(self.prefixstrip,
                                                    "_mapped.fastq.3.gz")
-            entry = (f"-1 {self.fastq1} -2 {self.fastq2} -U {self.fastq3}"
+            entry = (f"-1 {fastn_obj.fastn1} -2 {fastn_obj.fastn2} -U {fastn_obj.fastn3}"
                      f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
                      f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
             statement.append(entry)
 
-        if self.fileformat == "fasta":
+        if fastn_obj.fileformat == "fasta":
             statement.append("-f")
-        elif self.fileformat == "fastq":
+        elif fastn_obj.fileformat == "fastq":
             statement.append("-q")
 
         samfile = self.outfile.replace(self.prefixstrip, ".sam")
@@ -909,8 +909,8 @@ class hisat2(utility.metaFastn):
                 f.write("\t".join(entry) + "\n")
 
     # wrapper method for running hisat in pipelines
-    def hisat2bam(self):
-        hisat_statement = self.hisatStatement()
+    def hisat2bam(self, fastn_obj):
+        hisat_statement = self.hisatStatement(fastn_obj)
         h2bam_statement = self.sam2bamStatement()
         statements = [hisat_statement, h2bam_statement]
         statement = " && ".join(statements)

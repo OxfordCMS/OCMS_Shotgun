@@ -60,15 +60,15 @@ import itertools
 import distutils
 import pandas as pd
 
-import ocmstoolkit.modules.Utility as utility
-import ocmsshotgun.modules.PreProcess as pp
+import ocmstoolkit.modules.Utility as Utility
+import ocmsshotgun.modules.PreProcess as PP
 
 # set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 indir = PARAMS.get("input.dir", "input.dir")
 # check that input files correspond
-FASTQ1S = utility.check_input(indir)
+FASTQ1S = Utility.check_input(indir)
 
 ###############################################################################
 # Deduplicate
@@ -79,7 +79,8 @@ FASTQ1S = utility.check_input(indir)
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
-    statement = pp.cdhit(fastq1, outfile, **PARAMS).buildStatement()
+    tool = PP.cdhit(fastq1, outfile, **PARAMS)
+    statement = tool.buildStatement(Utility.MetaFastn(fastq1))
 
     P.run(statement,
           job_threads=PARAMS['cdhit_job_threads'], 
@@ -96,7 +97,8 @@ def removeDuplicates(fastq1, outfile):
 def removeAdapters(fastq1, outfile1):
     '''Remove adapters using Trimmomatic'''
 
-    statement = pp.trimmomatic(fastq1, outfile1, **PARAMS).buildStatement()
+    tool = PP.trimmomatic(fastq1, outfile1, **PARAMS)
+    statement = tool.buildStatement(Utility.MetaFastn(fastq1))
 
     P.run(statement,
           job_threads = PARAMS['trimmomatic_job_threads'],
@@ -116,7 +118,7 @@ def removeRibosomalRNA(fastq1, outfile):
     
 
     if PARAMS['data_type'] == 'metatranscriptome':
-        tool = pp.runSortMeRNA(fastq1, outfile, **PARAMS)
+        tool = PP.runSortMeRNA(fastq1, outfile, **PARAMS)
         
         # Logging
         runfiles = '\t'.join([os.path.basename(x) for x in (tool.fastq1, \
@@ -125,14 +127,14 @@ def removeRibosomalRNA(fastq1, outfile):
         E.info("Running sortMeRNA for files: {}".format(runfiles))
 
         # run sortmerna
-        statement = tool.buildStatement()
+        statement = tool.buildStatement(Utility.MetaFastn(fastq1))
         P.run(statement, 
               job_threads=PARAMS["sortmerna_job_threads"],
               job_memory=PARAMS["sortmerna_job_memory"],
               job_options=PARAMS.get("sortmerna_job_options",''))
         
         # perform postprocessing steps
-        tool.postProcess()
+        tool.postProcess(Utility.MetaFastn(fastq1))
     else:
         assert PARAMS['data_type'] == 'metagenome', \
             'Unrecognised data type: {}'.format(PARAMS['data_type'])
@@ -145,11 +147,11 @@ def removeRibosomalRNA(fastq1, outfile):
         outf2 = P.snip(outf1, '.fastq.1.gz') + '.fastq.2.gz'
         outf3 = P.snip(outf1, '.fastq.1.gz') + '.fastq.3.gz'
         
-        utility.symlnk(inf1, outf1)
+        Utility.symlnk(inf1, outf1)
         if os.path.exists(inf2):
-            utility.symlnk(inf2, outf2)
+            Utility.symlnk(inf2, outf2)
         if os.path.exists(inf3):
-            utility.symlnk(inf3, outf3)
+            Utility.symlnk(inf3, outf3)
 
 
 @follows(mkdir('reads_rrnaClassified.dir'))
@@ -161,11 +163,11 @@ def classifyRibosomalRNA(fastq1, outfile):
     assert PARAMS['data_type'] == 'metatranscriptome', \
         "Can't run rRNA classification on mWGS data..."
 
-    tool = pp.createSortMeRNAOTUs(fastq1, 
+    tool = PP.createSortMeRNAOTUs(fastq1, 
                                   outfile, 
                                   **PARAMS)
     
-    statement = tool.buildStatement()
+    statement = tool.buildStatement(Utility.MetaFastn(fastq1))
     P.run(statement, 
           job_threads=PARAMS["sortmerna_job_threads"],
           job_memory=PARAMS["sortmerna_job_memory"],
@@ -212,8 +214,8 @@ def alignAndRemoveHost(infile,outfile):
     '''
     # bmtagger - aligns with srprism
     if PARAMS['host_tool']  == 'bmtagger':
-        tool = pp.bmtagger(infile, outfile, **PARAMS)
-        statements, tmpfiles = tool.buildStatement()
+        tool = PP.bmtagger(infile, outfile, **PARAMS)
+        statements, tmpfiles = tool.buildStatement(Utility.MetaFastn(infile))
 
         # one statement for each host genome specified
         for statement in statements:
@@ -229,10 +231,10 @@ def alignAndRemoveHost(infile,outfile):
     # Align host sequences with HISAT2 and return mapped and unmapped reads
     # converts the output from sam to bam
     elif PARAMS['host_tool'] == 'hisat':
-        tool = pp.hisat2(infile, outfile, **PARAMS)
+        tool = PP.hisat2(infile, outfile, **PARAMS)
 
         # build statement to run hisat2 and convert sam to bam
-        statement = tool.hisat2bam()
+        statement = tool.hisat2bam(Utility.MetaFastn(infile))
         
         P.run(statement,
             job_threads = PARAMS["hisat2_job_threads"],
@@ -249,18 +251,18 @@ def mergeHisatSummary(infiles, outfile):
    # hisat summary logs
     logs = []
     for fq in infiles:
-        fq_class = utility.metaFastn(fq, outfile, **PARAMS)
+        fq_class = Utility.metaFastn(fq)
         log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
         logs.append(log)
-    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    tool = PP.hisat2(infiles[0], outfile, **PARAMS)
     tool.mergeHisatSummary(logs, outfile)
 
 @active_if(PARAMS['host_tool'] == 'hisat')
 @merge(alignAndRemoveHost,
        "reads_hostRemoved.dir/clean_up.log")
 def cleanHisat(infiles, outfile):
-    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
-    statement = tool.cleanPP(infiles, outfile)
+    tool = PP.hisat2(infiles[0], outfile, **PARAMS)
+    statement = tool.cleanPP(outfile)
 
     P.run(statement, without_cluster=True)
 
@@ -286,15 +288,15 @@ def maskLowComplexity(fastq1, outfile):
     homopolymers, 1: mask everything.
     '''
 
-    tool = pp.bbtools(fastq1, outfile, **PARAMS)
+    tool = PP.bbtools(fastq1, outfile, **PARAMS)
     
-    statement = tool.buildStatement()
+    statement = tool.buildStatement(Utility.MetaFastn(fastq1))
     P.run(statement, 
           job_threads=PARAMS['dust_job_threads'],
           job_memory=PARAMS['dust_job_memory'],
           job_options=PARAMS.get('dust_job_options', ''))
     
-    tool.postProcess()
+    tool.postProcess(Utility.MetaFastn(fastq1))
     
 ###############################################################################
 # Summary Metrics
@@ -355,7 +357,7 @@ def collateReadCounts(infiles, outfile):
 @merge(collateReadCounts, 'processing_summary.tsv')
 def summarizeReadCounts(infiles, outfile):
     '''Calculate the number of reads lost at each step for each sample'''
-    pp.summariseReadCounts(infiles, outfile)
+    PP.summariseReadCounts(infiles, outfile)
 
 @follows(summarizeReadCounts)
 def full():
