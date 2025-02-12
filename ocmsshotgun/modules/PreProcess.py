@@ -930,7 +930,7 @@ class hisat2(Utility.BaseTool):
         return statement
     
     # remove bam files when running hisat in pipeline_proeprocess
-    def cleanPP(self, infiles, outfile):
+    def cleanPP(self, outfile):
         # initialize log file
         open(outfile, "w").close()
 
