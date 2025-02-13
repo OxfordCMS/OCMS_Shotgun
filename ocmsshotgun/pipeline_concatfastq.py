@@ -54,7 +54,7 @@ import os
 from ruffus import *
 from cgatcore import pipeline as P 
 import ocmsshotgun.modules.ConcatFastq as CF
-
+import ocmstoolkit.modules.Utility as Utility
 # no params in config needed but putting here in case that changes
 PARAMS = P.get_parameters(["pipeline.yml"])
 
@@ -62,7 +62,7 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 indir = PARAMS.get('general_input.dir', 'input.dir')
 
 # get all sequence files within directory to process
-SEQUENCEFILES = (f"{indir}/*fastq.*gz")
+SEQUENCEFILES = Utility.get_fastns(indir)
 
 SEQUENCEFILES_REGEX = regex(fr"{indir}/(\S+)\.(fastq.*gz)")
 
