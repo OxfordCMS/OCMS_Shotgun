@@ -34,7 +34,7 @@ class DB:
         self.version = PARAMS[self.tool+"_version"]
         self.outdir = os.path.join(self.tool,
                                    "GCC-"+self.gcc_version,
-                                   self.tool+"-"+self.version)
+                                   self.tool+"-"+str(self.version))
 
 
 class HISAT2(DB):
@@ -157,3 +157,9 @@ class METAPHLANdb(DB):
                                   %(outdir)s
                         ''' % locals()
         return(statement)
+
+class MINIMAP2db(DB):
+    def build_statement(self, infile, outfile):
+        statement = (f"minimap2 -d {outfile} {infile}")
+
+        return statement
