@@ -54,7 +54,6 @@ import glob
 import yaml
 from pathlib import Path
 from ruffus import *
-sys.path.append("/well/powrie/users/utu691/devel/OCMS_Shotgun/ocmsshotgun/")
 import ocmsshotgun.modules.Databases as DB
 from cgatcore import pipeline as P
 PARAMS = P.get_parameters(["pipeline.yml"])
