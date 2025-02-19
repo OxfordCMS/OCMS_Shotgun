@@ -67,7 +67,7 @@ indir = PARAMS.get('general_input.dir', 'input.dir')
 FASTQ1 = utility.check_input(indir)
 
 #get all files within the directory to process
-SEQUENCEFILES = ("*.fastq.1.gz")
+SEQUENCEFILES = (f"{indir}/*.fastq.1.gz")
 
 SEQUENCEFILES_REGEX = regex(
     fr"{indir}/(\S+).(fastq.1.gz)")
