@@ -54,8 +54,7 @@ import glob
 import yaml
 from pathlib import Path
 from ruffus import *
-sys.path.append("/well/powrie/users/utu691/devel/OCMS_Shotgun/ocmsshotgun/")
-import modules.Databases as DB
+import ocmsshotgun.modules.Databases as DB
 from cgatcore import pipeline as P
 PARAMS = P.get_parameters(["pipeline.yml"])
 
@@ -75,6 +74,7 @@ sortmerna_version = PARAMS["sortmerna_version"]
 kraken2_version = PARAMS["kraken2_version"]
 metaphlan_version = PARAMS["metaphlan_version"]
 hisat2_version = PARAMS["hisat2_version"]
+minimap2_version = PARAMS["minimap2_version"]
 
 ########################################################
 ########################################################
@@ -280,10 +280,35 @@ def getMetaphlanIndex(infile, outfiles):
 def buildMetaphlanDatabases():
     pass
 
+########################################################
+########################################################
+########################################################
+# minimap2 databases
+########################################################
+########################################################
+########################################################
+@follows(mkdir(f"minimap2/human/{human_build}/GCC-{gcc_version}/minimap2-{minimap2_version}"))
+@follows(mkdir(f"minimap2/mouse/{mouse_build}/GCC-{gcc_version}/minimap2-{minimap2_version}"))
+@transform(getMammalianGenomes,
+           regex("genomes/(\S+)/(\S+)/(\S+).fa.gz"),
+           fr"minimap2/\1/\2/GCC-{gcc_version}/minimap2-{minimap2_version}/\3.mmi")
+def getMinimap2Index(infile, outfile):
+    '''
+    get minimap2 indexes
+    '''
+    tool = DB.MINIMAP2db(PARAMS, 'minimap2')
+    statement = tool.build_statement(infile, outfile)
+
+    P.run(statement)
+
+@follows(getMinimap2Index)
+def buildMinimap2Databases():
+    pass
 
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows(buildPreprocessDatabases, buildKraken2Databases)
+@follows(buildPreprocessDatabases, buildKraken2Databases, 
+         buildMinimap2Databases)
 def full():
     pass
 
