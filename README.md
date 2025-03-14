@@ -14,7 +14,7 @@ pip install .
 ```
 
 ## Pipeline Environments
-Each pipeline has it's own set of dependencies. It is recommended that you only load the tools necessary for the pipeline being used. If you are working within the BMRC HPC, you can load the pipeline modulefile. Please see the [OCMS_Modulefiles](https://github.com/OxfordCMS/OCMS_Modulefiles) repository for details and to download the modulefiles and read the OCMS modulefiles SOP for more details. If you are not working within the BMRC, please ensure that you have the appropriate software installed and in your PATH.
+Each pipeline has it's own set of dependencies. It is recommended that you only load the tools necessary for the pipeline being used. If you are working within the BMRC HPC, you can load the pipeline modulefile. See the OCMS modulefiles SOP for more details. If you are not working within the BMRC, please ensure that
 
 ## Quick Start
 All pipelines are written to be used within a HPC system, but can be run using the `--local` flag to run locally. 
@@ -34,100 +34,8 @@ ocms_shotgun preprocess show full
 Run pipeline individual pipeline tasks with `make` followed by the pipeline task or run all pipeline tasks with `make full`
 
 ```
-ocms_shotgun preprocess make full -p 20 -v 5
+ocms_shotgun kraken2 make full -p 20 -v 5
 ```
-
-# Pipelines
-
-<details>
-  <summary>Pipeline Databases</summary>
-
-Each pipeline requires certain databases and indexes to run. For consistency between members of the group and to ensure compatibility with the different tool chains on the BMRC we have developed pipeline_databases. The pipeline is designed to either download pre-built index files (e.g. kraken2) or to download flat files and index them with a particular tool.
-
-### Dependencies
-
-The software dependencies are the same as for the pipelines below. If you are working on BMRC then please also see [OCMS_Modulefiles](https://github.com/OxfordCMS/OCMS_Modulefiles) for an explanation of how to set up your environment.
-
-### Configuration
-
-To create a pipeline.yml file for configuration type
-
-```
-ocms_shotgun databases config
-```
-
-Edit this file with versions of software for database creation.
-
-### Run pipeline_databases
-
-There are no inout files specified as the task dependencies are created on the fly. If you only want to create databases for a single pipeline then you can use, for example,
-
-```
-ocms_shotgun databases make buildPreprocessDatabases
-```
-
-which will build the databases for the preprocess pipeline. If you want to produce databases for every pipeline in OCMS_Shotgun repository then you can use
-
-```
-ocms_shotgun databases make full
-```
-
-Note that some database files that are downloaded from various repositories are very large and so may take some hours to download.
-
-### Output
-
-The structure of the output for the "full" pipeline is as follows:
-```
-microbiome/
-|--genomes/
-|  |-human/
-|    |-build/
-|      |-build.fa.gz
-|   |-mouse/
-|     |-build
-|       |-build.fa.gz
-|
-|--SRPRISM/
-|  |-human/
-|    |-build/
-|      |-GCC-version/
-|        |-srprism-version/
-|          |-build.srprism*
-|  |-mouse 
-|    |-build/
-|      |-GCC-version/
-|        |-srprism-version/
-|          |-build.srprism*
-|
-|--bmtool/
-|  |-human/
-|    |-build/
-|      |-GCC-version/
-|        |-bmtool-version/
-|          |-build.bitmask
-|  |-mouse 
-|    |-build/
-|      |-GCC-version/
-|        |-bmtool-version/
-|          |-build.bitmask
-|
-|--kraken2/
-|   |-kraken2-version/
-|     |-database_version/
-|       |-database_files
-|
-|--sortmerna/
-|  |-GCC-version/
-|    |-sortmerna-version/
-|      |-rrna/
-|        |-smr_*.fasta
-|      |-index/
-|        |-smr_*.db
-```
-</details>
-
-<details>
-  <summary>Pipeline Preprocess</summary>
 
 ## Pipeline Preprocess
 This pipeline pre-processes shotgun metagenome or metatranscriptome data. It performes the following:
@@ -141,24 +49,17 @@ This pipeline pre-processes shotgun metagenome or metatranscriptome data. It per
 * summrise preprocessed read counts
 
 ### Dependencies
-
-Software requirements:
-
-| Software      |
-|---------------|
-| CDHIT         |
-| CDHITauxtools |
-| SortMeRNA     |
-| bmtagger      |
-| BBMap         |
-| SAMtools      |
-| SRPRISM       |
-| Trimmomatic   |
-
-If using OCMS_Modulefiles you can simply load the modules:
-
 ```
 module load pipelines/preprocess
+
+OR
+
+module load CD-HIT/4.8.1-GCC-9.3.0
+module load CD-HIT-auxtools/4.8.1-GCC-9.3.0
+module load bmtagger/3.101-gompi-2020a
+module load Trimmomatic/0.39-Java-11
+module load BBMap/38.90-GCC-9.3.0
+module load SortMeRNA/4.3.4-GCC-9.3.0
 ```
 
 ### Configuration
@@ -206,18 +107,7 @@ ocms_shotgun preprocess make full -p 20 -v 5
 
 ### Output
 ```
-# Summary of reads remaining after each task
-processing_summary.tsv
-
-# output reads after serial filtering steps
-reads_dusted.dir/
-
 ```
-
-</details>
-
-<details>
-  <summary>Pipeline Kraken2</summary>
 
 ## Pipeline Kraken2
 Uses Kraken2 to classify paired-end reads
@@ -227,20 +117,14 @@ Uses Taxonkit to generate a taxonomy file listing taxonomic lineage in mpa style
 ### Dependencies
 Taxonkit requires NCBI taxonomy files, which can be downloaded from the [NCBI FTP](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz). Path to directory of taxonomy files is specified in the `taxdump` parameter in the yml. 
 
-Software requirements:
-
-| Software	|
-|---------------|
-| Kraken2	|
-| Bracken       |
-| taxonkit	|
-
-
-If using OCMS_Modulefiles you can simply load the modules:
-
 ```
 module load pipelines/kraken2
 
+OR
+
+module load Kraken2/2.0.9-beta-gompi-2020a-Perl-5.30.2
+module load Bracken/2.6.0-GCCcore-9.3.0
+module load taxonkit/0.14.2
 ```
 
 ### Configuration
@@ -251,7 +135,7 @@ ocms_shotgun kraken2 config
 ```
 
 ### Input files
-Pipeline kraken2 takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in the working directory.
+Pipeline preprocess takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in the working directory.
 
 ### Pipeline tasks
 
@@ -282,16 +166,7 @@ bracken.dir/
 
 # showing taxonomy as mpa-styled lineages
 taxonomy.dir/
-
-# counts with taxonomy information added as feature names
-counts.dir/
 ```
-
-</details>
-
-
-<details>
-  <summary>Pipeline Concatfastq</summary>
 
 ## Pipeline Concatfastq
 This pipelines concatenates paired-end reads into one file. This is helpful when running Humann3.
@@ -315,32 +190,24 @@ ocms_shotgun concatfastq make full -p 20 -v 5
 ### Output
 Concatenated fastq files located in `concat.dir/`
 
-</details>
-
-<details>
-  <summary>Pipeline Humann3</summary>
-
 ## Pipeline Humann3
 This pipeline performs functional profiling of fastq files using Humann3.
 
 ### Dependencies
 This pipeline was written for Humann3 v3.8 and Metaphlan 3.1. If you're not working within BMRC, Humann3 and Metaphlan3 need to be installed according to their developers' instructions. 
 
-Software requirements:
-
-| Software	|
-|---------------|
-| Bowtie2       |
-| MetaPhlAn     |
-| humann        |
-| DIAMOND       |
-| R             |
-| Pandoc        |
-
-If using OCMS_Modulefiles you can simply load the modules:
-
 ```
 module load pipelines/humann3
+
+OR
+
+module load Bowtie2/2.4.1-GCC-9.3.0
+module load DIAMOND/2.0.15-GCC-9.3.0
+module load Pandoc/2.13
+module load X11/20200222-GCCcore-9.3.0
+module load GLPK/4.65-GCCcore-9.3.0
+module load R/4.2.1-foss-2020a-bare
+
 ```
 
 ### Configuration
@@ -405,5 +272,3 @@ Generate a report on humann3 results
 ```
 ocms_shotgun humann3 make build_report
 ```
-
-</details>

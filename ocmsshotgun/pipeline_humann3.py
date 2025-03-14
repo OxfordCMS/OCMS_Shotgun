@@ -286,10 +286,10 @@ def mergeMetaphlanOutput(infiles, outfile):
 
     statements = " && ".join(statements)
     in_tmp = " ".join(tmpfiles)
-    statement = statements + " && " +\
+    statement1 = statements + " && " +\
         "merge_metaphlan_tables.py -o %(outf)s %(in_tmp)s" + " && " \
         "gzip %(outf)s"
-
+ 
     P.run(statement)
 
     shutil.rmtree(tmpdir)

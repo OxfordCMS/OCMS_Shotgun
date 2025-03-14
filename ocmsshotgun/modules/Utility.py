@@ -66,11 +66,12 @@ class matchReference(object):
     generated from a pipeline.yml config file.
     """
 
-    def __init__(self, fastq1, outfile, **PARAMS):
+ def __init__(self, fastq1, outfile, **PARAMS):
         self.outdir = os.path.dirname(outfile)
         self.indir = os.path.dirname(fastq1)
         self.fastq1 = fastq1
         self.fastq2 = None
+
         self.fastq3 = None
         self.fq1_suffix = None
         self.fq2_suffix = None
