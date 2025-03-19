@@ -10,10 +10,14 @@ general:
   assemblers: metaspades,megahit
 
 preprocess:
-  pooling: true
-  pool_input_regex: ".*\\.fastq\\.1\\.gz"
-  pool_output_regex: "samples_pooled.fastq.1.gz"
-
+  # Use the following regex patterns to disable pooling (each sample remains separate)
+  pool_input_regex: ".*/(.+).fastq.1.gz"
+  pool_output_regex: "\\1.fastq.1.gz"
+ 
+  # Uncomment the following regex patterns to enable pooling (all samples will be combined into one file)
+  #pool_input_regex: ".*\\.fastq\\.1\\.gz"
+  #pool_output_regex: "samples_pooled.fastq.1.gz"
+  
   error_correction: true # Set to true to implement Spades error correction
 
 spades:
