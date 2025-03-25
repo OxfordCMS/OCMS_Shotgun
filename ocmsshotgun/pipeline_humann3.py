@@ -114,8 +114,8 @@ def poolInputFastqs(infile, outfile):
 ###############################################################################
 @follows(mkdir("humann3.dir"))
 @subdivide(poolInputFastqs,
-           regex(f"{indir}/(.+).fastq.gz"),
-           r"humann3.dir/\1/\1_*.tsv.gz")
+           regex("(.+)/(.+).fastq.gz"),
+           r"humann3.dir/\2/\2_*.tsv.gz")
 def runHumann3(infile, outfiles):
     '''functional profile with humann3'''
     
