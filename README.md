@@ -287,6 +287,26 @@ taxonomy.dir/
 counts.dir/
 ```
 
+### Building a report
+
+A generic report for kraken2/bracken outputs can be generated using the .Rmd file that is present in the repository. To build the report you must ensure that you have R loaded and have the relevant dependencies installed:
+
+| R dependencies |
+|----------------|
+| OCMSutility    |
+| ggplot2        |
+| yaml           |
+
+
+You can then run:
+
+```
+ocms_shotgun kraken2 make build_report
+```
+
+The resulting html file will be at ./report.dir/pipeline_kraken2_report.html
+
+
 </details>
 
 

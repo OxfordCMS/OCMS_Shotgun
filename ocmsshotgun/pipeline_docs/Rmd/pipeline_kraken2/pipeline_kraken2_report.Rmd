@@ -1,0 +1,229 @@
+---
+title: "Kraken2/Bracken report"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+```
+
+```{r load libraries}
+
+library(OCMSutility)
+library(ggplot2)
+library(yaml)
+```
+
+## Pipeline parameters
+
+```{r pipeline-parameters}
+
+yml <- read_yaml("../pipeline.yml")
+
+# put into table
+yml_table <- as.data.frame(t(as.data.frame(yml)))
+yml_table <- data.frame(Parameter = rownames(yml_table),
+                        Value = yml_table$V1)
+knitr::kable(yml_table, rownames=FALSE, colnames=FALSE)
+```
+
+
+```{r collect metrics, echo=FALSE, message=FALSE}
+
+# Functions and collection of different metrics used in the
+# rest of the report
+
+#-----------------------------------------------------------
+get_counts <- function(counts){
+   counts <- data.frame(sample = colnames(counts),
+                     counts = colSums(counts)) 
+   counts <- counts[order(counts$counts, decreasing = T),]
+   counts$sample <- factor(counts$sample, levels=counts$sample)
+   return(counts)
+}
+#-----------------------------------------------------------
+get_richness <- function(counts){
+  rich <- data.frame(sample = colnames(counts),
+                     richness = colSums(counts > 0))
+  return(rich)
+}
+#-----------------------------------------------------------
+
+# get the levels at which we will collect metrics
+levels <- c("phylum", "class", "order", "family", "genus", "species")
+level_colors <- RColorBrewer::brewer.pal(length(levels), "Set2")
+names(level_colors) <- levels
+
+# containers for metrics
+level_count <- list()
+level_richness <- list()
+level_prevs <- list()
+level_compositions <- list()
+
+# Iterate over the files at each level
+# and collect metrics
+for (i in 1:length(levels)){
+  dat <- read.csv(paste0("../counts.dir/", levels[i], "_counts.tsv"),
+                  header = TRUE,
+                  stringsAsFactors = FALSE,
+                  sep = "\t",
+                  row.names = 1)
+  
+  # Counts
+  counts <- get_counts(dat)
+  counts$level <- levels[i]
+  level_count[[i]] <- counts
+  
+  # Richness
+  richness <- get_richness(dat)
+  richness$level <- levels[i]
+  level_richness[[i]] <- richness
+  
+  # Prevalence vs Abundance
+  prevalence <- rowSums(dat > 0)
+  relabund <- relab(dat)
+  ave_abund <- rowMeans(log10(relabund + 1e-6))
+  prev_abund <- data.frame(Taxon = rownames(dat),
+                           Prevalence = prevalence,
+                           Abundance = ave_abund,
+                           Level = levels[i])
+  level_prevs[[i]] <- prev_abund 
+  
+  # Composition
+  level_compositions[[i]] <- stacked_barchart(relabund)
+  
+}
+
+# Final gather of each metric
+level_count <- dplyr::bind_rows(level_count)
+level_count$level <- factor(level_count$level, levels = levels)
+
+level_richness <- dplyr::bind_rows(level_richness)
+level_richness$level <- factor(level_richness$level, levels = levels)
+
+level_prevs <- dplyr::bind_rows(level_prevs)
+level_prevs$Level <- factor(level_prevs$Level, levels = levels)
+
+```
+
+# Overview
+
+This is a generic report to summarise the outputs from the kraken2 pipeline. 
+
+## Number of reads
+
+Below is a summary of the number of reads per sample. It is taken from the counts tables from kraken2/bracken and so may not be consistent with raw reads (i.e. fastq) but serves as a general overview.
+
+```{r nreads, fig.height = 5, fig.width = 7}
+
+counts <- read.csv("../counts.dir/phylum_counts.tsv",
+                   header = TRUE,
+                   stringsAsFactors = FALSE,
+                   sep="\t",
+                   row.names = 1)
+
+counts <- get_counts(counts)
+ggplot(counts, aes(x=sample, y=counts)) +
+  geom_point(size = 3) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## Number of reads per taxonomic level
+
+This gives an idea of how many reads were assigned (successfully) at each taxonomic level and so reflects any loss of data as assignments become more specific.
+
+```{r nreads per level, fig.height = 5, fig.width = 7}
+
+ggplot(level_count, aes(x=level, y=counts, color = level)) +
+  geom_boxplot(outlier.alpha = 0) +
+  geom_jitter(height = 0, width = 0.1) +
+  theme_classic() + 
+  scale_color_manual(values = level_colors)
+```
+
+## Number of detected features at each level
+
+Here we just describe the richness (number of features) at each taxonomic level.
+
+```{r richness, fig.height = 5, fig.width = 7}
+
+ggplot(level_richness, aes(x=level, y=richness, color = level)) +
+  geom_boxplot(outlier.alpha = 0) +
+  geom_jitter(height = 0, width = 0.1) +
+  theme_classic() + 
+  scale_color_manual(values = level_colors) +
+  ylab("Richness")
+
+```
+
+## Prevalence vs Abundance
+
+It is often useful just to see how prevalent each taxon is at at what average abundance. This is displayed below at each taxonomic level.
+
+```{r prevalence vs abundance, fig.height = 10, fig.width = 15}
+
+ggplot(level_prevs, aes(x=Abundance, y=Prevalence)) +
+  geom_point() +
+  theme_classic() +
+  facet_wrap(~Level, scales = "free") +
+  xlab("log10(rel_abundance)")
+
+```
+
+
+## Composition {.tabset .tabset-pills}
+
+Here we show the taxonomic composition at each level - The 10 most abundant taxa are displayed at each level.
+
+### Phylum
+
+```{r comp phylum, echo=FALSE, message=FALSE, fig.height=7}
+
+level_compositions[[1]][2]
+
+```
+
+### Class
+
+```{r comp class, echo=FALSE, message=FALSE, fig.height=7}
+
+level_compositions[[2]][2]
+
+```
+
+### Order
+
+```{r comp order, echo=FALSE, message=FALSE, fig.height=7}
+
+level_compositions[[3]][2]
+
+```
+
+### Family
+
+```{r comp family, echo=FALSE, message=FALSE, fig.height=7}
+
+level_compositions[[4]][2]
+
+```
+
+### Genus
+
+```{r comp genus, echo=FALSE, message=FALSE, fig.height=7}
+
+level_compositions[[5]][2]
+
+```
+
+### Species
+
+```{r comp species, echo=FALSE, message=FALSE, fig.height=7}
+
+level_compositions[[6]][2]
+
+```
+

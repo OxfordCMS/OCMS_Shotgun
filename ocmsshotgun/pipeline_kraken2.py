@@ -209,6 +209,30 @@ def addTaxonomyToCounts(infile, outfile):
     P.run(statement)
 
 
+######################################################
+######################################################
+######################################################
+# build report
+######################################################
+######################################################
+######################################################
+@follows(addTaxonomyToCounts,
+         mkdir("report.dir"))
+def build_report():
+    '''
+    render the rmarkdown report file
+    '''
+    reportdir = os.path.dirname(os.path.abspath(__file__))
+    reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_kraken2")
+    reportfile = os.path.join(reportdir, "pipeline_kraken2_report.Rmd")
+
+    statement = '''
+                cp %(reportfile)s report.dir;
+                R -e "rmarkdown::render('report.dir/pipeline_kraken2_report.Rmd',
+                output_file='pipeline_kraken2_report.html', output_dir='report.dir')";
+                '''
+    P.run(statement)
+
 
 # ---------------------------------------------------
 # Generic pipeline tasks
