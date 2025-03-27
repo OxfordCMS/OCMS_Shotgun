@@ -22,6 +22,12 @@ class humann3(object):
         search_mode = self.PARAMS['humann3_search_mode']
         options = self.PARAMS["humann3_options"]
 
+        ## Combine core metaphlan options with any extras
+        metaphlan_options = "--index %s --bowtie2db=%s" % (db_metaphlan_id, db_metaphlan_path)
+        metaphlan_extra_options = self.PARAMS["humann3_metaphlan_counts"]
+        metaphlan_options = ' '.join([metaphlan_options, metaphlan_extra_options])
+
+       
         # the option to add a taxonomic profile for restricting mapping
         if self.taxonomic_profile:
             options = '--taxonomic-profile %s' % self.taxonomic_profile \
@@ -33,7 +39,7 @@ class humann3(object):
                      " --nucleotide-database %(db_nucleotide)s"
                      " --protein-database %(db_protein)s"
                      " --search-mode %(search_mode)s"
-                     " --metaphlan-options  '--index %(db_metaphlan_id)s --bowtie2db=%(db_metaphlan_path)s -t rel_ab_w_read_stats'"
+                     " --metaphlan-options '%(metaphlan_options)s'"
                      " %(options)s 2> %(outpath)s/%(prefix)s.log" % locals())
         
         return statement

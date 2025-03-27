@@ -297,10 +297,8 @@ def mergeMetaphlanOutput(infiles, outfile):
 ###############################################################################
 # Handle counts files that are generated
 ###############################################################################
-@follows(mergeMetaphlanOutput)
-@collate(runHumann3,
-         regex("humann3.dir/.+/.+_metaphlan_bugs_list.tsv.gz"),
-         r"metaphlan_output.dir/merged_metaphlan_counts.tsv.gz")
+@active_if(PARAMS.get('humann3_metaphlan_counts', '') == "-t rel_ab_w_read_stats")
+@merge(runHumann3, "metaphlan_output.dir/merged_metaphlan_counts.tsv.gz")
 def mergeMetaphlanCounts(infiles, outfile):
     '''
     Merge count files from humann's internal metaphlan run.
