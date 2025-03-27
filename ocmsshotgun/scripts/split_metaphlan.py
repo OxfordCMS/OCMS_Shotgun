@@ -95,7 +95,7 @@ def main(argv=None):
                 phylum_file.write(line)
             elif "k__" in line:
                 kingdom_file.write(line)
-            elif line.startswith("UNKNOWN"):
+            elif line.startswith("unclassified"):
                 unknown_file.write(line)
             else:
                 raise ValueError("Unexpected line format in merged input: %s" % line)
