@@ -1,2 +1,18 @@
-job_threads: 8
-job_memory: 2G
+# set job options for running prokka
+# set job options for running prokka
+prokka:
+  job_threads: 8
+  job_memory: 5G
+
+# set job options for running blast
+blast:
+  # set job options for creating blast database
+  db_job_threads: 1
+  db_job_memory: 15G
+  # set job options for running blast search
+  search_job_threads: 8
+  search_job_memory: 5G
+  # define name of epitope for homology search
+  epitope_name: Ins_B9-25
+  # define protein sequence to perform homology search
+  epitope_seq: SHLVEALYLVCGERGFF
