@@ -183,16 +183,16 @@ def merge_faa(infiles, outfile):
 @split(
     "01_prokka_output.dir/merged.faa",
     [
-        "02_blast_database.dir/database.pdb",
-        "02_blast_database.dir/database.phr",
-        "02_blast_database.dir/database.pin",
-        "02_blast_database.dir/database.pjs",
-        "02_blast_database.dir/database.pog",
-        "02_blast_database.dir/database.pos",
-        "02_blast_database.dir/database.pot",
-        "02_blast_database.dir/database.psq",
-        "02_blast_database.dir/database.ptf",
-        "02_blast_database.dir/database.pto"
+        "02_blast_database.dir/database*pdb",
+        "02_blast_database.dir/database*phr",
+        "02_blast_database.dir/database*pin",
+        "02_blast_database.dir/database*pjs",
+        "02_blast_database.dir/database*pog",
+        "02_blast_database.dir/database*pos",
+        "02_blast_database.dir/database*pot",
+        "02_blast_database.dir/database*psq",
+        "02_blast_database.dir/database*ptf",
+        "02_blast_database.dir/database*pto"
     ]
 )
 
@@ -271,7 +271,8 @@ def blast_search(outfile, extras=[output_folder, epitope_file]):
         " -matrix BLOSUM62" 
         " -evalue 10000" 
         " -num_alignments 100000" 
-        " -outfmt '7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore btop stitle'"
+        " -outfmt '7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore btop sseq stitle staxid'"
+        " -html"
     )
 
     # submit statement as a job
