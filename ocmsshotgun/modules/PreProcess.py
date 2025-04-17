@@ -392,7 +392,8 @@ class bmtagger(utility.matchReference):
         fastq1 = self.fastq1
         outfile = self.outfile
         bmtagger_exec = self.PARAMS['bmtagger_executable']
-        assert bmtagger_exec in ["bmtagger.sh", "bmtagger_mod.sh"], "must specify bmtagger.sh or bmtagger_mod.sh"
+        # needed to comment out as wouldn't allow the location of my bmtagger_mod.sh file
+        # assert bmtagger_exec in ["bmtagger.sh", "bmtagger_mod.sh"], "must specify bmtagger.sh or bmtagger_mod.sh"
 
         if self.fastq2:
             fastq2 = self.fastq2
