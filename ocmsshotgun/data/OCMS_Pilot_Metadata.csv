@@ -1,0 +1,9 @@
+Sample Number,Well,Sample ID,Sample Type,Sample Dilution,Extraction kit,Homogeniser,Nanodrop Nucleic Acid (ng/uL),A260/A280,A260/A230
+1,E:11,OCMS_Pilot_4_VA_Sample_1,ZymoBIOMICS Communittee,1,QIAamp PowerFecal Pro DNA Kit,Vortex Adapter,119.622,1.864,1.185
+2,F:11,OCMS_Pilot_4_VA_Sample_3,ZymoBIOMICS Communittee,1,ZymoBIOMICS DNA Microprep Kit,Vortex Adapter,203.053,1.84,2.16
+3,G:11,OCMS_Pilot_4_VA_Sample_5,ZymoBIOMICS Communittee,1_10,QIAamp PowerFecal Pro DNA Kit,Vortex Adapter,10.512,1.801,0.62
+4,H:11,OCMS_Pilot_4_VA_Sample_7,ZymoBIOMICS Communittee,1_10,ZymoBIOMICS DNA Microprep Kit,Vortex Adapter,15.518,1.788,1.003
+5,A:12,OCMS_Pilot_5_TL_Sample_33,ZymoBIOMICS Communittee,1,QIAamp PowerFecal Pro DNA Kit,Tissue Lyser II,73.907,1.866,0.347
+6,B:12,OCMS_Pilot_5_TL_Sample_35,ZymoBIOMICS Communittee,1,ZymoBIOMICS DNA Microprep Kit,Tissue Lyser II,233.209,1.866,2.132
+7,C:12,OCMS_Pilot_5_TL_Sample_37,ZymoBIOMICS Communittee,1_10,QIAamp PowerFecal Pro DNA Kit,Tissue Lyser II,6.343,1.687,0.481
+8,D:12,OCMS_Pilot_5_TL_Sample_39,ZymoBIOMICS Communittee,1_10,ZymoBIOMICS DNA Microprep Kit,Tissue Lyser II,17.29,1.926,1.017

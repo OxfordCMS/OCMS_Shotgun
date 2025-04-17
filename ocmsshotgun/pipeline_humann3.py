@@ -76,14 +76,14 @@ import ocmsshotgun.modules.Utility as utility
 import ocmsshotgun.modules.Humann3 as H
 
 # load options from the config file
-PARAMS = P.get_parameters(
-    ["pipeline.yml"])
+PARAMS = P.get_parameters(["pipeline.yml"])
+indir = PARAMS.get('general_input.dir','input.dir')
 
 # check all files to be processed
-FASTQ1s = utility.check_input(PARAMS.get('location_input','.'))
+FASTQ1s = utility.check_input(indir)
 
-if PARAMS['location_transcriptome']:
-    FASTQ2s = utility.check_input(PARAMS['location_transcriptome'])
+if PARAMS['general_transcriptome']:
+    FASTQ2s = utility.check_input(PARAMS['general_transcriptome'])
 else:
     FASTQ2s = None
 
@@ -92,7 +92,7 @@ else:
 ###############################################################################
 @follows(mkdir("input_merged.dir"))
 @transform(FASTQ1s,
-           regex(".+/(.+).fastq.1.gz"),
+           regex(f"{indir}/(.+).fastq.1.gz"),
            r"input_merged.dir/\1.fastq.gz")
 def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
@@ -114,8 +114,8 @@ def poolInputFastqs(infile, outfile):
 ###############################################################################
 @follows(mkdir("humann3.dir"))
 @subdivide(poolInputFastqs,
-           regex(".+/(.+).fastq.gz"),
-           r"humann3.dir/\1/\1_*.tsv.gz")
+           regex("(.+)/(.+).fastq.gz"),
+           r"humann3.dir/\2/\2_*.tsv.gz")
 def runHumann3(infile, outfiles):
     '''functional profile with humann3'''
     
@@ -136,7 +136,7 @@ def runHumann3(infile, outfiles):
 ###############################################################################
 # Run humann3 on metatranscriptome data
 ###############################################################################
-@active_if(PARAMS['location_transcriptome'])    
+@active_if(PARAMS['general_transcriptome'])    
 @transform(FASTQ2s,
            regex(".+/(.+).fastq.1.gz"),
            r"input_mtx_merged.dir/\1.fastq.gz")

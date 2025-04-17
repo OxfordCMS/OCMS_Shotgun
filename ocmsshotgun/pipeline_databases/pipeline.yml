@@ -1,0 +1,55 @@
+########################################
+# Specify the GCC and python  version 
+# you are using
+########################################
+
+gcc: 12.2.0
+python: 3.10.8 
+
+########################################
+# Specify the mammalian genome versions
+########################################
+
+genomes:
+    human: hg38
+    mouse: mm39
+
+########################################
+# Specify the version of software you
+# have loaded
+########################################
+
+hisat2:
+    version: 2.2.1
+
+srprism:
+    version: 3.1.1
+
+bmtool:
+    version: v.3.102.4
+
+sortmerna:
+    version: 4.3.6
+
+########################################
+# There are lots of pre-built kraken2
+# databases available at
+# https://benlangmead.github.io/aws-indexes/k2
+# You can specify which ones you want in
+# a comma separated list. Just specify
+# the basename of the file as in the
+# default below
+########################################
+
+kraken2:
+    version: 2.1.2
+    filenames: k2_pluspf_20240605.tar.gz
+
+bracken:
+    version: 2.9
+
+metaphlan:
+    version: 4.0.6
+
+minimap2:
+    version: 2.26

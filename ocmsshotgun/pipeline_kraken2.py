@@ -63,13 +63,14 @@ import ocmsshotgun.modules.Utility as utility
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check files to be processed
-FASTQ1 = utility.check_input()
+indir = PARAMS.get('general_input.dir', 'input.dir')
+FASTQ1 = utility.check_input(indir)
 
 #get all files within the directory to process
-SEQUENCEFILES = ("*.fastq.1.gz")
+SEQUENCEFILES = (f"{indir}/*.fastq.1.gz")
 
 SEQUENCEFILES_REGEX = regex(
-    r"(\S+).(fastq.1.gz)")
+    fr"{indir}/(\S+).(fastq.1.gz)")
 
 ########################################################
 ########################################################
@@ -87,6 +88,7 @@ def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
     statement  = K.kraken2(infile, outfile, **PARAMS).buildStatement()
+    
     P.run(statement,
           job_threads = PARAMS["kraken2_job_threads"],
           job_memory = PARAMS["kraken2_job_mem"],
@@ -109,9 +111,6 @@ def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
     '''
-    print('=============================================================')
-    print(infile)
-    print(outfile)
     statement = K.bracken(infile, outfile, **PARAMS).buildStatement()
 
     P.run(statement,
@@ -142,11 +141,11 @@ def mergeBracken(infiles, outfile):
     level = P.snip(os.path.basename(outfile), ".tsv")
     level = level.split(".")[-1]
 
-    sample_names = [P.snip(os.path.basename(x), ".abundance.tsv") for x in glob.glob("bracken.dir/*%s.abundance.tsv" % level)]
+    sample_names = [P.snip(os.path.basename(x), ".tsv") for x in glob.glob("bracken.dir/*.abundance.%s.tsv" % level)]
     sample_names = [P.snip(x, "." + level) for x in sample_names]
     titles = ",".join([x for x in sample_names])
 
-    statement = '''  cgat combine_tables
+    statement = '''  ocms_shotgun combine_tables
                      --glob=bracken.dir/*.abundance.%(level)s.tsv
                      --skip-titles
                      --header-names=%(titles)s
@@ -182,9 +181,62 @@ def translateTaxonomy(infile, outfile):
                 '''
     P.run(statement)
 
+########################################################
+########################################################
+########################################################
+# Add taxonomy to counts tables
+########################################################
+########################################################
+########################################################
+@follows(mkdir("counts.dir"))
+@transform(translateTaxonomy,
+           regex("taxonomy.dir/mpa_taxonomy\.(\S+).tsv"),
+           r"counts.dir/\1_counts.tsv")
+def addTaxonomyToCounts(infile, outfile):
+    '''
+    add taxonomy information to the bracken counts tables
+    '''
+    taxonomy_file = infile
+    level = os.path.basename(infile).split(".")[1]
+    counts_file = [
+        x for x in glob.glob("bracken.dir/merged_abundances*.tsv") if level in x][0]
+    statement = '''ocms_shotgun add_taxonomy
+                   -c %(counts_file)s
+                   -t %(taxonomy_file)s
+                   --log=counts.dir/add_taxonomy_%(level)s.log
+                   > %(outfile)s
+                '''
+    P.run(statement)
+
+
+######################################################
+######################################################
+######################################################
+# build report
+######################################################
+######################################################
+######################################################
+@follows(addTaxonomyToCounts,
+         mkdir("report.dir"))
+def build_report():
+    '''
+    render the rmarkdown report file
+    '''
+    reportdir = os.path.dirname(os.path.abspath(__file__))
+    reportdir = os.path.join(reportdir, "pipeline_docs", "Rmd", "pipeline_kraken2")
+    reportfile = os.path.join(reportdir, "pipeline_kraken2_report.Rmd")
+
+    statement = '''
+                cp %(reportfile)s report.dir;
+                R -e "rmarkdown::render('report.dir/pipeline_kraken2_report.Rmd',
+                output_file='pipeline_kraken2_report.html', output_dir='report.dir')";
+                '''
+    P.run(statement)
+
+
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows(translateTaxonomy)
+@follows(addTaxonomyToCounts)
 def full():
     pass
 

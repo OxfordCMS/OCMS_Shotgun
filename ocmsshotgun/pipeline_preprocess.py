@@ -40,7 +40,9 @@ module load bmtagger/3.101-gompi-2020a
 module load Trimmomatic/0.39-Java-11
 module load BBMap/38.90-GCC-9.3.0
 module load SortMeRNA/4.3.4
-
+module load SAMtools/1.10-GCC-9.3.0
+module load HISAT2/2.2.1-foss-2020a
+module load BEDTools/2.30.0-GCC-12.2.0
 Code
 ====
 
@@ -64,15 +66,16 @@ import ocmsshotgun.modules.PreProcess as pp
 # set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
 
+indir = PARAMS.get("input.dir", "input.dir")
 # check that input files correspond
-FASTQ1S = utility.check_input()
+FASTQ1S = utility.check_input(indir)
 
 ###############################################################################
 # Deduplicate
 ###############################################################################
 @follows(mkdir('reads_deduped.dir'))
 @transform(FASTQ1S,
-           regex(r'.+/(.+).fastq.1.gz'),
+           regex(fr'{indir}/(.+).fastq.1.gz'),
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
@@ -190,39 +193,86 @@ def combineRNAClassification(infiles, outfile):
 
     infiles = ' '.join(infiles)
 
-    statement = ("cgat combine_tables"
+    statement = ("cgat tables2table"
                  "  --log=%(outfile)s.log"
                  "  %(infiles)s |"
                  " gzip > %(outfile)s")
     P.run(statement, to_cluster=False)
 
+################################################################################
+# remove host sequences with bmtagger or hisat
+################################################################################
 @follows(mkdir('reads_hostRemoved.dir'))
+@follows(removeRibosomalRNA)
 @transform(removeRibosomalRNA,
-           regex('.+/(.+)_rRNAremoved.fastq.1.gz'),
+           regex(r'reads_rrnaRemoved.dir/(\S+)_rRNAremoved.fastq.1.gz$'),
            r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
-def removeHost(fastq1, outfile):
-    '''Remove host contamination using bmtagger'''
+def alignAndRemoveHost(infile,outfile): 
+    '''Align and remove host sequences with bmtagger or HISAT2
+    '''
+    # bmtagger - aligns with srprism
+    if PARAMS['host_tool']  == 'bmtagger':
+        tool = pp.bmtagger(infile, outfile, **PARAMS)
+        statements, tmpfiles = tool.buildStatement()
 
-    tool = pp.bmtagger(fastq1, outfile, **PARAMS)
-    statements, tmpfiles = tool.buildStatement()
+        # one statement for each host genome specified
+        for statement in statements:
+            P.run(statement, 
+                job_threads=PARAMS['bmtagger_job_threads'], 
+                job_memory=PARAMS['bmtagger_job_memory'],
+                job_options=PARAMS.get('bmtagger_job_options',''))
+        
+        statement, to_unlink  = tool.postProcess(tmpfiles)
+        P.run(statement)
+        for f in to_unlink:
+            os.unlink(f)
+    # Align host sequences with HISAT2 and return mapped and unmapped reads
+    # converts the output from sam to bam
+    elif PARAMS['host_tool'] == 'hisat':
+        tool = pp.hisat2(infile, outfile, **PARAMS)
 
-    # one statement for each host genome specified
-    for statement in statements:
-        P.run(statement, 
-              job_threads=PARAMS['bmtagger_job_threads'], 
-              job_memory=PARAMS['bmtagger_job_memory'],
-              job_options=PARAMS.get('bmtagger_job_options',''))
-    
-    statement, to_unlink  = tool.postProcess(tmpfiles)
-    P.run(statement)
-    for f in to_unlink:
-        os.unlink(f)
+        # build statement to run hisat2 and convert sam to bam
+        statement = tool.hisat2bam()
+        
+        P.run(statement,
+            job_threads = PARAMS["hisat2_job_threads"],
+            job_memory = PARAMS["hisat2_job_memory"])
+        
+        # clean up sam files and hisat outputs
+        statement = tool.postProcessPP()
+        P.run(statement, without_cluster=True)
+
+@active_if(PARAMS['host_tool'] == 'hisat')
+@merge(alignAndRemoveHost,
+       "reads_hostRemoved.dir/merged_hisat2_summary.tsv")
+def mergeHisatSummary(infiles, outfile):
+   # hisat summary logs
+    logs = []
+    for fq in infiles:
+        fq_class = pp.utility.matchReference(fq, outfile, **PARAMS)
+        log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
+        logs.append(log)
+    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    tool.mergeHisatSummary(logs, outfile)
+
+@active_if(PARAMS['host_tool'] == 'hisat')
+@merge(alignAndRemoveHost,
+       "reads_hostRemoved.dir/clean_up.log")
+def cleanHisat(infiles, outfile):
+    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    statement = tool.cleanPP(infiles, outfile)
+
+    P.run(statement, without_cluster=True)
+
+@follows(alignAndRemoveHost, mergeHisatSummary)
+def removeHost():
+    pass
 
 ###############################################################################
 # Mask or Remove Low-complexity sequence
 ###############################################################################
 @follows(mkdir('reads_dusted.dir'))
-@transform(removeHost,
+@transform(alignAndRemoveHost,
            regex(r'.+/(.+)_dehost.fastq.1.gz'),
            r'reads_dusted.dir/\1_masked.fastq.1.gz')
 def maskLowComplexity(fastq1, outfile):
@@ -258,23 +308,30 @@ def maskLowComplexity(fastq1, outfile):
            r"read_count_summary.dir/\1_input.nreads")
 def countInputReads(infile, outfile):
     
+    outf = open(outfile, "w")
+    outf.write("nreads\n")
+    outf.close()
     statement = ("zcat %(infile)s |"
                  " awk '{n+=1;} END {printf(n/4\"\\n\");}'"
-                 " > %(outfile)s")
+                 " >> %(outfile)s")
 
     P.run(statement)
 
 
 @follows(countInputReads)
 @transform([removeDuplicates, removeAdapters, removeRibosomalRNA,
-            removeHost, maskLowComplexity],
+            alignAndRemoveHost, maskLowComplexity],
            regex(r'.+/(.+).fastq.1.gz'),
            r'read_count_summary.dir/\1.nreads')
 def countOutputReads(infile, outfile):
     '''Count the number of reads in the output files'''    
+    
+    outf = open(outfile, "w")
+    outf.write("nreads\n")
+    outf.close()
     statement = ("zcat %(infile)s |"
                  " awk '{n+=1;} END {printf(n/4\"\\n\");}'"
-                 " > %(outfile)s")
+                 " >> %(outfile)s")
 
     P.run(statement)
 
@@ -286,7 +343,7 @@ def collateReadCounts(infiles, outfile):
 
     infiles = ' '.join(infiles)
     
-    statement = ("cgat combine_tables"
+    statement = ("cgat tables2table"
                  " --cat Step"
                  " --regex-filename='.+_(.+)\.nreads'"
                  " --no-titles"
