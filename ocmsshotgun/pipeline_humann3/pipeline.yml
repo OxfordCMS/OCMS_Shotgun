@@ -30,6 +30,10 @@ humann3:
     # post processing (i.e. normalizing rpm to cpm) job options
     postprocess_memory: 2G
     postprocess_threads: 8
+
+    # humann_join_tables job options 
+    join_tables_memory: 30G
+    join_tables_threads: 8
     
 report:
     # prefix to use for publishing the report from this pipeline

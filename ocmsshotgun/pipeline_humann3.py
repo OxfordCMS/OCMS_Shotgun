@@ -230,7 +230,9 @@ def mergeHumannOutput(infiles, outfile):
                  "  --file_name %(suffix)s"
                  "  -o %(outf)s &&"
                  " gzip %(outf)s")
-    P.run(statement)
+    P.run(statement,
+          job_memory = PARAMS["humann3_join_tables_memory"],
+          job_threads = PARAMS["humann3_join_tables_threads"])
     
 @transform(mergeHumannOutput,
            suffix('genefamilies.tsv.gz'),
