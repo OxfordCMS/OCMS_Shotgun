@@ -138,7 +138,7 @@ class trimmomatic(utility.matchReference):
         else:
             statement = ("java -Xmx5g -jar %(trimmomatic_jar_path)s PE"
                          " -threads %(trimmomatic_n_threads)s"
-                         " -phred%(phred_format)s"
+                         " %(phred_format)s"
                          " -trimlog %(logfile)s"
                          " %(fastq1)s" # input read 1
                          " %(outfile1)s" # output read 1
