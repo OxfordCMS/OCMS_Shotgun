@@ -1,0 +1,48 @@
+
+general:
+  # directory where reads are located, specified as:
+  # "0" for the current directory "."
+  # "1" for the subdirectory "./data.dir".
+  # alternatively, a path may be specified, but this is not recommended.
+  input: input.dir
+  
+  # A comma-separated list of assemblers to run
+  assemblers: metaspades,megahit
+
+preprocess:
+  # Use the following regex patterns to disable pooling (each sample remains separate)
+  pool_input_regex: ".*/(.+).fastq.1.gz"
+  pool_output_regex: "\\1.fastq.1.gz"
+ 
+  # Uncomment the following regex patterns to enable pooling (all samples will be combined into one file)
+  #pool_input_regex: ".*\\.fastq\\.1\\.gz"
+  #pool_output_regex: "samples_pooled.fastq.1.gz"
+  
+  error_correction: true # Set to true to implement Spades error correction
+
+spades:
+  # options for error correction
+  ec_threads: 4
+  ec_memory: 20G
+  ec_options: '--threads 4 --memory 80'
+
+  # options for running spades
+  meta_threads: 8
+  meta_memory: 30G
+  meta_options: '--threads 8 --memory 240'
+
+megahit:
+  # options for running megahit
+  #cluster_options: '--cpus-per-task=4 --mem=180'
+  meta_threads: 8
+  meta_memory: 30G
+  options: '-t 8 -m 240'
+
+quast:
+  # options for running quast
+  options: '--threads 8 ' #no-check flag tells QUAST not to perform any reference searches/checks or downlaod from NCBI
+  reference: /well/kir-scratch/kir-ocms/quast_MAG/gut_microbiome_references.fasta.gz
+  meta_threads: 2
+  meta_memory: 15G
+          
+
