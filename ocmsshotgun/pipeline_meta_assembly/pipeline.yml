@@ -31,10 +31,8 @@ spades:
 
 megahit:
   # options for running megahit
-  #cluster_options: '--cpus-per-task=4 --mem=180'
   meta_threads: 8
   meta_memory: 30G
-  options: '-t 8 -m 240'
 
 quast:
   # options for running quast
