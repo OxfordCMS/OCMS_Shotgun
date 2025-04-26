@@ -165,13 +165,22 @@ class MetaAssembler(FetchData):
 # Run SPAdes
 
 class SpadesReadCorrection(MetaAssembler):
-    '''Run BayesHammer via Spades, requires --threads and --memory passed
-    as spades_ec_options via kwargs'''
+    '''Run BayesHammer via Spades, dynamically compute --threads and --memory
+        from spades_ec_threads and spades_ec_memory in PARAMS.'''
 
     def fetch_run_statement(self, libraries, out_sub_dir, **PARAMS):
         '''Generate commandline statement for running BayesHammer'''
-        run_options = PARAMS['spades_ec_options']
         
+        ec_threads = PARAMS['spades_ec_threads']  # e.g., 4
+        ec_memory_per_thread = PARAMS['spades_ec_memory']  # e.g., '20G'
+
+        # Remove 'G' and calculate total memory in GB
+        memory_value = int(ec_memory_per_thread.strip().upper().replace('G', ''))
+        total_memory = ec_threads * memory_value
+
+        # Build run options string
+        run_options = f"--threads {ec_threads} --memory {total_memory}"
+                     
         statement = ("spades.py"
                      " --only-error-correction"
                      " {libraries}"

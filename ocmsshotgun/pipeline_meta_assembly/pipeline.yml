@@ -24,7 +24,6 @@ spades:
   # options for error correction
   ec_threads: 4
   ec_memory: 20G
-  ec_options: '--threads 4 --memory 80'
 
   # options for running spades
   meta_threads: 8
