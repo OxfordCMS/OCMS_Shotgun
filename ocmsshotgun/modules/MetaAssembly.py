@@ -288,7 +288,16 @@ class runMetaSpades(SpadesReadCorrection):
     def fetch_run_statement(self, libraries, out_sub_dir, **PARAMS):
         '''Generate commandline statement for running metaSPAdes without
         BayesHammer'''
-        run_options = PARAMS['spades_meta_options']
+        
+        meta_threads = PARAMS['meta_threads']  
+        meta_memory_per_thread = PARAMS['meta_memory']  # e.g., '30G'
+
+        # Remove 'G' and calculate total memory in GB
+        memory_value = int(meta_memory_per_thread.strip().upper().replace('G', ''))
+        total_memory = meta_threads * memory_value
+
+        # Construct run options dynamically
+        run_options = f"--threads {meta_threads} --memory {total_memory}"
         
         statement1 = ("spades.py"
                      " --meta"

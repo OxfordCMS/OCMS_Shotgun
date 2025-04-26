@@ -28,7 +28,6 @@ spades:
   # options for running spades
   meta_threads: 8
   meta_memory: 30G
-  meta_options: '--threads 8 --memory 240'
 
 megahit:
   # options for running megahit
