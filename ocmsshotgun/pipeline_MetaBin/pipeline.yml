@@ -1,0 +1,18 @@
+# pipeline.yml
+
+# Input directory with FASTQ files
+fastq_input_dir: fastq.dir
+
+# Input directory with FASTA files
+fasta_input_dir: fasta.dir
+
+# Whether you're using a pooled assembly (true/false)
+is_pooled: false
+
+# Number of threads to use per job
+threads: 8
+
+# Memory to request per job
+job_memory: 10G
+
+
