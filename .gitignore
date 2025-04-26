@@ -1,4 +1,9 @@
+*.pyc
+__pycache__/
 ._*
+*~
+*.swp
+*.swo
 *~
 .ipynb*
 build/
