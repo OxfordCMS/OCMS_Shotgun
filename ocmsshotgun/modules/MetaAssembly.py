@@ -289,8 +289,8 @@ class runMetaSpades(SpadesReadCorrection):
         '''Generate commandline statement for running metaSPAdes without
         BayesHammer'''
         
-        meta_threads = PARAMS['meta_threads']  
-        meta_memory_per_thread = PARAMS['meta_memory']  # e.g., '30G'
+        meta_threads = PARAMS['spades_meta_threads']  
+        meta_memory_per_thread = PARAMS['spades_meta_memory']  # e.g., '30G'
 
         # Remove 'G' and calculate total memory in GB
         memory_value = int(meta_memory_per_thread.strip().upper().replace('G', ''))
@@ -352,8 +352,8 @@ class runMegaHit(MetaAssembler):
             libraries = ' '.join([' '.join(x) for x in libraries])
 
 
-        mega_threads = PARAMS['meta_threads']
-        mega_memory_per_thread = PARAMS['meta_memory']
+        mega_threads = PARAMS['megahit_meta_threads']
+        mega_memory_per_thread = PARAMS['megahit_meta_memory']
 
         # Parse and compute total memory in GB
         memory_value = int(mega_memory_per_thread.strip().upper().replace('G', ''))
