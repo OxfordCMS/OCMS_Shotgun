@@ -45,8 +45,8 @@ def runMetawrapBinRefinement(infiles, outfile):
         "-B {maxbin_dir} "
         "-C {concoct_dir} "
         "-c 50 -x 10 "
-        "&> {log_file}"
-    ).format(**locals())
+        "> {log_file} 2>&1"
+        ).format(**locals())
 
     P.run(statement,
           job_threads=threads,
