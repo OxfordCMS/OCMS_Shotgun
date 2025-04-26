@@ -1,0 +1,11 @@
+# Ignore Vim swap files
+*.swp
+*.swo
+
+# Ignore Python bytecode
+*.pyc
+__pycache__/
+
+# Optional: ignore all dotfiles in modules/
+modules/.*  # if you want to ignore things like .MetaAssembly.py.swp
+
