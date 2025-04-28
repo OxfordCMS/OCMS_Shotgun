@@ -67,7 +67,7 @@ def runMetawrapReassembleBins(infiles,outfile):
 
     # Dynamically find directory like metawrap_50_10_bins (thats is one of the outputs from BinRefienemnt)
     refinement_base = os.path.join("metawrap_bin_refinement.dir", sample)
-    reassembly_dirs = glob.glob(os.path.join(refinement_base,"metawrap_*_bins"))
+    refinement_dirs = glob.glob(os.path.join(refinement_base,"metawrap_*_bins"))
     
     if not refinement_dirs:
         raise FileNotFoundError(f"No metawrap_*_bins directory found in {refinement_base}")
