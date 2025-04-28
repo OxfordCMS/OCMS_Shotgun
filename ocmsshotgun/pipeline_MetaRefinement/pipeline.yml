@@ -1,0 +1,6 @@
+#input directoriy location
+bins_dir: input_bins.dir
+
+is_pooled: false  # or true
+threads: 4
+job_memory: 10G
