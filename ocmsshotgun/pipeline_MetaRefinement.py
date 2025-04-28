@@ -54,7 +54,7 @@ def runMetawrapBinRefinement(infiles, outfile):
 
     P.run(statement,
           job_threads=threads,
-          job_memory=jobs_memory)
+          job_memory=job_memory)
 
 # Reassemble bins after refinement
 @transform(
@@ -68,14 +68,19 @@ def runMetawrapReassembleBins(infiles,outfile):
     # Dynamically find directory like metawrap_50_10_bins (thats is one of the outputs from BinRefienemnt)
     refinement_base = os.path.join("metawrap_bin_refinement.dir", sample)
     reassembly_dirs = glob.glob(os.path.join(refinement_base,"metawrap_*_bins"))
+    
+    if not refinement_dirs:
+        raise FileNotFoundError(f"No metawrap_*_bins directory found in {refinement_base}")
 
     refinement_dir = refinement_dirs[0]  # Take the first (assumed only) match
     reassembly_outdir = os.path.join("metawrap_reassembled_bins.dir", sample)
    
-    left_reads = os.path.join(PARAMS["binreassembly_fastqs"], f"{sample}_1.fastq")
-    right_reads = os.path.join(PARAMS["binreassembly_fastqs"], f"{sample}_2.fastq")
+    left_reads = os.path.join(PARAMS["binreassembly"]["fastqs"], f"{sample}_1.fastq")
+    right_reads = os.path.join(PARAMS["binreassembly"]["fastqs"], f"{sample}_2.fastq")
 
-    threads = PARAMS["binreassembly_threads"]
+    threads = PARAMS["binreassembly"]["threads"]
+    job_memory = PARAMS["binreassembly"]["job_memory"]
+    
     log_file = os.path.join(reassembly_outdir, "reassemble_bins.log")
     
     statement = (
@@ -87,14 +92,14 @@ def runMetawrapReassembleBins(infiles,outfile):
         "-1 {left_reads} "
         "-2 {right_reads} "
         "-t {threads} "
-        "-m {PARAMS['job_memory']} "
+        "-m {job_memory} "
         "-c {refinement_dir} "
         "> {log_file} 2>&1"
     ).format(**locals())
 
     P.run(statement,
           job_threads=threads,
-          job_memory=PARAMS["binreassembly_job_memory"])
+          job_memory=job_memory)
 
 
 def main(argv=None):

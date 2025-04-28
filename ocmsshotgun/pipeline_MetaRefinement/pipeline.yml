@@ -1,6 +1,18 @@
-#input directoriy location
+# Input directory containing binning outputs (from MetaBin pipeline)
 bins_dir: input_bins.dir
 
-is_pooled: false  # or true
-threads: 4
-job_memory: 10G
+# Whether the input data was pooled or not
+is_pooled: true  # set to false if running per-sample
+
+# Parameters for bin refinement step
+binrefinement:
+  threads: 4
+  job_memory: 10G
+  completeness: 50
+  contamination: 10
+
+# Parameters for bin reassembly step
+binreassembly:
+  fastqs: prepped_fastqs.dir # symbolic links to prepped FASTQs generated during binning
+  threads: 4
+  job_memory: 10G
