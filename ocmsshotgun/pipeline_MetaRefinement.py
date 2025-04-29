@@ -79,7 +79,16 @@ def runMetawrapReassembleBins(infiles,outfile):
     right_reads = os.path.join(PARAMS["binreassembly"]["fastqs"], f"{sample}_2.fastq")
 
     threads = PARAMS["binreassembly"]["threads"]
-    job_memory = PARAMS["binreassembly"]["job_memory"]
+    job_memory_raw = PARAMS["binreassembly"]["job_memory"]
+
+    # Extract numeric part of memory (e.g., 20)
+    memory_per_cpu = int(''.join(filter(str.isdigit, job_memory_raw)))
+
+    # Now calculate total memory for SPAdes
+    total_memory_spades = memory_per_cpu * threads  # e.g., 20 * 4 = 80
+
+    # SLURM still uses raw memory per CPU (like "20G")
+    job_memory_slurm = job_memory_raw
     
     log_file = os.path.join(reassembly_outdir, "reassemble_bins.log")
     
@@ -92,14 +101,14 @@ def runMetawrapReassembleBins(infiles,outfile):
         "-1 {left_reads} "
         "-2 {right_reads} "
         "-t {threads} "
-        "-m {job_memory} "
-        "-c {refinement_dir} "
+        "-m {total_memory_spades} "
+        "-b {refinement_dir} "
         "> {log_file} 2>&1"
     ).format(**locals())
 
     P.run(statement,
           job_threads=threads,
-          job_memory=job_memory)
+          job_memory=job_memory_slurm)
 
 
 def main(argv=None):

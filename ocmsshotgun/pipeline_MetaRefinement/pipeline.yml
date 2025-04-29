@@ -2,7 +2,7 @@
 bins_dir: input_bins.dir
 
 # Whether the input data was pooled or not
-is_pooled: true  # set to false if running per-sample
+is_pooled: false  # set to false if running per-sample
 
 # Parameters for bin refinement step
 binrefinement:
