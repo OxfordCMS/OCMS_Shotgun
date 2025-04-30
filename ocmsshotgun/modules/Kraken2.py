@@ -24,7 +24,7 @@ class Kraken2(Utility.BaseTool):
         options = self.PARAMS["kraken2_options"]
         
         assert "--threads" not in options, (
-            "Kraken2 multi-threading is set with job_options"
+            "Kraken2 multi-threading is set with job_memory and job_threads"
         )
         
         kraken_statement = ('kraken2'

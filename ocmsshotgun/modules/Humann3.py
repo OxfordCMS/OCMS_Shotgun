@@ -21,7 +21,7 @@ class Humann3(Utility.BaseTool):
         # make sure system requreiments not set outside of 
         # job_options and job_memory
         assert "--threads" not in options, (
-            "Humann3 multi-threading is set with job_options"
+            "Humann3 multi-threading is set with job_memory and job_threads"
         )
         
         # the option to add a taxonomic profile for restricting mapping
