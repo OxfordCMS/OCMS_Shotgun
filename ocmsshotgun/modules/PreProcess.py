@@ -310,6 +310,9 @@ class runSortMeRNA(Utility.BaseTool):
 
         # rename fastq3 files
         if not self.sortmerna_skip_singletons and IOTools.open_file(fastn_obj.fastn3).read(1):            
+            # for some reason, singletons are in fasta instead of fastq
+            f3_aligned = glob(os.path.join(self.outdir, "*aligned_singleton*"))[0]
+
             os.rename(f3_aligned,
                       outf_prefix + '_rRNA' + fastn_obj.fn3_suffix)
 
