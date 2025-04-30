@@ -144,11 +144,11 @@ def removeRibosomalRNA(fastq1, outfile):
         outf2 = P.snip(outf1, '.fastq.1.gz') + '.fastq.2.gz'
         outf3 = P.snip(outf1, '.fastq.1.gz') + '.fastq.3.gz'
         
-        Utility.symlnk(inf1, outf1)
+        Utility.relink(inf1, outf1)
         if os.path.exists(inf2):
-            Utility.symlnk(inf2, outf2)
+            Utility.relink(inf2, outf2)
         if os.path.exists(inf3):
-            Utility.symlnk(inf3, outf3)
+            Utility.relink(inf3, outf3)
 
 
 @follows(mkdir('reads_rrnaClassified.dir'))
