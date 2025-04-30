@@ -16,7 +16,14 @@ class Humann3(Utility.BaseTool):
         db_protein = self.PARAMS['humann3_db_protein']
         search_mode = self.PARAMS['humann3_search_mode']
         options = self.PARAMS["humann3_options"]
+        threads = self.PARAMS["humann3_job_threads"]
 
+        # make sure system requreiments not set outside of 
+        # job_options and job_memory
+        assert "--threads" not in options, (
+            "Humann3 multi-threading is set with job_options"
+        )
+        
         # the option to add a taxonomic profile for restricting mapping
         if self.taxonomic_profile:
             options = '--taxonomic-profile %s' % self.taxonomic_profile \
@@ -28,6 +35,7 @@ class Humann3(Utility.BaseTool):
                      f" --nucleotide-database {db_nucleotide}"
                      f" --protein-database {db_protein}"
                      f" --search-mode {search_mode}"
+                     f" --threads {threads}"
                      f" --metaphlan-options  \"--index {db_metaphlan_id}"
                      f" --bowtie2db={db_metaphlan_path}\""
                      f" {options} 2> {self.outdir}/{self.prefix}.log")

@@ -23,6 +23,10 @@ class Kraken2(Utility.BaseTool):
         job_threads = self.PARAMS["kraken2_job_threads"]
         options = self.PARAMS["kraken2_options"]
         
+        assert "--threads" not in options, (
+            "Kraken2 multi-threading is set with job_options"
+        )
+        
         kraken_statement = ('kraken2'
                             f' --db {db}'
                             f' --output {prefix}.classified.tsv'
