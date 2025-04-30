@@ -1,4 +1,5 @@
 #import modules
+import re
 import gzip
 import shutil
 import os
@@ -10,30 +11,36 @@ from ruffus import *
 # Load options from the config file
 PARAMS = P.get_parameters("pipeline.yml")
 
-FASTQS = glob.glob(os.path.join(PARAMS['fastq_input_dir'], "*.fastq.*.gz"))
+FASTQS = glob.glob(os.path.join(PARAMS['fastq_input_dir'], "*.fastq"))
 
 # Decompress and rename to *_1.fastq or *_2.fastq
-@transform(
-    FASTQS,
-    regex(r".*/(.+)\.fastq\.(\d)\.gz"),
-    r"fastq_prepped_for_metawrap.dir/\1_\2.fastq"
-)
-def decompress_and_rename_fastq(infile, outfile):
-    if not os.path.exists(os.path.dirname(outfile)):
-        os.makedirs(os.path.dirname(outfile))  
-    print(f"Decompressing {infile} to {outfile}")
+#@transform(
+#    FASTQS,
+#    regex(r".*/(.+)\.fastq\.(\d)\.gz"),
+#    r"fastq_prepped_for_metawrap.dir/\1_\2.fastq"
+#)
+#def decompress_and_rename_fastq(infile, outfile):
+#    if not os.path.exists(os.path.dirname(outfile)):
+#        os.makedirs(os.path.dirname(outfile))  
+#    print(f"Decompressing {infile} to {outfile}")
     
-    with gzip.open(infile, "rt") as fin, open(outfile, "wt") as fout:
-        shutil.copyfileobj(fin, fout)
+#    with gzip.open(infile, "rt") as fin, open(outfile, "wt") as fout:
+#        shutil.copyfileobj(fin, fout)
 
 
+#@collate(
+#    decompress_and_rename_fastq,
+#    regex(r".*/(.+)_\d\.fastq"),
+#    r"metawrap_binning.dir/\1"
+#)
 @collate(
-    decompress_and_rename_fastq,
-    regex(r".*/(.+)_\d\.fastq"),
+    FASTQS,
+    regex(r".*/(.+)_\d\.fastq$"),
     r"metawrap_binning.dir/\1"
 )
+
 def runMetawrapBinning(infiles, outfile):
-    sample = os.path.basename(infiles[0]).rsplit("_", 1)[0]
+    sample = re.sub(r"_\d\.fastq$", "", os.path.basename(infiles[0]))
 
     # Handle pooled or unpooled
     if PARAMS["is_pooled"]:
