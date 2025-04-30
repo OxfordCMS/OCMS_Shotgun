@@ -221,7 +221,7 @@ def alignAndRemoveHost(infile,outfile):
                 job_memory=PARAMS['bmtagger_job_memory'],
                 job_options=PARAMS.get('bmtagger_job_options',''))
         
-        statement, to_unlink  = tool.postProcess(tmpfiles)
+        statement, to_unlink  = tool.postProcess(Utility.MetaFastn(infile), tmpfiles)
         P.run(statement)
         for f in to_unlink:
             os.unlink(f)
