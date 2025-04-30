@@ -62,20 +62,28 @@ def runMetawrapBinRefinement(infiles, outfile):
     regex(r"metawrap_bin_refinement.dir/(.+)"),
     r"metawrap_reassembled_bins.dir/\1"
 )
-def runMetawrapReassembleBins(infiles,outfile):
+def runMetawrapReassembleBins(infiles, outfile):
     sample = os.path.basename(outfile)
 
-    # Dynamically find directory like metawrap_50_10_bins (thats is one of the outputs from BinRefienemnt)
-    refinement_base = os.path.join("metawrap_bin_refinement.dir", sample)
-    refinement_dirs = glob.glob(os.path.join(refinement_base,"metawrap_*_bins"))
-    
-    if not refinement_dirs:
-        raise FileNotFoundError(f"No metawrap_*_bins directory found in {refinement_base}")
+    # Get parameters from YAML
+    completeness = PARAMS["bin_refinement"]["completeness"]
+    contamination = PARAMS["bin_refinement"]["contamination"]
 
-    refinement_dir = refinement_dirs[0]  # Take the first (assumed only) match
+    # Build expected directory name
+    expected_dirname = f"metawrap_{completeness}_{contamination}_bins"
+
+    # Full path to the output directory from bin_refinement
+    refinement_dir = os.path.join("metawrap_bin_refinement.dir", sample, expected_dirname)
+
+    # Check if the directory exists
+    if not os.path.exists(refinement_dir):
+        raise FileNotFoundError(f"Expected refinement directory not found: {refinement_dir}")
+
+    # Define reassembly output directory
     reassembly_outdir = os.path.join("metawrap_reassembled_bins.dir", sample)
-   
-    fastq_dir = PARAMS["binreassembly"]["fastqs"]
+
+    # Get fastq directory from config
+    fastq_dir = PARAMS["binreassembly"]["fastqs"] 
 
     if PARAMS.get("is_pooled", False):
         left_candidates = sorted(glob.glob(os.path.join(fastq_dir, "*.fastq.1.gz")))
