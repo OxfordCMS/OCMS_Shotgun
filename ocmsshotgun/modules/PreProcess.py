@@ -115,51 +115,51 @@ class trimmomatic(Utility.BaseTool):
             outf2_singletons = sample_out + re.sub("2", "2s", fastn_obj.fn2_suffix)
             outf_singletons = sample_out + fastn_obj.fn3_suffix
             
-            statement = ("java -Xmx5g -jar %(trimmomatic_jar_path)s PE"
-                         " -threads %(trimmomatic_n_threads)s"
-                         " %(phred_format)s"
-                         " -trimlog %(logfile)s"
-                         " %(fastq1)s" # input read 1
-                         " %(fastq2)s" # input read 2
-                         " %(outfile1)s" # output read 1
-                         " %(outf1_singletons)s" # output unpaired read 1
-                         " %(outfile2)s" # output read 2
-                         " %(outf2_singletons)s" # output unpaired read 2
+            statement = (f"java -Xmx5g -jar {trimmomatic_jar_path} PE"
+                         f" -threads {trimmomatic_n_threads}"
+                         f" -trimlog {logfile}"
+                         f" {fastq1}" # input read 1
+                         f" {fastq2}" # input read 2
+                         f" {outfile1}" # output read 1
+                         f" {outf1_singletons}" # output unpaired read 1
+                         f" {outfile2}" # output read 2
+                         f" {outf2_singletons}" # output unpaired read 2
                          " ILLUMINACLIP:"
-                         "%(trimmomatic_adapters)s:"
-                         "%(trimmomatic_seed_mismatches)s:"
-                         "%(trimmomatic_score_palendromic)s:"
-                         "%(trimmomatic_score_simple)s:"
-                         "%(trimmomatic_min_adapter_len)s:"
-                         "%(trimmomatic_keep_both_reads)s"
-                         " LEADING:%(trimmomatic_quality_leading)s"
-                         " TRAILING:%(trimmomatic_quality_trailing)s"
-                         " MINLEN:%(trimmomatic_minlen)s"
-                         " &> %(logfile2)s &&"
-                         " gzip -f %(logfile)s &&"
-                         " cat %(outf1_singletons)s %(outf2_singletons)s "
-                         "  > %(outf_singletons)s &&"
-                         " rm -f %(outf1_singletons)s && rm -f %(outf2_singletons)s" % locals())
+                         f"{trimmomatic_adapters}:"
+                         f"{trimmomatic_seed_mismatches}:"
+                         f"{trimmomatic_score_palendromic}:"
+                         f"{trimmomatic_score_simple}:"
+                         f"{trimmomatic_min_adapter_len}:"
+                         f"{trimmomatic_keep_both_reads}"
+                         f" LEADING:{trimmomatic_quality_leading}"
+                         f" TRAILING:{trimmomatic_quality_trailing}"
+                         f" MINLEN:{trimmomatic_minlen}"
+                         f" {trimmomatic_options}"
+                         f" &> {logfile2} &&"
+                         f" gzip -f {logfile} &&"
+                         f" cat {outf1_singletons} {outf2_singletons} "
+                         f"  > {outf_singletons} &&"
+                         f" rm -f {outf1_singletons} && rm -f {outf2_singletons}")
 
         else:
-            statement = ("java -Xmx5g -jar %(trimmomatic_jar_path)s PE"
-                         " -threads %(trimmomatic_n_threads)s"
-                         " -phred%(phred_format)s"
-                         " -trimlog %(logfile)s"
-                         " %(fastq1)s" # input read 1
-                         " %(outfile1)s" # output read 1
+            statement = (f"java -Xmx5g -jar {trimmomatic_jar_path} SE"
+                         f" -threads {trimmomatic_n_threads}"
+                         f" -trimlog {logfile}"
+                         f" {fastq1}" # input read 1
+                         f" {outfile1}" # output read 1
                          " ILLUMINACLIP:"
-                         "%(trimmomatic_adapters)s:"
-                         "%(trimmomatic_seed_mismatches)s:"
-                         "%(trimmomatic_score_palendromic)s:"
-                         "%(trimmomatic_score_simple)s"
-                         "%(trimmomatic_min_adapter_len)s:"
-                         "%(trimmomatic_keep_both_reads)s"
-                         " LEADING:%(trimmomatic_quality_leading)s"
-                         " TRAILING:%(trimmomatic_quality_trailing)s"
-                         " MINLEN:%(trimmomatic_minlen)s"
-                         " &> %(logfile2)s &&"
-                         " gzip -f %(logfile)s" % locals())
+                         f"{trimmomatic_adapters}:"
+                         f"{trimmomatic_seed_mismatches}:"
+                         f"{trimmomatic_score_palendromic}:"
+                         f"{trimmomatic_score_simple}"
+                         f"{trimmomatic_min_adapter_len}:"
+                         f"{trimmomatic_keep_both_reads}"
+                         f" LEADING:{trimmomatic_quality_leading}"
+                         f" TRAILING:{trimmomatic_quality_trailing}"
+                         f" MINLEN:{trimmomatic_minlen}"
+                         f" {trimmomatic_options}"
+                         f" &> {logfile2} &&"
+                         f" gzip -f {logfile}")
                 
         return statement
 
@@ -225,16 +225,16 @@ class runSortMeRNA(Utility.BaseTool):
             statement = ("sortmerna"
                          #" --index 0" # skip indexing, assume in idx-dir
                          " --fastx"
-                         " --reads %(in_fastq1)s"
-                         " --ref %(references)s"
-                         " %(index_dir)s" # location of reference indexes
-                         " --aligned %(out_prefix)s_aligned" # output location of aligned seq
-                         " --other %(out_prefix)s_unaligned" # output location of unalinged seq
-                         " --readb %(tmpf_readb)s" # location of tmp file for reads
-                         " --kvdb %(tmpf_kvdb)s" # location of tmp file for kv pairs
-                         " --threads %(job_threads)s"
+                         f" --reads {in_fastq1}"
+                         f" --ref {references}"
+                         f" {index_dir}" # location of reference indexes
+                         f" --aligned {out_prefix}_aligned" # output location of aligned seq
+                         f" --other {out_prefix}_unaligned" # output location of unalinged seq
+                         f" --readb {tmpf_readb}" # location of tmp file for reads
+                         f" --kvdb {tmpf_kvdb}" # location of tmp file for kv pairs
+                         f" --threads {job_threads}"
                          " --zip-out"
-                         " %(sortmerna_options)" % locals())
+                         f" {sortmerna_options}")
 
         else:
             # Run sortMeRNA for paired reads
@@ -246,43 +246,43 @@ class runSortMeRNA(Utility.BaseTool):
             statement = ("sortmerna"
                          " --index 0" # skip indexing, assume in idx-dir
                          " --fastx"
-                         " --reads %(in_fastq1)s" # First read file
-                         " --reads %(in_fastq2)s" # Second read file
-                         " --ref %(references)s"
-                         " --idx-dir %(index_dir)s" # location of reference indexes
-                         " --aligned %(out_prefix)s_aligned" # output location of aligned seq
-                         " --other %(out_prefix)s_unaligned" # output location of unalinged seq
-                         " --readb %(tmpf_readb)s" # location of tmp file for reads
-                         " --kvdb %(tmpf_kvdb)s" # location of tmp file for kv pairs
+                         f" --reads {in_fastq1}" # First read file
+                         f" --reads {in_fastq2}" # Second read file
+                         f" --ref {references}"
+                         f" --idx-dir {index_dir}" # location of reference indexes
+                         f" --aligned {out_prefix}_aligned" # output location of aligned seq
+                         f" --other {out_prefix}_unaligned" # output location of unalinged seq
+                         f" --readb {tmpf_readb}" # location of tmp file for reads
+                         f" --kvdb {tmpf_kvdb}" # location of tmp file for kv pairs
                          " --paired_in" # If one read is aligned, both are output to aligned file
                          " --out2" # Output paired reads to separate files
-                         " --threads %(job_threads)s"
+                         f" --threads {job_threads}"
                          " --zip-out"
-                         " %(sortmerna_options)s" % locals())
+                         f" {sortmerna_options}")
         
         if not self.sortmerna_skip_singletons and IOTools.open_file(fastn_obj.fastn3).read(1):
             in_fastq3 = fastn_obj.fastn3
             statement_2 = ("sortmerna"
                            # " --index 0" # skip indexing, assume in idx-dir
                            " --fastx"
-                           " --reads %(in_fastq3)s"
-                           " --idx-dir %(index_dir)s" # location of reference indexes
-                           " --ref %(references)s"
-                           " --aligned %(out_prefix)s_aligned_singleton" 
-                           " --other  %(out_prefix)s_unaligned_singleton"
-                           " --readb %(tmpf_readb)s" # location of tmp file for reads
-                           " --kvdb %(tmpf_kvdb)s" # location of tmp file for kv pairs
-                           " --threads %(job_threads)s"
+                           f" --reads {in_fastq3}"
+                           f" --idx-dir {index_dir}" # location of reference indexes
+                           f" --ref {references}"
+                           f" --aligned {out_prefix}_aligned_singleton" 
+                           f" --other  {out_prefix}_unaligned_singleton"
+                           f" --readb {tmpf_readb}" # location of tmp file for reads
+                           f" --kvdb {tmpf_kvdb}" # location of tmp file for kv pairs
+                           f" --threads {job_threads}"
                            " --zip-out 1"
-                           " %(sortmerna_options)s" % locals()) 
+                           f" {sortmerna_options}") 
             
             statement = " && ".join([statement, 
-                                     "rm -rf %(tmpf)s/*" % locals(), # location of tmp_readb & kvdb
+                                     f"rm -rf {tmpf}/*", # location of tmp_readb & kvdb
                                      statement_2,
-                                     "rm -rf %(tmpf)s" % locals()])
+                                     f"rm -rf {tmpf}"])
         else:
             statement = " && ".join([statement, 
-                                     "rm -rf %(tmpf)s" % locals()])
+                                     f"rm -rf {tmpf}"])
 
         return statement
         
@@ -291,7 +291,9 @@ class runSortMeRNA(Utility.BaseTool):
         At some point this would be good to become more flexible wrt FQ1_SUFFIX'''
 
         outf_prefix = os.path.join(self.outdir, 
-                                   P.snip(fastn_obj.fastn1, '_deadapt'+fastn_obj.fn1_suffix, strip_path=True))
+                                   P.snip(fastn_obj.fastn1, 
+                                          '_deadapt'+fastn_obj.fn1_suffix, 
+                                          strip_path=True))
 
         # rename fastq1 files
         os.rename(outf_prefix + '_aligned_fwd.fq.gz', 
@@ -433,40 +435,40 @@ class bmtagger(Utility.BaseTool):
                 # bmtagger truncates fasta headers...  sed 's/[[:space:]]\+/__/g'
                 # It won't accept... sed 's|[[:space:]].*$|/1|'
                 # It also fails if fastq1 header differs from fastq2
-                statement1 = ("zcat %(fastq1)s > %(tmpf1)s &&"
-                              " zcat %(fastq2)s > %(tmpf2)s &&"
-                              " %(bmtagger_exec)s"
-                              "  -b %(bitmask)s"
-                              "  -x %(srprism)s"
-                              "  -T %(tmpdir1)s"
+                statement1 = (f"zcat {fastq1} > {tmpf1} &&"
+                              f" zcat {fastq2} > {tmpf2} &&"
+                              f" {bmtagger_exec}"
+                              f"  -b {bitmask}"
+                              f"  -x {srprism}"
+                              f"  -T {tmpdir1}"
                               "  -q1" # Input is fastq
-                              "  -1 %(tmpf1)s"
-                              "  -2 %(tmpf2)s"
-                              "  -o %(outf_host_stub)s_paired%(n)s"
-                              "  &> %(outfile)s.log &&"
-                              " cat %(outf_host_stub)s_paired%(n)s"
-                              "  >> %(to_remove_paired)s &&"
-                              " rm -rf %(tmpdir1)s %(tmpf1)s %(tmpf2)s"
-                              "  %(outf_host_stub)s_paired%(n)s" % locals())
+                              f"  -1 {tmpf1}"
+                              f"  -2 {tmpf2}"
+                              f"  -o {outf_host_stub}_paired{n}"
+                              f"  &> {outfile}.log &&"
+                              f" cat {outf_host_stub}_paired{n}"
+                              f"  >> {to_remove_paired} &&"
+                              f" rm -rf {tmpdir1} {tmpf1} {tmpf2}"
+                              f"  {outf_host_stub}_paired{n}")
 
                 # Screen the singletons
                 if os.path.exists(fastn_obj.fastn3) and IOTools.open_file(fastn_obj.fastn3).read(1):
-                    statement2 = ("zcat %(fastq3)s > %(tmpf3)s &&"
-                                  " %(bmtagger_exec)s"
-                                  "  -b %(bitmask)s"
-                                  "  -x %(srprism)s"
-                                  "  -T %(tmpdir2)s"
+                    statement2 = (f"zcat {fastq3} > {tmpf3} &&"
+                                  f" {bmtagger_exec}"
+                                  f"  -b {bitmask}"
+                                  f"  -x {srprism}"
+                                  f"  -T {tmpdir2}"
                                   "  -q1" # Input is fastq
-                                  "  -1 %(tmpf3)s"
-                                  "  -o %(outf_host_stub)s_singletons%(n)s"
-                                  " &>> %(outfile)s.log &&"
-                                  " cat %(outf_host_stub)s_singletons%(n)s"
-                                  "  >> %(to_remove_singletons)s &&"
-                                  " rm -rf %(tmpdir2)s %(tmpf3)s"
-                                  "  %(outf_host_stub)s_singletons%(n)s" % locals())
+                                  f"  -1 {tmpf3}"
+                                  f"  -o {outf_host_stub}_singletons{n}"
+                                  f" &>> {outfile}.log &&"
+                                  f" cat {outf_host_stub}_singletons{n}"
+                                  f"  >> {to_remove_singletons} &&"
+                                  f" rm -rf {tmpdir2} {tmpf3}"
+                                  f"  {outf_host_stub}_singletons{n}")
                 else:
-                    statement2 = ("touch  %(to_remove_singletons)s &&"
-                                  " rm -rf %(tmpdir2)s %(tmpf3)s" % locals())
+                    statement2 = (f"touch  {to_remove_singletons} &&"
+                                  f" rm -rf {tmpdir2} {tmpf3}")
 
                 statement = " && ".join([statement1, statement2])
                 statements.append(statement)
@@ -485,17 +487,17 @@ class bmtagger(Utility.BaseTool):
                 tmpdir1 = P.get_temp_dir('.')
                 tmpf = P.get_temp_filename('.')
                 
-                statement = ("zcat %(fastq1)s > %(tmpf)s &&"
-                             " %(bmtagger_exec)s"
-                             "  -b %(bitmask)s"
-                             "  -x %(srprism)s"
-                             "  -T %(tmpdir1)s"
+                statement = (f"zcat {fastq1} > {tmpf} &&"
+                             f" {bmtagger_exec}"
+                             f"  -b {bitmask}"
+                             f"  -x {srprism}"
+                             f"  -T {tmpdir1}"
                              "  -q1" # Input is fastq
-                             "  -1 %(tmpf)s"
-                             "  -o %(outf_host_stub)s_%(n)s"
-                             "  &>> %(outfile)s.log &&"
-                             " cat %(outf_host_stub)s_%(n)s >> %(to_remove)s"
-                             " rm -rf %(tmpdir1)s %(tmpf)s %(outf_host_stub)s_%(n)s" % locals())
+                             f"  -1 {tmpf}"
+                             f"  -o {outf_host_stub}_{n}"
+                             f"  &>> {outfile}.log &&"
+                             f" cat {outf_host_stub}_{n} >> {to_remove}"
+                             f" rm -rf {tmpdir1} {tmpf} {outf_host_stub}_{n}")
                 statements.append(statement)
                 
         return statements, to_remove_tmp
@@ -523,18 +525,18 @@ class bmtagger(Utility.BaseTool):
             to_remove_singletons = to_remove_tmp[1]
 
             statement = ("ocms_shotgun drop_fastqs"
-                         " --fastq1 %(fastq1)s"
-                         " --fastq2 %(fastq2)s"
-                         " --fastq3 %(fastq3)s"
-                         " --to-drop-paired %(to_remove_paired)s"
-                         " --to-drop-single %(to_remove_singletons)s"
-                         " --fastq-out1 %(fastq1_out)s"
-                         " --fastq-out2 %(fastq2_out)s"
-                         " --fastq-out3 %(fastq3_out)s"
-                         " --fastq-drop1 %(fastq1_host)s"
-                         " --fastq-drop2 %(fastq2_host)s"
-                         " --fastq-drop3 %(fastq3_host)s"
-                         " &>> %(fastq1_out)s.log" % locals())
+                         f" --fastq1 {fastq1}"
+                         f" --fastq2 {fastq2}"
+                         f" --fastq3 {fastq3}"
+                         f" --to-drop-paired {to_remove_paired}"
+                         f" --to-drop-single {to_remove_singletons}"
+                         f" --fastq-out1 {fastq1_out}"
+                         f" --fastq-out2 {fastq2_out}"
+                         f" --fastq-out3 {fastq3_out}"
+                         f" --fastq-drop1 {fastq1_host}"
+                         f" --fastq-drop2 {fastq2_host}"
+                         f" --fastq-drop3 {fastq3_host}"
+                         f" &>> {fastq1_out}.log")
 
             to_unlink = [to_remove_paired, to_remove_singletons]
 
@@ -545,11 +547,11 @@ class bmtagger(Utility.BaseTool):
             to_remove = to_remove_tmp[0]
             fastq_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn1_suffix
             statement = ("ocms_shotgun drop_fastqs"
-                         " --fastq1 %(fastq1)s"
-                         " --to-drop-single %(to_remove)s"
-                         " --fastq-out1 %(outfile)s"
-                         " --fastq-drop1 %(fastq_host)s"
-                         " &>> %(outfile)s.log" % locals())
+                         f" --fastq1 {fastq1}"
+                         f" --to-drop-single {to_remove}"
+                         f" --fastq-out1 {outfile}"
+                         f" --fastq-drop1 {fastq_host}"
+                         f" &>> {outfile}.log")
         
             P.run(statement)
             
@@ -802,6 +804,7 @@ class hisat2(Utility.BaseTool):
                      f" --un-conc-gz {unmapped} --un-gz {unmapped_unpaired}"
                      f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
             statement.append(entry)
+        # paired end reads with singletons
         elif fastn_obj.fastn3 is not None:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped")
