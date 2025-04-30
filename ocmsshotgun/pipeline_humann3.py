@@ -66,13 +66,12 @@ Code
 """
 import sys
 import os
-import glob
 import re
 import shutil
 from ruffus import *
 from cgatcore import pipeline as P
 
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.Humann3 as H
 
 # load options from the config file
@@ -80,10 +79,10 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 indir = PARAMS.get('general_input.dir','input.dir')
 
 # check all files to be processed
-FASTQ1s = utility.check_input(indir)
+FASTQ1s = Utility.get_fastns(indir)
 
 if PARAMS['general_transcriptome']:
-    FASTQ2s = utility.check_input(PARAMS['general_transcriptome'])
+    FASTQ2s = Utility.get_fastns(PARAMS['general_transcriptome'])
 else:
     FASTQ2s = None
 
@@ -97,11 +96,11 @@ else:
 def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
-    infiles = utility.matchReference(infile, outfile, **PARAMS)
-    fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
+    infiles = Utility.MetaFastn(infile)
+    fastqs = [i for i in [infiles.fastn1, infiles.fastn2, infiles.fastn3] if i]
     
     if len(fastqs) == 1:
-        utility.symlink(infile, outfile)
+        Utility.symlink(infile, outfile)
     else:
         fastqs = ' '.join(fastqs)
         statement = "cat %(fastqs)s > %(outfile)s"
@@ -124,8 +123,11 @@ def runHumann3(infile, outfiles):
                             outfile,
                             outfile + '_pathcoverage.tsv.gz')
     
-    tool = H.humann3(infile, outfile, **PARAMS)
-    statement = ' && '.join([tool.buildStatement(), tool.postProcess()])
+    tool = H.Humann3(infile, outfile, **PARAMS)
+
+    humann_statement = tool.buildStatement(Utility.MetaFastn(infile))
+    postprocess_statement = tool.postProcess()
+    statement = ' && '.join([humann_statement, postprocess_statement])
         
     P.run(statement,
           job_memory = PARAMS["humann3_job_memory"],
@@ -149,11 +151,11 @@ def poolTranscriptomeFastqs(infile, outfile):
         shutil.rmtree(outdir)
     os.mkdir(outdir)
 
-    infiles = utility.matchReference(infile, outfile, **PARAMS)
+    infiles = Utility.MetaFastn(infile, outfile, **PARAMS)
     fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
 
     if len(fastqs) == 1:
-        utility.symlink(infile, outfile)
+        Utility.symlink(infile, outfile)
     else:
         fastqs = ' '.join(fastqs)
         statement = "cat %(fastqs)s > %(outfile)s"
@@ -182,13 +184,13 @@ def runHumann3_metatranscriptome(infiles, outfiles):
         shutil.rmtree(outdir)
     os.mkdir(outdir)
 
-    tool = H.humann3(infile, outfile, **PARAMS)
+    tool = H.Humann3(infile, outfile, **PARAMS)
 
     # Not sure if humann can take gzipped input
     tmpf = P.get_temp_filename('.')
     statement = "zcat %(tax_profile)s > %(tmpf)s" % locals()
     statement = ' && '.join([statement,
-                             tool.buildStatement(),
+                             tool.buildStatement(Utility.MetaFastn(infile)),
                              tool.postProcess()])
                     
     P.run(statement,

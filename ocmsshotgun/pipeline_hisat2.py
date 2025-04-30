@@ -42,16 +42,15 @@ from cgatcore import iotools as IOTools
 
 import os,sys,re
 
-import ocmsshotgun.modules.Utility as utility
-import ocmsshotgun.modules.PreProcess as pp
+import ocmstoolkit.modules.Utility as Utility
+import ocmsshotgun.modules.PreProcess as PP
 
 # set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check that input files correspond
 indir = PARAMS.get("input.dir", "input.dir")
-paired = PARAMS.get("paired", "True")
-FASTQ1S = utility.check_input(indir, paired=paired)
+FASTQ1S = Utility.get_fastns(indir)
 
 @follows(mkdir('hisat2.dir'))
 @transform(FASTQ1S,
@@ -61,10 +60,10 @@ def runHisat2(infile, outfile):
     '''Align sequences with HISAT2 and converts sam to bam
     '''
 
-    tool = pp.hisat2(infile, outfile, **PARAMS)
+    tool = PP.Hisat2(infile, outfile, **PARAMS)
 
     # build statement to run hisat2 and convert sam to bam
-    statement = tool.hisat2bam()
+    statement = tool.hisat2bam(Utility.MetaFastn(infile))
     P.run(statement,
         job_threads = PARAMS["hisat2_job_threads"],
         job_memory = PARAMS["hisat2_job_memory"])
@@ -79,18 +78,18 @@ def mergeHisatSummary(infiles, outfile):
     # hisat summary logs
     logs = []
     for fq in infiles:
-        fq_class = pp.utility.matchReference(fq, outfile, **PARAMS)
+        fq_class = Utility.MetaFastn(fq, outfile, **PARAMS)
         log = fq.replace(f"_unmapped{fq_class.fq1_suffix}", "_hisat2_summary.log")
         logs.append(log)
     
     # merging done locally
-    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
     tool.mergeHisatSummary(logs, outfile)
 
 @merge(runHisat2,
        "hisat2.dir/clean_up.log")
 def cleanHisat(infiles, outfile):
-    tool = pp.hisat2(infiles[0], outfile, **PARAMS)
+    tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
     statement = tool.clean(outfile)
     P.run(statement, without_cluster=True)
 

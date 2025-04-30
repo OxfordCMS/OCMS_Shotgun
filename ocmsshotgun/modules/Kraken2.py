@@ -9,14 +9,13 @@ from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as Utility
 
-class kraken2(utility.matchReference):
+class Kraken2(Utility.BaseTool):
 
-    def buildStatement(self):
+    def buildStatement(self, fastn_obj):
         # Note that at the moment I only deal with paired-end
         # reads
-        p1 = self.fastq1
         
         prefix = P.snip(self.outfile, ".k2.report.tsv")
     
@@ -24,21 +23,24 @@ class kraken2(utility.matchReference):
         job_threads = self.PARAMS["kraken2_job_threads"]
         options = self.PARAMS["kraken2_options"]
         
+        assert "--threads" not in options, (
+            "Kraken2 multi-threading is set with job_memory and job_threads"
+        )
+        
         kraken_statement = ('kraken2'
-                            ' --db %(db)s'
-                            ' --output %(prefix)s.classified.tsv'
-                            ' --report %(prefix)s.k2.report.tsv'
+                            f' --db {db}'
+                            f' --output {prefix}.classified.tsv'
+                            f' --report {prefix}.k2.report.tsv'
                             ' --use-names'
-                            ' --threads %(job_threads)s' % locals())
+                            f' --threads {job_threads}')
 
         # paired end reads
-        if self.fastq2:
-            p2 = p1.replace(".fastq.1.gz", ".fastq.2.gz")
+        if fastn_obj.fastn2:
             statement_entry = (" --paired"
-                               " --gzip-compressed %(p1)s %(p2)s" % locals())
+                               f" --gzip-compressed {fastn_obj.fastn1} {fastn_obj.fastn2}")
         # single end reads
         else:
-            statement_entry = " --gzip-compressed %s" % p1
+            statement_entry = f" --gzip-compressed {fastn_obj.fastn1}"
 
         # build kraken statement
         kraken_statement = kraken_statement + statement_entry
@@ -47,7 +49,7 @@ class kraken2(utility.matchReference):
         kraken_statement = kraken_statement + ' ' + options
             
         # add additional commands
-        statement_entry = 'gzip %(prefix)s.classified.tsv' % locals()
+        statement_entry = f'gzip {prefix}.classified.tsv'
         
         statement = kraken_statement + '; ' +  statement_entry
         
@@ -87,11 +89,7 @@ def check_bracken_levels(expected_files, outfile):
     else:
         open(outfile, 'a').close()
 
-class bracken():
-    def __init__(self, infile, outfile, **PARAMS):
-        self.infile = infile
-        self.outfile = outfile
-        self.PARAMS = PARAMS
+class Bracken(Utility.BaseTool):
 
     def buildStatement(self):
         '''
@@ -115,16 +113,14 @@ class bracken():
     
         # bracken parameters
         db = self.PARAMS["bracken_db"]
-        read_len = self.PARAMS["bracken_read_len"]
         options = self.PARAMS["bracken_options"]
-        infile = self.infile
         
         # run bracken at every taxonomic level
         statement = ('bracken' 
-                    ' -d %(db)s'
-                    ' -i %(infile)s'
-                    ' -o bracken.dir/%(prefix)s.abundance.%(level)s.tsv'
-                    ' -w bracken.dir/%(prefix)s.k2b.report.%(level)s.tsv'
-                    ' -l %(level_param)s'
-                     ' %(options)s' % locals())
+                    f' -d {db}'
+                    f' -i {self.infile}'
+                    f' -o bracken.dir/{prefix}.abundance.{level}.tsv'
+                    f' -w bracken.dir/{prefix}.k2b.report.{level}.tsv'
+                    f' -l {level_param}'
+                    f' {options}')
         return statement

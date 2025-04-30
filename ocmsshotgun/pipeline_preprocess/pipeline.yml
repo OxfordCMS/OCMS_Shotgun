@@ -48,14 +48,10 @@ trimmomatic:
 
     jar_path: $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar
 
-    n_threads: 4
-
     # Location of contaminants file
     # NexteraPE-PE.fa, TruSeq2-PE.fa, TruSeq3-PE-2.fa, TruSeq3-PE.fa
     # TruSeq2-SE.fa, TruSeq3-SE.fa
     adapters: /gpfs3/well/johnson/shared/databases/adapters/HTG_oligov2/HTG_oligov2.fa
-    
-    phred_format: 33
 
     # Number of mismatches tolerated in seed alignment of adapter sequence (16 bases)
     seed_mismatches: 3
@@ -79,6 +75,9 @@ trimmomatic:
 
     # Minimum length for surviving read
     minlen: 36
+
+    # additional trimmomatic options
+    options: ''
 
     # Cluster options
     job_threads: 4
@@ -120,7 +119,7 @@ bmtagger:
 
     # which executable to use - bmtagger_mod.sh fixes some apparent
     # bugs. Choices are bmtagger.sh or bmtagger_mod.sh
-    executable: bmtagger.sh
+    executable: bmtagger_mod.sh
 
     # Comma-separated list of genomes to screen against
     bitmask: /gpfs3/well/johnson/shared/mirror/genome/bmtagger/bitmask/hg38.bitmask
@@ -141,8 +140,8 @@ hisat2:
     options: ''
 
     # cluster options
-    job_threads: 10
-    job_memory: 2G
+    job_threads: 4
+    job_memory: 20G
   
 ################################################################
 # Masking or removal of repetitive sequence
