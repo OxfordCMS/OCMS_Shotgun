@@ -597,12 +597,9 @@ class bbtools(Utility.BaseTool):
         outfile1 = sample_out + '.1.fq.gz'
         outfile2 = sample_out + '.2.fq.gz'
         outfile3 = sample_out + '.3.fq.gz'
-        out_disc1 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
-            + '_discarded.fastq.1.fq.gz'
-        out_disc2 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
-            + '_discarded.fastq.2.fq.gz'
-        out_disc3 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
-            + '_discarded.fastq.3.fq.gz'
+        out_disc1 = outfile1.replace('_masked', '_discarded')
+        out_disc2 = out_disc1.replace('.1.fq.gz', '.2.fq.gz') 
+        out_disc3 = out_disc1.replace('.1.fq.gz', '.3.fq.gz')
         
         if fastn_obj.fastn2:
             if self.PARAMS['dust_discard_low_complexity']:
@@ -693,17 +690,15 @@ class bbtools(Utility.BaseTool):
         sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
         fastq1 = fastn_obj.fastn1
         fastq2 = fastn_obj.fastn2
-        fastq3 = sample_out + fastn_obj.fn3_suffix
+        fastq3 = fastn_obj.fn3_suffix
         outfile = self.outfile
         outfile1 = sample_out + '.1.fq.gz'
         outfile2 = sample_out + '.2.fq.gz'
         outfile3 = sample_out + '.3.fq.gz'
-        out_disc1 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
-            + '_discarded.fastq.1.fq.gz'
-        out_disc2 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
-            + '_discarded.fastq.2.fq.gz'
-        out_disc3 = P.snip(self.outfile, '_masked' + fastn_obj.fn1_suffix) \
-            + '_discarded.fastq.3.fq.gz'
+        out_disc1 = outfile1.replace('_masked', '_discarded')
+        out_disc2 = out_disc1.replace('.1.fq.gz', '.2.fq.gz') 
+        out_disc3 = out_disc1.replace('.1.fq.gz', '.3.fq.gz')
+
         if fastn_obj.fastn2:
             # Renaming files because of bbmap idiosyncracies
             of1 = P.snip(outfile1, '.1.fq.gz') + fastn_obj.fn1_suffix
@@ -725,7 +720,7 @@ class bbtools(Utility.BaseTool):
             os.rename(outfile1, outfile)
             if self.PARAMS['dust_discard_low_complexity']:
                 od1 = P.snip(out_disc1, '.1.fq.gz') + fastn_obj.fn1_suffix
-            os.rename(out_disc, od1)
+            os.rename(out_disc1, od1)
 
 
 def summariseReadCounts(infiles, outfile):
