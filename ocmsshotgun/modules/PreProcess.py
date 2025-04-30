@@ -89,9 +89,10 @@ class trimmomatic(Utility.BaseTool):
         logfile2 = sample_out + '.log'
         
         trimmomatic_jar_path = self.PARAMS["trimmomatic_jar_path"]
-        trimmomatic_n_threads = self.PARAMS["trimmomatic_n_threads"]
-        # >0.32 determines phred format automatically, here for legacy
-        phred_format = '-phred' + str(self.PARAMS.get('phred_format', 33))
+        trimmomatic_n_threads = self.PARAMS["trimmomatic_job_threads"]
+        
+        # >0.32 determines phred format automatically
+        # if phred score needs to be speficied, use trimmomatic_options
         
         trimmomatic_adapters = self.PARAMS["trimmomatic_adapters"]
         trimmomatic_seed_mismatches = self.PARAMS["trimmomatic_seed_mismatches"]
@@ -102,6 +103,11 @@ class trimmomatic(Utility.BaseTool):
         trimmomatic_quality_leading = self.PARAMS["trimmomatic_quality_leading"]
         trimmomatic_quality_trailing = self.PARAMS["trimmomatic_quality_trailing"]
         trimmomatic_minlen = self.PARAMS["trimmomatic_minlen"]
+        trimmomatic_options = self.PARAMS["trimmomatic_options"]
+
+        assert "-threads" not in trimmomatic_options, (
+            "Trimmomatic multi-threading is set with job_threads parameter."
+            )
 
         if fastn_obj.fastn2:
             outfile2 = re.sub(fastn_obj.fn1_suffix, fastn_obj.fn2_suffix, self.outfile)
@@ -194,7 +200,10 @@ class runSortMeRNA(Utility.BaseTool):
         
         """
         sortmerna_options = self.PARAMS.get("sortmerna_options")
-
+        assert "--threads" not in sortmerna_options, (
+            "Sortmerna multi-threading is set with job_threads parameter."
+            )
+        
         # A comma separated list of references
         references = self.PARAMS.get("sortmerna_reference")
         references = ' --ref '.join(references.split(','))
@@ -392,7 +401,9 @@ class bmtagger(Utility.BaseTool):
         fastq1 = fastn_obj.fastn1
         outfile = self.outfile
         bmtagger_exec = self.PARAMS['bmtagger_executable']
-        assert bmtagger_exec in ["bmtagger.sh", "bmtagger_mod.sh"], "must specify bmtagger.sh or bmtagger_mod.sh"
+        assert bmtagger_exec in ["bmtagger.sh", "bmtagger_mod.sh"], (
+            "must specify bmtagger.sh or bmtagger_mod.sh"
+        )
 
         if fastn_obj.fastn2:
             fastq2 = fastn_obj.fastn2
@@ -563,8 +574,13 @@ class bbtools(Utility.BaseTool):
         # bbmap assumes the file format based on the output being *fq.gz
         # I can't find any instructions as to how to override this.
         entropy = self.PARAMS['dust_entropy']
-        bb_options= ' '.join(self.PARAMS['dust_options'].split(','))
+        bb_options= self.PARAMS['dust_options']
         job_threads = self.PARAMS.get("dust_job_threads")
+
+        # make sure threads is not set outside of job_threads
+        assert "threads" not in bb_options, (
+            "BBtools multi-threading is set with jop_options"
+        )
 
         sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
         
@@ -758,14 +774,23 @@ class hisat2(Utility.BaseTool):
         
         ref_genome = self.PARAMS["hisat2_ref_genome"]
     
+        # job threads set with job_options so want to make sure threads is not
+        # seperately defined
+        banned_options = ["-p","--threads"]
+        check_options = [x not in self.PARAMS["hisat2_options"] for x in banned_options]
+        assert any(check_options), (
+            "Hisat2 multi-threading is set with job_options"
+        )
         statement = [f"hisat2 -x {ref_genome}"]
         
+        # single end reads
         if fastn_obj.fastn2 is None:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped.fastq.gz")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped.fastq.gz")
             entry = (f"-U {fastn_obj.fastn1} --un-gz {unmapped}"
                      f" --al-gz {mapped}")
             statement.append(entry)
+        # paired end reads, no singletons
         elif fastn_obj.fastn3 is None:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped")
