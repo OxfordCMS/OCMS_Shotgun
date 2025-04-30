@@ -14,7 +14,7 @@ from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
 import ocmstoolkit.modules.Utility as Utility            
-class cdhit(Utility.BaseTool):
+class Cdhit(Utility.BaseTool):
         
     def buildStatement(self, fastn_obj):
         '''Filter exact duplicates, if specified in config file'''
@@ -77,7 +77,7 @@ class cdhit(Utility.BaseTool):
         
         return statement
         
-class trimmomatic(Utility.BaseTool):
+class Trimmomatic(Utility.BaseTool):
 
     def buildStatement(self, fastn_obj):
         '''Remove adapters using Trimmomatic'''
@@ -178,7 +178,7 @@ class trimmomatic(Utility.BaseTool):
 #    tool.postProcess()
 
     
-class runSortMeRNA(Utility.BaseTool):
+class SortMeRNA(Utility.BaseTool):
     """
     Run sortMeRNA. 
     Assumes that reference indexes have been created in advance in a 
@@ -325,7 +325,7 @@ class runSortMeRNA(Utility.BaseTool):
         return None
 
 
-class createSortMeRNAOTUs(runSortMeRNA):
+class createSortMeRNAOTUs(SortMeRNA):
     """
     Tweak SortMeRNA code to create closed reference taxonomic classification
 
@@ -384,7 +384,7 @@ class createSortMeRNAOTUs(runSortMeRNA):
         
         return None
 
-class bmtagger(Utility.BaseTool):
+class Bmtagger(Utility.BaseTool):
 
     def buildStatement(self, fastn_obj):
         '''Remove host contamination using bmtagger'''
@@ -563,208 +563,10 @@ class bmtagger(Utility.BaseTool):
 
         return statement, to_unlink
 
-class bbtools(Utility.BaseTool):
-
-    def buildStatement(self, fastn_obj):
-        '''Either softmask low complexity regions, or remove reads with a large
-        proportion of low complexity. 
-
-        Uses BBTools scripts bbduk.sh (removal), or bbmask.sh. 
-
-        Entropy is calculated as shannon entropy for of kmers with a specified size
-        within a sliding window. Ranges from 0: mask nothing, 0.0001: mask
-        homopolymers, 1: mask everything.
-        '''
-
-        # bbmap assumes the file format based on the output being *fq.gz
-        # I can't find any instructions as to how to override this.
-        entropy = self.PARAMS['dust_entropy']
-        bb_options= self.PARAMS['dust_options']
-        job_threads = self.PARAMS.get("dust_job_threads")
-
-        # make sure threads is not set outside of job_threads
-        assert "threads" not in bb_options, (
-            "BBtools multi-threading is set with jop_options"
-        )
-
-        sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
-        
-        fastq1 = fastn_obj.fastn1
-        fastq2 = fastn_obj.fastn2
-        fastq3 = fastn_obj.fastn3
-
-        outfile = self.outfile
-        outfile1 = sample_out + '.1.fq.gz'
-        outfile2 = sample_out + '.2.fq.gz'
-        outfile3 = sample_out + '.3.fq.gz'
-        out_disc1 = outfile1.replace('_masked', '_discarded')
-        out_disc2 = out_disc1.replace('.1.fq.gz', '.2.fq.gz') 
-        out_disc3 = out_disc1.replace('.1.fq.gz', '.3.fq.gz')
-        
-        if fastn_obj.fastn2:
-            if self.PARAMS['dust_discard_low_complexity']:
-                statement1 = ("bbduk.sh"
-                              "  in=%(fastq1)s"
-                              "  in2=%(fastq2)s"
-                              "  out=%(outfile1)s"
-                              "  out2=%(outfile2)s"
-                              "  outm=%(out_disc1)s"
-                              "  outm2=%(out_disc2)s"
-                              "  entropy=%(entropy)s"
-                              "  threads=%(job_threads)s"
-                              "  %(bb_options)s"
-                              "  &> %(outfile)s.log" % locals())
-                if IOTools.open_file(fastq3).read(1):
-                    statement2 = (" bbduk.sh"
-                                  "  in=%(fastq3)s"
-                                  "  out=%(outfile3)s"
-                                  "  outm=%(out_disc3)s"
-                                  "  entropy=%(entropy)s"
-                                  "  threads=%(job_threads)s"
-                                  "  %(bb_options)s"
-                                  "  &>> %(outfile)s.log" % locals())
-                else:
-                    statement2 = (" touch %(outfile3)s  %(out_disc3)s" % locals())
-
-                statement = " && ".join([statement1, statement2])
-
-            else:
-                statement1 = ("bbmask.sh"
-                              "  in=%(fastq1)s"
-                              "  out=%(outfile1)s"
-                              "  entropy=%(entropy)s"
-                              "  threads=%(job_threads)s"
-                              "  overwrite=t"
-                              "  lowercase=t"
-                              "  %(bb_options)s"
-                              "  &> %(outfile)s.log &&"
-                              " bbmask.sh"
-                              "  in=%(fastq2)s"
-                              "  out=%(outfile2)s"
-                              "  entropy=%(entropy)s"
-                              "  threads=%(job_threads)s"
-                              "  overwrite=t"
-                              "  lowercase=t"
-                              "  %(bb_options)s"
-                              "  &>> %(outfile)s.log" % locals())
-                if IOTools.open_file(fastq3).read(1):           
-                    statement2 = (" bbmask.sh"
-                                  "  in=%(fastq3)s"
-                                  "  out=%(outfile3)s"
-                                  "  entropy=%(entropy)s"
-                                  "  threads=%(job_threads)s"
-                                  "  overwrite=t"
-                                  "  lowercase=t"
-                                  "  %(bb_options)s"
-                                  "  &>> %(outfile)s.log" % locals())
-                else:
-                    statement2 = (" touch %(outfile3)s")
-
-                statement = " && ".join([statement1, statement2])
-
-        else:
-            if self.PARAMS['dust_discard_low_complexity']:
-                statement = ("bbduk.sh"
-                             " in=%(fastq1)s"
-                             " out=%(outfile1)s"
-                             " outm=%(out_disc)s"
-                             " entropy=%(entropy)s"
-                             " threads=%(job_threads)s"
-                             " lowercase=t"
-                             " %(bb_options)s"
-                             " &> %(outfile)s.log" % locals())
-
-            else:
-                statement = ("bbmask.sh"
-                             " in=%(fastq1)s"
-                             " out=%(outfile1)s"
-                             " entropy=%(entropy)s"
-                             " threads=%(job_threads)s"
-                             " lowercase=t"
-                             " %(bb_options)s"
-                             " &> %(outfile)s.log" % locals())
-
-        return statement
-    
-    def postProcess(self, fastn_obj):
-        sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
-        fastq1 = fastn_obj.fastn1
-        fastq2 = fastn_obj.fastn2
-        fastq3 = fastn_obj.fn3_suffix
-        outfile = self.outfile
-        outfile1 = sample_out + '.1.fq.gz'
-        outfile2 = sample_out + '.2.fq.gz'
-        outfile3 = sample_out + '.3.fq.gz'
-        out_disc1 = outfile1.replace('_masked', '_discarded')
-        out_disc2 = out_disc1.replace('.1.fq.gz', '.2.fq.gz') 
-        out_disc3 = out_disc1.replace('.1.fq.gz', '.3.fq.gz')
-
-        if fastn_obj.fastn2:
-            # Renaming files because of bbmap idiosyncracies
-            of1 = P.snip(outfile1, '.1.fq.gz') + fastn_obj.fn1_suffix
-            of2 = P.snip(outfile2, '.2.fq.gz') + fastn_obj.fn2_suffix
-            of3 = P.snip(outfile3, '.3.fq.gz') + fastn_obj.fn3_suffix
-            os.rename(outfile1, of1)
-            os.rename(outfile2, of2)
-            os.rename(outfile3, of3)
-
-            if self.PARAMS['dust_discard_low_complexity']:
-                od1 = P.snip(out_disc1, '.1.fq.gz') + fastn_obj.fn1_suffix
-                od2 = P.snip(out_disc2, '.2.fq.gz') + fastn_obj.fn2_suffix
-                od3 = P.snip(out_disc3, '.3.fq.gz') + fastn_obj.fn3_suffix
-                os.rename(out_disc1, od1)
-                os.rename(out_disc2, od2)
-                os.rename(out_disc3, od3)
-
-        else:
-            os.rename(outfile1, outfile)
-            if self.PARAMS['dust_discard_low_complexity']:
-                od1 = P.snip(out_disc1, '.1.fq.gz') + fastn_obj.fn1_suffix
-            os.rename(out_disc1, od1)
-
-
-def summariseReadCounts(infiles, outfile):
-    with IOTools.open_file(outfile, 'w') as outf:
-        outf.write("sample_id\tinput_reads\toutput_reads\tduplicates\t"
-                   "adapter_contamination\trRNA\thost\tlow_complexity\t"
-                   "duplicates_percent\tadapters_percent\trrna_percent\t"
-                   "host_percent\tlow_complexity_perc\tremaining_percent\n")
-        for infile in infiles:
-            sample_id = P.snip(os.path.basename(infile),
-                               '_read_count_summary.tsv')
-            E.info('Processing sample %s' % sample_id)
-            
-            df = pd.read_table(infile, index_col=0, header=None)
-            deadapt = df.loc['deadapt', 1]
-            deduped = df.loc['deduped', 1]
-            rrna = df.loc['rRNAremoved', 1]
-            dehost = df.loc['dehost', 1]
-            masked = df.loc['masked', 1]
-            input_reads = df.loc['input', 1]
-            
-            lost_dup = int(input_reads) - int(deduped)
-            lost_adapt = int(deduped) - int(deadapt)
-            lost_rrna = int(deadapt) - int(rrna)
-            lost_host = int(rrna) - int(dehost)
-            lost_mask = int(dehost) - int(masked)
-
-            lost_dup_perc = round(lost_dup/float(input_reads) * 100, 2)
-            lost_adapt_perc = round(lost_adapt/float(input_reads) * 100, 2)
-            lost_rrna_perc = round(lost_rrna/float(input_reads) * 100, 2)
-            lost_host_perc = round(lost_host/float(input_reads) * 100, 2)
-            lost_mask_perc = round(lost_mask/float(input_reads) * 100, 2)
-            output_perc = round(float(masked)/float(input_reads) * 100, 2)
-
-            outf.write('\t'.join(map(str, [sample_id, input_reads, masked, 
-                                           lost_dup, lost_adapt, lost_rrna, 
-                                           lost_host, lost_mask, lost_dup_perc, 
-                                           lost_adapt_perc, lost_rrna_perc, 
-                                           lost_host_perc, lost_mask_perc, 
-                                           output_perc])) + '\n')
 
 # Class for aligning reads with host genome with Hisat2
 # returning mapped and unmapped reads
-class hisat2(Utility.BaseTool):
+class Hisat2(Utility.BaseTool):
     def __init__(self, fastq1, outfile, **PARAMS):
         super().__init__(fastq1, outfile, **PARAMS)
         # resetting prefix to include _unmapped or _dehost
@@ -973,3 +775,201 @@ class hisat2(Utility.BaseTool):
 
         return statement
     
+class Bbtools(Utility.BaseTool):
+
+    def buildStatement(self, fastn_obj):
+        '''Either softmask low complexity regions, or remove reads with a large
+        proportion of low complexity. 
+
+        Uses BBTools scripts bbduk.sh (removal), or bbmask.sh. 
+
+        Entropy is calculated as shannon entropy for of kmers with a specified size
+        within a sliding window. Ranges from 0: mask nothing, 0.0001: mask
+        homopolymers, 1: mask everything.
+        '''
+
+        # bbmap assumes the file format based on the output being *fq.gz
+        # I can't find any instructions as to how to override this.
+        entropy = self.PARAMS['dust_entropy']
+        bb_options= self.PARAMS['dust_options']
+        job_threads = self.PARAMS.get("dust_job_threads")
+
+        # make sure threads is not set outside of job_threads
+        assert "threads" not in bb_options, (
+            "BBtools multi-threading is set with jop_options"
+        )
+
+        sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
+        
+        fastq1 = fastn_obj.fastn1
+        fastq2 = fastn_obj.fastn2
+        fastq3 = fastn_obj.fastn3
+
+        outfile = self.outfile
+        outfile1 = sample_out + '.1.fq.gz'
+        outfile2 = sample_out + '.2.fq.gz'
+        outfile3 = sample_out + '.3.fq.gz'
+        out_disc1 = outfile1.replace('_masked', '_discarded')
+        out_disc2 = out_disc1.replace('.1.fq.gz', '.2.fq.gz') 
+        out_disc3 = out_disc1.replace('.1.fq.gz', '.3.fq.gz')
+        
+        if fastn_obj.fastn2:
+            if self.PARAMS['dust_discard_low_complexity']:
+                statement1 = ("bbduk.sh"
+                              "  in=%(fastq1)s"
+                              "  in2=%(fastq2)s"
+                              "  out=%(outfile1)s"
+                              "  out2=%(outfile2)s"
+                              "  outm=%(out_disc1)s"
+                              "  outm2=%(out_disc2)s"
+                              "  entropy=%(entropy)s"
+                              "  threads=%(job_threads)s"
+                              "  %(bb_options)s"
+                              "  &> %(outfile)s.log" % locals())
+                if IOTools.open_file(fastq3).read(1):
+                    statement2 = (" bbduk.sh"
+                                  "  in=%(fastq3)s"
+                                  "  out=%(outfile3)s"
+                                  "  outm=%(out_disc3)s"
+                                  "  entropy=%(entropy)s"
+                                  "  threads=%(job_threads)s"
+                                  "  %(bb_options)s"
+                                  "  &>> %(outfile)s.log" % locals())
+                else:
+                    statement2 = (" touch %(outfile3)s  %(out_disc3)s" % locals())
+
+                statement = " && ".join([statement1, statement2])
+
+            else:
+                statement1 = ("bbmask.sh"
+                              "  in=%(fastq1)s"
+                              "  out=%(outfile1)s"
+                              "  entropy=%(entropy)s"
+                              "  threads=%(job_threads)s"
+                              "  overwrite=t"
+                              "  lowercase=t"
+                              "  %(bb_options)s"
+                              "  &> %(outfile)s.log &&"
+                              " bbmask.sh"
+                              "  in=%(fastq2)s"
+                              "  out=%(outfile2)s"
+                              "  entropy=%(entropy)s"
+                              "  threads=%(job_threads)s"
+                              "  overwrite=t"
+                              "  lowercase=t"
+                              "  %(bb_options)s"
+                              "  &>> %(outfile)s.log" % locals())
+                if IOTools.open_file(fastq3).read(1):           
+                    statement2 = (" bbmask.sh"
+                                  "  in=%(fastq3)s"
+                                  "  out=%(outfile3)s"
+                                  "  entropy=%(entropy)s"
+                                  "  threads=%(job_threads)s"
+                                  "  overwrite=t"
+                                  "  lowercase=t"
+                                  "  %(bb_options)s"
+                                  "  &>> %(outfile)s.log" % locals())
+                else:
+                    statement2 = (" touch %(outfile3)s")
+
+                statement = " && ".join([statement1, statement2])
+
+        else:
+            if self.PARAMS['dust_discard_low_complexity']:
+                statement = ("bbduk.sh"
+                             " in=%(fastq1)s"
+                             " out=%(outfile1)s"
+                             " outm=%(out_disc)s"
+                             " entropy=%(entropy)s"
+                             " threads=%(job_threads)s"
+                             " lowercase=t"
+                             " %(bb_options)s"
+                             " &> %(outfile)s.log" % locals())
+
+            else:
+                statement = ("bbmask.sh"
+                             " in=%(fastq1)s"
+                             " out=%(outfile1)s"
+                             " entropy=%(entropy)s"
+                             " threads=%(job_threads)s"
+                             " lowercase=t"
+                             " %(bb_options)s"
+                             " &> %(outfile)s.log" % locals())
+
+        return statement
+    
+    def postProcess(self, fastn_obj):
+        sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
+        fastq1 = fastn_obj.fastn1
+        fastq2 = fastn_obj.fastn2
+        fastq3 = fastn_obj.fn3_suffix
+        outfile = self.outfile
+        outfile1 = sample_out + '.1.fq.gz'
+        outfile2 = sample_out + '.2.fq.gz'
+        outfile3 = sample_out + '.3.fq.gz'
+        out_disc1 = outfile1.replace('_masked', '_discarded')
+        out_disc2 = out_disc1.replace('.1.fq.gz', '.2.fq.gz') 
+        out_disc3 = out_disc1.replace('.1.fq.gz', '.3.fq.gz')
+
+        if fastn_obj.fastn2:
+            # Renaming files because of bbmap idiosyncracies
+            of1 = P.snip(outfile1, '.1.fq.gz') + fastn_obj.fn1_suffix
+            of2 = P.snip(outfile2, '.2.fq.gz') + fastn_obj.fn2_suffix
+            of3 = P.snip(outfile3, '.3.fq.gz') + fastn_obj.fn3_suffix
+            os.rename(outfile1, of1)
+            os.rename(outfile2, of2)
+            os.rename(outfile3, of3)
+
+            if self.PARAMS['dust_discard_low_complexity']:
+                od1 = P.snip(out_disc1, '.1.fq.gz') + fastn_obj.fn1_suffix
+                od2 = P.snip(out_disc2, '.2.fq.gz') + fastn_obj.fn2_suffix
+                od3 = P.snip(out_disc3, '.3.fq.gz') + fastn_obj.fn3_suffix
+                os.rename(out_disc1, od1)
+                os.rename(out_disc2, od2)
+                os.rename(out_disc3, od3)
+
+        else:
+            os.rename(outfile1, outfile)
+            if self.PARAMS['dust_discard_low_complexity']:
+                od1 = P.snip(out_disc1, '.1.fq.gz') + fastn_obj.fn1_suffix
+            os.rename(out_disc1, od1)
+
+
+def summariseReadCounts(infiles, outfile):
+    with IOTools.open_file(outfile, 'w') as outf:
+        outf.write("sample_id\tinput_reads\toutput_reads\tduplicates\t"
+                   "adapter_contamination\trRNA\thost\tlow_complexity\t"
+                   "duplicates_percent\tadapters_percent\trrna_percent\t"
+                   "host_percent\tlow_complexity_perc\tremaining_percent\n")
+        for infile in infiles:
+            sample_id = P.snip(os.path.basename(infile),
+                               '_read_count_summary.tsv')
+            E.info('Processing sample %s' % sample_id)
+            
+            df = pd.read_table(infile, index_col=0, header=None)
+            deadapt = df.loc['deadapt', 1]
+            deduped = df.loc['deduped', 1]
+            rrna = df.loc['rRNAremoved', 1]
+            dehost = df.loc['dehost', 1]
+            masked = df.loc['masked', 1]
+            input_reads = df.loc['input', 1]
+            
+            lost_dup = int(input_reads) - int(deduped)
+            lost_adapt = int(deduped) - int(deadapt)
+            lost_rrna = int(deadapt) - int(rrna)
+            lost_host = int(rrna) - int(dehost)
+            lost_mask = int(dehost) - int(masked)
+
+            lost_dup_perc = round(lost_dup/float(input_reads) * 100, 2)
+            lost_adapt_perc = round(lost_adapt/float(input_reads) * 100, 2)
+            lost_rrna_perc = round(lost_rrna/float(input_reads) * 100, 2)
+            lost_host_perc = round(lost_host/float(input_reads) * 100, 2)
+            lost_mask_perc = round(lost_mask/float(input_reads) * 100, 2)
+            output_perc = round(float(masked)/float(input_reads) * 100, 2)
+
+            outf.write('\t'.join(map(str, [sample_id, input_reads, masked, 
+                                           lost_dup, lost_adapt, lost_rrna, 
+                                           lost_host, lost_mask, lost_dup_perc, 
+                                           lost_adapt_perc, lost_rrna_perc, 
+                                           lost_host_perc, lost_mask_perc, 
+                                           output_perc])) + '\n')

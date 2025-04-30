@@ -60,7 +60,7 @@ def runHisat2(infile, outfile):
     '''Align sequences with HISAT2 and converts sam to bam
     '''
 
-    tool = PP.hisat2(infile, outfile, **PARAMS)
+    tool = PP.Hisat2(infile, outfile, **PARAMS)
 
     # build statement to run hisat2 and convert sam to bam
     statement = tool.hisat2bam(Utility.MetaFastn(infile))
@@ -83,13 +83,13 @@ def mergeHisatSummary(infiles, outfile):
         logs.append(log)
     
     # merging done locally
-    tool = PP.hisat2(infiles[0], outfile, **PARAMS)
+    tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
     tool.mergeHisatSummary(logs, outfile)
 
 @merge(runHisat2,
        "hisat2.dir/clean_up.log")
 def cleanHisat(infiles, outfile):
-    tool = PP.hisat2(infiles[0], outfile, **PARAMS)
+    tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
     statement = tool.clean(outfile)
     P.run(statement, without_cluster=True)
 

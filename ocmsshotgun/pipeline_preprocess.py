@@ -76,7 +76,7 @@ warnings.warn(f"\n{out}")
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
-    tool = PP.cdhit(fastq1, outfile, **PARAMS)
+    tool = PP.Cdhit(fastq1, outfile, **PARAMS)
     statement = tool.buildStatement(Utility.MetaFastn(fastq1))
 
     P.run(statement,
@@ -94,7 +94,7 @@ def removeDuplicates(fastq1, outfile):
 def removeAdapters(fastq1, outfile1):
     '''Remove adapters using Trimmomatic'''
 
-    tool = PP.trimmomatic(fastq1, outfile1, **PARAMS)
+    tool = PP.Trimmomatic(fastq1, outfile1, **PARAMS)
     statement = tool.buildStatement(Utility.MetaFastn(fastq1))
 
     P.run(statement,
@@ -115,7 +115,7 @@ def removeRibosomalRNA(fastq1, outfile):
     
 
     if PARAMS['data_type'] == 'metatranscriptome':
-        tool = PP.runSortMeRNA(fastq1, outfile, **PARAMS)
+        tool = PP.SortMeRNA(fastq1, outfile, **PARAMS)
         
         # Logging
         runfiles = '\t'.join([os.path.basename(x) for x in (tool.fastq1, \
@@ -211,7 +211,7 @@ def alignAndRemoveHost(infile,outfile):
     '''
     # bmtagger - aligns with srprism
     if PARAMS['host_tool']  == 'bmtagger':
-        tool = PP.bmtagger(infile, outfile, **PARAMS)
+        tool = PP.Bmtagger(infile, outfile, **PARAMS)
         statements, tmpfiles = tool.buildStatement(Utility.MetaFastn(infile))
 
         # one statement for each host genome specified
@@ -228,7 +228,7 @@ def alignAndRemoveHost(infile,outfile):
     # Align host sequences with HISAT2 and return mapped and unmapped reads
     # converts the output from sam to bam
     elif PARAMS['host_tool'] == 'hisat':
-        tool = PP.hisat2(infile, outfile, **PARAMS)
+        tool = PP.Hisat2(infile, outfile, **PARAMS)
 
         # build statement to run hisat2 and convert sam to bam
         statement = tool.hisat2bam(Utility.MetaFastn(infile))
@@ -251,14 +251,14 @@ def mergeHisatSummary(infiles, outfile):
         fq_class = Utility.metaFastn(fq)
         log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
         logs.append(log)
-    tool = PP.hisat2(infiles[0], outfile, **PARAMS)
+    tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
     tool.mergeHisatSummary(logs, outfile)
 
 @active_if(PARAMS['host_tool'] == 'hisat')
 @merge(alignAndRemoveHost,
        "reads_hostRemoved.dir/clean_up.log")
 def cleanHisat(infiles, outfile):
-    tool = PP.hisat2(infiles[0], outfile, **PARAMS)
+    tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
     statement = tool.cleanPP(outfile)
 
     P.run(statement, without_cluster=True)
@@ -285,7 +285,7 @@ def maskLowComplexity(fastq1, outfile):
     homopolymers, 1: mask everything.
     '''
 
-    tool = PP.bbtools(fastq1, outfile, **PARAMS)
+    tool = PP.Bbtools(fastq1, outfile, **PARAMS)
     
     statement = tool.buildStatement(Utility.MetaFastn(fastq1))
     P.run(statement, 
