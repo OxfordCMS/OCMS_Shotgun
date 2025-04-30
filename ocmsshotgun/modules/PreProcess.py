@@ -54,8 +54,8 @@ class cdhit(Utility.BaseTool):
                              f" rm -f {cluster_file}")
             else:
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)
-                Utility.symlnk(fastq1, outfile1 + '.gz')
-                Utility.symlnk(fastq2, outfile2 + '.gz')
+                Utility.relink(fastq1, outfile1 + '.gz')
+                Utility.relink(fastq2, outfile2 + '.gz')
 
         else:
             if to_filter:
@@ -73,7 +73,7 @@ class cdhit(Utility.BaseTool):
 
             else:
                 E.warn('Deduplication step is being skipped for: %s' % fastq1)
-                Utility.symlnk(fastq1, self.outfile)     
+                Utility.relink(fastq1, self.outfile)     
         
         return statement
         
@@ -306,8 +306,8 @@ class runSortMeRNA(Utility.BaseTool):
             os.rename(f3_unaligned,
                       outf_prefix +  '_rRNAremoved' + fastn_obj.fn3_suffix)
         else:
-            utility.symlnk(fastn_obj.fastn3, 
-                           os.path.join(outf_prefix + "_rRNAremoved" + fastn_obj.fn3_suffix))
+            Utility.relink(fastn_obj.fastn3, 
+                           outf_prefix + "_rRNAremoved" + fastn_obj.fn3_suffix)
         return None
 
 
