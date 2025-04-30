@@ -75,8 +75,33 @@ def runMetawrapReassembleBins(infiles,outfile):
     refinement_dir = refinement_dirs[0]  # Take the first (assumed only) match
     reassembly_outdir = os.path.join("metawrap_reassembled_bins.dir", sample)
    
-    left_reads = os.path.join(PARAMS["binreassembly"]["fastqs"], f"{sample}_1.fastq")
-    right_reads = os.path.join(PARAMS["binreassembly"]["fastqs"], f"{sample}_2.fastq")
+    fastq_dir = PARAMS["binreassembly"]["fastqs"]
+
+    if PARAMS.get("is_pooled", False):
+        # Handle pooled case: decompress *.fastq.1.gz and *.fastq.2.gz to _1.fastq / _2.fastq
+        left_candidates = sorted(glob.glob(os.path.join(fastq_dir, "*.fastq.1.gz")))
+        right_candidates = sorted(glob.glob(os.path.join(fastq_dir, "*.fastq.2.gz")))
+
+        if not left_candidates or not right_candidates:
+            raise FileNotFoundError(f"Could not find *.fastq.1.gz or *.fastq.2.gz in pooled input directory: {fastq_dir}")
+        
+        tmp_fastq_dir = os.path.join("tmp_pooled_fastqs", sample)
+        os.makedirs(tmp_fastq_dir, exist_ok=True)
+
+        left_reads = os.path.abspath(os.path.join(tmp_fastq_dir, "_1.fastq"))
+        right_reads = os.path.abspath(os.path.join(tmp_fastq_dir, "_2.fastq"))
+
+        print(f"Decompressing pooled FASTQs:\n  {left_candidates[0]} → {left_reads}\n  {right_candidates[0]} → {right_reads}")
+
+        ret1 = os.system(f"zcat {left_candidates[0]} > {left_reads}")
+        ret2 = os.system(f"zcat {right_candidates[0]} > {right_reads}")
+
+        if ret1 != 0 or ret2 != 0:
+            raise RuntimeError("zcat failed while decompressing pooled FASTQ files.")
+    else:
+        # Use sample-named FASTQs for unpooled data
+        left_reads = os.path.join(PARAMS["binreassembly"]["fastqs"], f"{sample}_1.fastq")
+        right_reads = os.path.join(PARAMS["binreassembly"]["fastqs"], f"{sample}_2.fastq")
 
     threads = PARAMS["binreassembly"]["threads"]
     job_memory_raw = PARAMS["binreassembly"]["job_memory"]
