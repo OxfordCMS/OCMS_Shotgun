@@ -61,7 +61,7 @@ import ocmsshotgun.modules.PreProcess as PP
 # set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
 
-indir = PARAMS.get("input.dir", "input.dir")
+indir = PARAMS.get("general_input.dir", "input.dir")
 # check that input files correspond
 FASTQ1S = Utility.get_fastns(indir)
 warnings.warn("=================================================")
@@ -114,7 +114,7 @@ def removeRibosomalRNA(fastq1, outfile):
     '''Remove ribosomal RNA using sortMeRNA'''
     
 
-    if PARAMS['data_type'] == 'metatranscriptome':
+    if PARAMS['general_data_type'] == 'metatranscriptome':
         tool = PP.SortMeRNA(fastq1, outfile, **PARAMS)
         
         # Logging
@@ -133,8 +133,8 @@ def removeRibosomalRNA(fastq1, outfile):
         # perform postprocessing steps
         tool.postProcess(Utility.MetaFastn(fastq1))
     else:
-        assert PARAMS['data_type'] == 'metagenome', \
-            'Unrecognised data type: {}'.format(PARAMS['data_type'])
+        assert PARAMS['general_data_type'] == 'metagenome', \
+            'Unrecognised data type: {}'.format(PARAMS['general_data_type'])
         
         inf1 = fastq1
         inf2 = P.snip(inf1, '.fastq.1.gz') + '.fastq.2.gz'
@@ -157,7 +157,7 @@ def removeRibosomalRNA(fastq1, outfile):
            r'reads_rrnaClassified.dir/\1_otu_map.txt')
 def classifyRibosomalRNA(fastq1, outfile):
 
-    assert PARAMS['data_type'] == 'metatranscriptome', \
+    assert PARAMS['general_data_type'] == 'metatranscriptome', \
         "Can't run rRNA classification on mWGS data..."
 
     tool = PP.createSortMeRNAOTUs(fastq1, 

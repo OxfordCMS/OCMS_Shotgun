@@ -49,7 +49,7 @@ import ocmsshotgun.modules.PreProcess as PP
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check that input files correspond
-indir = PARAMS.get("input.dir", "input.dir")
+indir = PARAMS.get("general_input.dir", "input.dir")
 FASTQ1S = Utility.get_fastns(indir)
 
 @follows(mkdir('hisat2.dir'))

@@ -1,3 +1,7 @@
+general:
+    # input directory (fastq single or paired end reads)
+    input.dir: 'input.dir'
+    
 hisat2:
     # index for reference genome
     ref_genome: /well/kir/mirror/genomes/hisat2/hg38.ensembl91.genome.dir/hg38
