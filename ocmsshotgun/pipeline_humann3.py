@@ -96,15 +96,9 @@ else:
 def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
-    infiles = Utility.MetaFastn(infile)
-    fastqs = [i for i in [infiles.fastn1, infiles.fastn2, infiles.fastn3] if i]
-    
-    if len(fastqs) == 1:
-        Utility.symlink(infile, outfile)
-    else:
-        fastqs = ' '.join(fastqs)
-        statement = "cat %(fastqs)s > %(outfile)s"
-        P.run(statement)
+    tool = H.Humann3(infile, outfile, **PARAMS)
+    statement = tool.concat_fastq(Utility.MetaFastn(infile))
+    P.run(statement)
     
 ###############################################################################
 # Run humann3 on concatenated fastq.gz
@@ -150,16 +144,11 @@ def poolTranscriptomeFastqs(infile, outfile):
     if os.path.exists(outdir):
         shutil.rmtree(outdir)
     os.mkdir(outdir)
-
-    infiles = Utility.MetaFastn(infile, outfile, **PARAMS)
-    fastqs = [i for i in [infiles.fastq1, infiles.fastq2, infiles.fastq3] if i]
-
-    if len(fastqs) == 1:
-        Utility.symlink(infile, outfile)
-    else:
-        fastqs = ' '.join(fastqs)
-        statement = "cat %(fastqs)s > %(outfile)s"
-        P.run(statement)
+    
+    tool = H.Humann3(infile, outfile, **PARAMS)
+    statement = tool.concat_fastq(Utilily.MetaFastn(infile))
+    P.run(statement)
+ 
 
 @follows(runHumann3)
 @subdivide(poolTranscriptomeFastqs,

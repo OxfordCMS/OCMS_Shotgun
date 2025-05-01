@@ -1,13 +1,32 @@
 # Module to run Humann3
 
 from cgatcore import pipeline as P
+import os
 import ocmstoolkit.modules.Utility as Utility
 
+
 class Humann3(Utility.BaseTool):
+    '''
+    Humann3 tool class, contains methods to building commandline statement
+    to run humann3 and post processing of humann3 outputs
+    '''
     def __init__(self, infile, outfile, taxonomic_profile=None, **PARAMS):
         super().__init__(infile, outfile, **PARAMS)
         self.prefix = P.snip(self.outfile, '_pathcoverage.tsv.gz', strip_path=True)
         self.taxonomic_profile = taxonomic_profile
+
+    def concat_fastqs(self, fastn_obj):
+        '''
+        Method to concatenate fastq files
+        '''
+        fastqs = [fastn_obj.fastn1, fastn_obj.fastn2, fastn_obj.fastn3]
+        fastqs = [x for x in fastqs if os.path.exists(x)]
+        
+        if len(fastqs) == 1:
+            Utility.relink(self.infile, self.outfile)
+        else:
+            fastqs = ' '.join(fastqs)
+            statement = f"cat {fastqs} > {self.outfile}"
         
     def buildStatement(self, fastn_obj):
         db_metaphlan_path = self.PARAMS["humann3_db_metaphlan_path"]
