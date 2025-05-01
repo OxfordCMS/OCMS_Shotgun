@@ -593,7 +593,7 @@ class Hisat2(Utility.BaseTool):
                      f" --al-gz {mapped}")
             statement.append(entry)
         # paired end reads, no singletons
-        elif fastn_obj.fastn3 is None:
+        elif not fastn_obj.has_singleton:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped")
             unmapped_unpaired = self.outfile.replace(self.prefixstrip, 
@@ -605,7 +605,7 @@ class Hisat2(Utility.BaseTool):
                      f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
             statement.append(entry)
         # paired end reads with singletons
-        elif fastn_obj.fastn3 is not None:
+        elif fastn_obj.has_singleton:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped")
             unmapped_unpaired = self.outfile.replace(self.prefixstrip, 
