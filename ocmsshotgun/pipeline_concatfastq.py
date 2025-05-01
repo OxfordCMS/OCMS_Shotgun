@@ -53,7 +53,7 @@ import sys
 import os
 from ruffus import *
 from cgatcore import pipeline as P 
-import ocmsshotgun.modules.ConcatFastq as CF
+import ocmsshotgun.modules.Humann3 as H
 import ocmstoolkit.modules.Utility as Utility
 # no params in config needed but putting here in case that changes
 PARAMS = P.get_parameters(["pipeline.yml"])
@@ -63,8 +63,6 @@ indir = PARAMS.get('general_input.dir', 'input.dir')
 
 # get all sequence files within directory to process
 SEQUENCEFILES = Utility.get_fastns(indir)
-
-SEQUENCEFILES_REGEX = regex(fr"{indir}/(\S+)\.(fastq.*gz)")
 
 ######################################################
 ######################################################
@@ -78,15 +76,15 @@ SEQUENCEFILES_REGEX = regex(fr"{indir}/(\S+)\.(fastq.*gz)")
 ######################################################
 
 @follows(mkdir("concat_fastq.dir"))
-@collate(SEQUENCEFILES, 
-         SEQUENCEFILES_REGEX,
+@transform(SEQUENCEFILES, 
+         regex(fr"{indir}/(\S+)\.(fastq.1.gz)"),
          r"concat_fastq.dir/\1.fastq.gz")
-
-def concatFastq(infiles, outfile):
+def concatFastq(infile, outfile):
     """Expects paired end fastq files to be in format fastq.1.gz, fastq.2.gz
     """
-
-    CF.concatFastq.run(infiles, outfile)
+    tool = H.Humann3(infile, outfile, **PARAMS)
+    statement = tool.concat_fastq(Utility.MetaFastn(infile))
+    P.run(statement)
 
 @follows(concatFastq)
 def full():
