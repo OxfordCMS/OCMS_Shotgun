@@ -13,7 +13,7 @@ import ocmstoolkit.modules.Utility as Utility
 
 class Kraken2(Utility.BaseTool):
 
-    def buildStatement(self, fastn_obj):
+    def build_statement(self, fastn_obj):
         # Note that at the moment I only deal with paired-end
         # reads
         
@@ -91,7 +91,7 @@ def check_bracken_levels(expected_files, outfile):
 
 class Bracken(Utility.BaseTool):
 
-    def buildStatement(self):
+    def build_statement(self):
         '''
         convert read classifications into abundance with Bracken
         '''

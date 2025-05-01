@@ -69,7 +69,7 @@ def runHisat2(infile, outfile):
         job_memory = PARAMS["hisat2_job_memory"])
     
     # clean up sam files and hisat outputs
-    statement = tool.postProcess()[0]
+    statement = tool.post_process()[0]
     P.run(statement, without_cluster=True)
 
 @merge(runHisat2,
@@ -84,7 +84,7 @@ def mergeHisatSummary(infiles, outfile):
     
     # merging done locally
     tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
-    tool.mergeHisatSummary(logs, outfile)
+    tool.merge_hisat_summary(logs, outfile)
 
 @merge(runHisat2,
        "hisat2.dir/clean_up.log")

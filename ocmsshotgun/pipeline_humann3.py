@@ -119,8 +119,8 @@ def runHumann3(infile, outfiles):
     
     tool = H.Humann3(infile, outfile, **PARAMS)
 
-    humann_statement = tool.buildStatement(Utility.MetaFastn(infile))
-    postprocess_statement = tool.postProcess()
+    humann_statement = tool.build_statement(Utility.MetaFastn(infile))
+    postprocess_statement = tool.post_process()
     statement = ' && '.join([humann_statement, postprocess_statement])
         
     P.run(statement,
@@ -179,8 +179,8 @@ def runHumann3_metatranscriptome(infiles, outfiles):
     tmpf = P.get_temp_filename('.')
     statement = "zcat %(tax_profile)s > %(tmpf)s" % locals()
     statement = ' && '.join([statement,
-                             tool.buildStatement(Utility.MetaFastn(infile)),
-                             tool.postProcess()])
+                             tool.build_statement(Utility.MetaFastn(infile)),
+                             tool.post_process()])
                     
     P.run(statement,
           job_memory = PARAMS["humann3_job_memory"],

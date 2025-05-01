@@ -28,7 +28,7 @@ class Humann3(Utility.BaseTool):
             fastqs = ' '.join(fastqs)
             statement = f"cat {fastqs} > {self.outfile}"
         
-    def buildStatement(self, fastn_obj):
+    def build_statement(self, fastn_obj):
         db_metaphlan_path = self.PARAMS["humann3_db_metaphlan_path"]
         db_metaphlan_id = self.PARAMS["humann3_db_metaphlan_id"]
         db_nucleotide = self.PARAMS["humann3_db_nucleotide"]
@@ -61,7 +61,7 @@ class Humann3(Utility.BaseTool):
         
         return statement
 
-    def postProcess(self):
+    def post_process(self):
         if self.taxonomic_profile:
             options = ""
         else:

@@ -16,7 +16,7 @@ from cgatcore import experiment as E
 import ocmstoolkit.modules.Utility as Utility            
 class Cdhit(Utility.BaseTool):
         
-    def buildStatement(self, fastn_obj):
+    def build_statement(self, fastn_obj):
         '''Filter exact duplicates, if specified in config file'''
         
         fastq1 = fastn_obj.fastn1
@@ -79,7 +79,7 @@ class Cdhit(Utility.BaseTool):
         
 class Trimmomatic(Utility.BaseTool):
 
-    def buildStatement(self, fastn_obj):
+    def build_statement(self, fastn_obj):
         '''Remove adapters using Trimmomatic'''
         fastq1 = fastn_obj.fastn1
         fastq2 = fastn_obj.fastn2
@@ -189,7 +189,7 @@ class SortMeRNA(Utility.BaseTool):
         super().__init__(fastq1, outfile, **PARAMS)
         self.sortmerna_skip_singletons = self.PARAMS.get('sortmerna_skip_singletons', False)
         
-    def buildStatement(self, fastn_obj):
+    def build_statement(self, fastn_obj):
         """
         Generate run statement for processing single, paired, or paired
         + singleton samples. 
@@ -286,7 +286,7 @@ class SortMeRNA(Utility.BaseTool):
 
         return statement
         
-    def postProcess(self, fastn_obj):
+    def post_process(self, fastn_obj):
         ''' Rename files output by sortmeRNA to appropriate suffix
         At some point this would be good to become more flexible wrt FQ1_SUFFIX'''
 
@@ -351,7 +351,7 @@ class createSortMeRNAOTUs(SortMeRNA):
         self.outdir = tmpf
         self.outfile = outfile
     
-    def postProcess(self, fastn_obj):
+    def post_process(self, fastn_obj):
         '''Rename files output by sortmerna, including otu_map table.''' 
 
         tmpf_prefix = os.path.join(self.outdir, 
@@ -386,7 +386,7 @@ class createSortMeRNAOTUs(SortMeRNA):
 
 class Bmtagger(Utility.BaseTool):
 
-    def buildStatement(self, fastn_obj):
+    def build_statement(self, fastn_obj):
         '''Remove host contamination using bmtagger'''
         outf_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host.txt'
         outf_host_stub = P.snip(outf_host, '.txt') + '_toremove'
@@ -505,7 +505,7 @@ class Bmtagger(Utility.BaseTool):
                 
         return statements, to_remove_tmp
 
-    def postProcess(self, fastn_obj, to_remove_tmp):
+    def post_process(self, fastn_obj, to_remove_tmp):
 
         if fastn_obj.fastn2:
             # Drop host contaminated reads
@@ -572,7 +572,7 @@ class Hisat2(Utility.BaseTool):
         # resetting prefix to include _unmapped or _dehost
         suffix = os.path.basename(self.outfile)
         self.prefixstrip = suffix[suffix.rfind('_'):]
-    def hisatStatement(self, fastn_obj):
+    def hisat_statement(self, fastn_obj):
         
         ref_genome = self.PARAMS["hisat2_ref_genome"]
     
@@ -638,7 +638,7 @@ class Hisat2(Utility.BaseTool):
         return statement
 
     # method to sort and convert sam output to bam output
-    def sam2bamStatement(self):
+    def sam2bam_statement(self):
         samfile = self.outfile.replace(self.prefixstrip, ".sam")
         bamfile = re.sub("sam$", "bam", samfile)
         statement = f"samtools sort {samfile} > {bamfile}"
@@ -646,7 +646,7 @@ class Hisat2(Utility.BaseTool):
         return statement
 
     # clean up hisat2 outputs
-    def postProcess(self):
+    def post_process(self):
         samfile = self.outfile.replace(self.prefixstrip, ".sam")
         
         # rename hisat output of paired end reads
@@ -673,9 +673,9 @@ class Hisat2(Utility.BaseTool):
         return statement, hisat_fq
     
     # post-processing for pipeline_preprocess
-    def postProcessPP(self):
+    def post_process_pp(self):
         # rename hisat outputs to end in fastq.1.gz notation (if paired end)
-        postprocess_statement, hisat_fq = self.postProcess()
+        postprocess_statement, hisat_fq = self.post_process()
 
         # add fastq3 to dictionary
         unmapped_fq3 = self.outfile.replace(self.prefixstrip,
@@ -703,7 +703,7 @@ class Hisat2(Utility.BaseTool):
         return statement
     
     # method to read hisat summary file to dictionary
-    def readHisatSummary(self, summary_file):
+    def read_hisat_summary(self, summary_file):
         summary_dict = {}    
         with open(summary_file, "r") as file:
             for line in file:
@@ -719,10 +719,10 @@ class Hisat2(Utility.BaseTool):
         return summary_dict
 
     # method to merge sample hisat summaries into one table    
-    def mergeHisatSummary(self, summary_files, merged_summary):
+    def merge_hisat_summary(self, summary_files, merged_summary):
         summary = {}
         for summary_file in summary_files:
-                entry = self.readHisatSummary(summary_file)
+                entry = self.read_hisat_summary(summary_file)
                 summary[summary_file] = entry
         
         # merged summary file samples in rows summary in columns
@@ -738,8 +738,8 @@ class Hisat2(Utility.BaseTool):
 
     # wrapper method for running hisat in pipelines
     def hisat2bam(self, fastn_obj):
-        hisat_statement = self.hisatStatement(fastn_obj)
-        h2bam_statement = self.sam2bamStatement()
+        hisat_statement = self.hisat_statement(fastn_obj)
+        h2bam_statement = self.sam2bam_statement()
         statements = [hisat_statement, h2bam_statement]
         statement = " && ".join(statements)
         
@@ -758,7 +758,7 @@ class Hisat2(Utility.BaseTool):
         return statement
     
     # remove bam files when running hisat in pipeline_proeprocess
-    def cleanPP(self, outfile):
+    def clean_pp(self, outfile):
         # initialize log file
         open(outfile, "w").close()
 
@@ -777,7 +777,7 @@ class Hisat2(Utility.BaseTool):
     
 class Bbtools(Utility.BaseTool):
 
-    def buildStatement(self, fastn_obj):
+    def build_statement(self, fastn_obj):
         '''Either softmask low complexity regions, or remove reads with a large
         proportion of low complexity. 
 
@@ -898,7 +898,7 @@ class Bbtools(Utility.BaseTool):
 
         return statement
     
-    def postProcess(self, fastn_obj):
+    def post_process(self, fastn_obj):
         sample_out = P.snip(self.outfile, fastn_obj.fn1_suffix)
         fastq1 = fastn_obj.fastn1
         fastq2 = fastn_obj.fastn2
@@ -935,7 +935,7 @@ class Bbtools(Utility.BaseTool):
             os.rename(out_disc1, od1)
 
 
-def summariseReadCounts(infiles, outfile):
+def summarise_read_counts(infiles, outfile):
     with IOTools.open_file(outfile, 'w') as outf:
         outf.write("sample_id\tinput_reads\toutput_reads\tduplicates\t"
                    "adapter_contamination\trRNA\thost\tlow_complexity\t"

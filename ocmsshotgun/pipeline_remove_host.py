@@ -74,7 +74,7 @@ def alignAndRemoveHost(infile,outfile):
     # bmtagger - aligns with srprism
     if PARAMS['host_tool']  == 'bmtagger':
         tool = PP.Bmtagger(infile, outfile, **PARAMS)
-        statements, tmpfiles = tool.buildStatement(Utility.MetaFastn(infile))
+        statements, tmpfiles = tool.build_statement(Utility.MetaFastn(infile))
 
         # one statement for each host genome specified
         for statement in statements:
@@ -83,7 +83,7 @@ def alignAndRemoveHost(infile,outfile):
                 job_memory=PARAMS['bmtagger_job_memory'],
                 job_options=PARAMS.get('bmtagger_job_options',''))
         
-        statement, to_unlink  = tool.postProcess(Utility.MetaFastn(infile), tmpfiles)
+        statement, to_unlink  = tool.post_process(Utility.MetaFastn(infile), tmpfiles)
         P.run(statement)
         for f in to_unlink:
             os.unlink(f)
@@ -100,7 +100,7 @@ def alignAndRemoveHost(infile,outfile):
             job_memory = PARAMS["hisat2_job_memory"])
         
         # clean up sam files and hisat outputs
-        statement = tool.postProcessPP()
+        statement = tool.post_process_pp()
         P.run(statement, without_cluster=True)
 
 @active_if(PARAMS['host_tool'] == 'hisat')
@@ -114,14 +114,14 @@ def mergeHisatSummary(infiles, outfile):
         log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
         logs.append(log)
     tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
-    tool.mergeHisatSummary(logs, outfile)
+    tool.merge_hisat_summary(logs, outfile)
 
 @active_if(PARAMS['host_tool'] == 'hisat')
 @merge(alignAndRemoveHost,
        "reads_hostRemoved.dir/clean_up.log")
 def cleanHisat(infiles, outfile):
     tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
-    statement = tool.cleanPP(outfile)
+    statement = tool.clean_pp(outfile)
 
     P.run(statement, without_cluster=True)
 

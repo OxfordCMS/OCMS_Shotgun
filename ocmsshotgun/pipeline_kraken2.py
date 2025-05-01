@@ -85,7 +85,7 @@ def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
     tool = K.Kraken2(infile, outfile, **PARAMS)
-    statement = tool.buildStatement(Utility.MetaFastn(infile))
+    statement = tool.build_statement(Utility.MetaFastn(infile))
     
     P.run(statement,
           job_threads = PARAMS["kraken2_job_threads"],
@@ -110,7 +110,7 @@ def runBracken(infile, outfile):
     convert read classifications into abundance with Bracken
     '''
     tool = K.Bracken(infile, outfile, **PARAMS)
-    statement = tool.buildStatement()
+    statement = tool.build_statement()
 
     P.run(statement,
           job_threads = PARAMS["bracken_job_threads"],
