@@ -11,50 +11,38 @@ from ruffus import *
 # Load options from the config file
 PARAMS = P.get_parameters("pipeline.yml")
 
-FASTQS = glob.glob(os.path.join(PARAMS['fastq_input_dir'], "*.fastq"))
+FASTAS= glob.glob(os.path.join(PARAMS['fasta_input_dir'], "*.fasta"))
 
-# Decompress and rename to *_1.fastq or *_2.fastq
-#@transform(
-#    FASTQS,
-#    regex(r".*/(.+)\.fastq\.(\d)\.gz"),
-#    r"fastq_prepped_for_metawrap.dir/\1_\2.fastq"
-#)
-#def decompress_and_rename_fastq(infile, outfile):
-#    if not os.path.exists(os.path.dirname(outfile)):
-#        os.makedirs(os.path.dirname(outfile))  
-#    print(f"Decompressing {infile} to {outfile}")
-    
-#    with gzip.open(infile, "rt") as fin, open(outfile, "wt") as fout:
-#        shutil.copyfileobj(fin, fout)
-
-
-#@collate(
-#    decompress_and_rename_fastq,
-#    regex(r".*/(.+)_\d\.fastq"),
-#    r"metawrap_binning.dir/\1"
-#)
 @collate(
-    FASTQS,
-    regex(r".*/(.+)_\d\.fastq$"),
+    FASTAS,
+    regex(r".*/(.+)_corrected\.(megahit|spades)\.contigs\.fasta$"),
     r"metawrap_binning.dir/\1"
 )
 
 def runMetawrapBinning(infiles, outfile):
-    sample = re.sub(r"_\d\.fastq$", "", os.path.basename(infiles[0]))
+    sample = re.sub(r"_corrected\.(megahit|spades)\.contigs\.fasta$", "", os.path.basename(infiles[0]))
 
-    # Handle pooled or unpooled
     if PARAMS["is_pooled"]:
-        # Pooled mode: run once using all FASTQs - skip remaining task calls
-        first_sample = os.path.basename(infiles[0]).rsplit("_", 1)[0]
-        if sample != first_sample:
-            return
+        fasta_file = infiles[0]  # only one pooled fasta file expected
+        # Correctly ordered fastqs
+        fastq_1_files = sorted(glob.glob(os.path.join(PARAMS["fastq_input_dir"], "*_1.fastq")))
+        fastq_args_list = []
 
-        fasta_file = f"{PARAMS['fasta_input_dir']}/*.fasta"
-        fastq_args = f"{PARAMS['fastq_prepped_dir']}/*_[12].fastq"
+        for fwd in fastq_1_files:
+            rev = re.sub(r'_1\.fastq$', '_2.fastq', fwd)
+            if os.path.exists(rev):
+                fastq_args_list.extend([fwd, rev])
+            else:
+                raise FileNotFoundError(f"Missing reverse pair for {fwd}")
+
+        fastq_args = " ".join(fastq_args_list)
         outdir = "metawrap_binning.dir/pooled"
     else:
-        fasta_file = f"{PARAMS['fasta_input_dir']}/{sample}_corrected.spades.contigs.fasta"
-        fastq_args = " ".join(infiles)  
+    
+        fasta_file = infiles[0]
+        fastq_1 = os.path.join(PARAMS["fastq_input_dir"], f"{sample}_1.fastq")
+        fastq_2 = os.path.join(PARAMS["fastq_input_dir"], f"{sample}_2.fastq")
+        fastq_args = f"{fastq_1} {fastq_2}"
         outdir = outfile
 
     threads = PARAMS["threads"]
@@ -82,7 +70,12 @@ def runMetawrapBinning(infiles, outfile):
 
     P.run(statement,
           job_threads=threads,
-          job_memory=PARAMS["job_memory"])
+          job_memory=PARAMS["job_memory"],
+          fasta_file=fasta_file,
+          fastq_args=fastq_args,
+          outdir=outdir,
+          threads=threads,
+          out_log=out_log)
 
 
 def main(argv=None):
