@@ -247,9 +247,9 @@ def alignAndRemoveHost(infile,outfile):
 def mergeHisatSummary(infiles, outfile):
    # hisat summary logs
     logs = []
-    for fq in infiles:
-        fq_class = Utility.metaFastn(fq)
-        log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
+    for fn in infiles:
+        fastn_obj = Utility.MetaFastn(fn)
+        log = fn.replace(f"_dehost{fastn_obj.fn1_suffix}", "_hisat2_summary.log")
         logs.append(log)
     tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
     tool.merge_hisat_summary(logs, outfile)

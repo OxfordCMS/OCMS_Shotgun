@@ -77,9 +77,9 @@ def runHisat2(infile, outfile):
 def mergeHisatSummary(infiles, outfile):
     # hisat summary logs
     logs = []
-    for fq in infiles:
-        fq_class = Utility.MetaFastn(fq, outfile, **PARAMS)
-        log = fq.replace(f"_unmapped{fq_class.fq1_suffix}", "_hisat2_summary.log")
+    for fn in infiles:
+        fastn_obj = Utility.MetaFastn(fn)
+        log = fn.replace(f"_unmapped{fastn_obj.fn1_suffix}", "_hisat2_summary.log")
         logs.append(log)
     
     # merging done locally

@@ -55,18 +55,12 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 indir = PARAMS.get('general_input.dir', 'input.dir')
 FASTQ1S = Utility.get_fastns(indir)
 
-# forcing input.dir as input source because of filterMapping add_input.
-# looking for a more flexible way of interacting with add_input
-assert indir == 'input.dir', (
-    "Input files need to be in input.dir."
-)
 ################################################################################
 # remove host sequences with bmtagger or hisat
 ################################################################################
 @follows(mkdir('reads_hostRemoved.dir'))
-@follows(removeRibosomalRNA)
-@transform(removeRibosomalRNA,
-           regex(r'reads_rrnaRemoved.dir/(\S+)_rRNAremoved.fastq.1.gz$'),
+@transform(FASTQ1S,
+           regex(fr'{indir}/(\S+)_rRNAremoved.fastq.1.gz$'),
            r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
 def alignAndRemoveHost(infile,outfile): 
     '''Align and remove host sequences with bmtagger or HISAT2
@@ -94,7 +88,6 @@ def alignAndRemoveHost(infile,outfile):
 
         statement = tool.hisat2bam(Utility.MetaFastn(infile))
         
-        statement = " ; ".join(statement)
         P.run(statement,
             job_threads = PARAMS["hisat2_job_threads"],
             job_memory = PARAMS["hisat2_job_memory"])
@@ -109,9 +102,9 @@ def alignAndRemoveHost(infile,outfile):
 def mergeHisatSummary(infiles, outfile):
    # hisat summary logs
     logs = []
-    for fq in infiles:
-        fq_class = Utility.MetaFastn(fq)
-        log = fq.replace(f"_dehost{fq_class.fq1_suffix}", "_hisat2_summary.log")
+    for fn in infiles:
+        fastn_obj = Utility.MetaFastn(fn)
+        log = fn.replace(f"_dehost{fastn_obj.fn1_suffix}", "_hisat2_summary.log")
         logs.append(log)
     tool = PP.Hisat2(infiles[0], outfile, **PARAMS)
     tool.merge_hisat_summary(logs, outfile)
