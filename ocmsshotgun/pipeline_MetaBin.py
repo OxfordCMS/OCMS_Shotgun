@@ -45,8 +45,10 @@ def runMetawrapBinning(infiles, outfile):
         fastq_args = f"{fastq_1} {fastq_2}"
         outdir = outfile
 
+    
     threads = PARAMS["threads"]
-
+    binning_tools = PARAMS["binning_tools"]
+    
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
@@ -58,14 +60,14 @@ def runMetawrapBinning(infiles, outfile):
     statement = ("module purge && "
                   "module load metaWRAP/1.4-20230728-foss-2023a-Python-2.7.18 && "
                   "mkdir -p %(outdir)s && "
-                  "metawrap binning"
-                  " -o %(outdir)s"
-                  " -t %(threads)s"
-                  " -a %(fasta_file)s"
-                  " --metabat2 --maxbin2 --concoct"
-                  " %(fastq_args)s"
-                  " --run-checkm"
-                  " &> %(out_log)s"
+                  "metawrap binning "
+                  " -o %(outdir)s "
+                  " -t %(threads)s "
+                  " -a %(fasta_file)s "
+                  " %(binning_tools)s "
+                  " %(fastq_args)s "
+                  " --run-checkm "
+                  " &> %(out_log)s "
                   )
 
     P.run(statement,
@@ -74,6 +76,7 @@ def runMetawrapBinning(infiles, outfile):
           fasta_file=fasta_file,
           fastq_args=fastq_args,
           outdir=outdir,
+          binning_tools= binning_tools,
           threads=threads,
           out_log=out_log)
 
