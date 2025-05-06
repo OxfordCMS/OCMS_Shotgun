@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/276910883.svg)](https://doi.org/10.5281/zenodo.15017011)
 # OCMS pipelines for shotgun metagenomic data analysis
 This repository contains a series of pipelines used for processing shotgun metagenomic data. Pipelines are written within the [CGAT framework](https://github.com/cgat-developers/cgat-core). OMCS_Shotgun has a command line interface, and can be installed and executed as a stand alone command line tool. OCMS_Shotgun is primarily written for usage within the OCMS on our HPC system, however, it can be used on other HPC systems, or used locally.
 
