@@ -17,8 +17,10 @@ BINNING_OUTPUTS = glob.glob(os.path.join(PARAMS['bins_dir'],'*'))
 )
 def runMetawrapBinRefinement(infiles, outfile):
     sample = os.path.basename(outfile)
-
-    bins_base = os.path.join(PARAMS["bins_dir"], sample)
+    
+    # Determine where to look for binning tool outputs
+    bins_base = os.path.join(PARAMS["bins_dir"], "pooled") if PARAMS["is_pooled"] else os.path.join(PARAMS["bins_dir"], sample)
+    
     outdir = f"metawrap_bin_refinement.dir/{sample}"
         
     if PARAMS["is_pooled"]:
@@ -46,21 +48,24 @@ def runMetawrapBinRefinement(infiles, outfile):
         # Add more tools and subdirs as needed
     }
 
-    # Validate number of tools
+     # Validate existence of specified tools' directories
+    for tool in binning_tools:
+        if tool not in tool_subdirs:
+            raise ValueError(f"Unknown binning tool specified in YAML: {tool}")
+        bin_dir = os.path.join(bins_base, tool_subdirs[tool])
+        if not os.path.isdir(bin_dir):
+            raise FileNotFoundError(f"Expected directory for tool '{tool}' not found: {bin_dir}")   
+    
+    # Ensure at least 2 tolls are present
     if not (2 <= len(binning_tools) <= 3):
         raise ValueError("MetaWRAP bin_refinement requires 2 or 3 binning tool outputs.")
 
-    # Fixed flag order
+    # Assign to Metawrap flags in order
     metawrap_flags = ["-A", "-B", "-C"]
     bin_args = []
 
     for flag, tool in zip(metawrap_flags, binning_tools):
-        if tool not in tool_subdirs:
-            raise ValueError(f"Unknown binning tool: {tool}")
-        subdir = tool_subdirs[tool]
-        bin_dir = os.path.join(bins_base, subdir)
-        if not os.path.isdir(bin_dir):
-            raise FileNotFoundError(f"Bin directory for tool '{tool}' not found: {bin_dir}")
+        bin_dir = os.path.join(bins_base, tool_subdirs[tool])
         bin_args.append(f"{flag} {bin_dir}")
 
     bin_args_str = " ".join(bin_args)
