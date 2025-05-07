@@ -27,16 +27,43 @@ def runMetawrapBinRefinement(infiles, outfile):
         if sample != first_sample:
             return
 
-    metabat_dir = os.path.join(bins_base, "metabat2_bins")
-    maxbin_dir = os.path.join(bins_base, "maxbin2_bins")
-    concoct_dir = os.path.join(bins_base, "concoct_bins")
-
     threads = PARAMS["binrefinement"]["threads"]
     job_memory = PARAMS["binrefinement"]["job_memory"]
     completeness = PARAMS["binrefinement"]["completeness"]
     contamination = PARAMS["binrefinement"]["contamination"]
    
     log_file = os.path.join(outdir, "bin_refinement.log")
+
+    # User-specified binning tools
+    binning_tools = PARAMS.get("binning_tools", [])
+
+    # Map tool names to subdirectory names
+    tool_subdirs = {
+        "metabat2": "metabat2_bins",
+        "maxbin2": "maxbin2_bins",
+        "concoct": "concoct_bins",
+        "vamb": "vamb_bins"
+        # Add more tools and subdirs as needed
+    }
+
+    # Validate number of tools
+    if not (2 <= len(binning_tools) <= 3):
+        raise ValueError("MetaWRAP bin_refinement requires 2 or 3 binning tool outputs.")
+
+    # Fixed flag order
+    metawrap_flags = ["-A", "-B", "-C"]
+    bin_args = []
+
+    for flag, tool in zip(metawrap_flags, binning_tools):
+        if tool not in tool_subdirs:
+            raise ValueError(f"Unknown binning tool: {tool}")
+        subdir = tool_subdirs[tool]
+        bin_dir = os.path.join(bins_base, subdir)
+        if not os.path.isdir(bin_dir):
+            raise FileNotFoundError(f"Bin directory for tool '{tool}' not found: {bin_dir}")
+        bin_args.append(f"{flag} {bin_dir}")
+
+    bin_args_str = " ".join(bin_args)
 
     statement = (
         "module purge && "
@@ -45,9 +72,7 @@ def runMetawrapBinRefinement(infiles, outfile):
         "metawrap bin_refinement "
         "-o {outdir} "
         "-t {threads} "
-        "-A {metabat_dir} "
-        "-B {maxbin_dir} "
-        "-C {concoct_dir} "
+        "{bin_args_str} "
         "-c {completeness} -x {contamination} "
         "> {log_file} 2>&1"
         ).format(**locals())
