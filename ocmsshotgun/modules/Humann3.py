@@ -12,23 +12,31 @@ class Humann3(Utility.BaseTool):
     '''
     def __init__(self, infile, outfile, taxonomic_profile=None, **PARAMS):
         super().__init__(infile, outfile, **PARAMS)
-        self.prefix = P.snip(self.outfile, '_pathcoverage.tsv.gz', strip_path=True)
+
         self.taxonomic_profile = taxonomic_profile
+
+        # input is always fasta or fastq so can use the prefix
+        # from that object
+        self.prefix = Utility.MetaFastn(infile).prefix
 
     def concat_fastqs(self, fastn_obj):
         '''
-        Method to concatenate fastq files
+        Method to concatenate fastq files - symlink if there is
+        no paired one
         '''
-        fastqs = [fastn_obj.fastn1, fastn_obj.fastn2, fastn_obj.fastn3]
-        fastqs = [x for x in fastqs if os.path.exists(x)]
-        
-        if len(fastqs) == 1:
-            Utility.relink(self.infile, self.outfile)
+        if not fastn_obj.fastn2:
+            statement = f"ln -s {self.infile} {self.outfile}"
         else:
+            fastqs = [fastn_obj.fastn1, fastn_obj.fastn2, fastn_obj.fastn3]
+            fastqs = [x for x in fastqs if os.path.exists(x)]
             fastqs = ' '.join(fastqs)
             statement = f"cat {fastqs} > {self.outfile}"
-        
+        return(statement)
+            
     def build_statement(self, fastn_obj):
+        '''
+        build statement for executing humann3
+        '''
         db_metaphlan_path = self.PARAMS["humann3_db_metaphlan_path"]
         db_metaphlan_id = self.PARAMS["humann3_db_metaphlan_id"]
         db_nucleotide = self.PARAMS["humann3_db_nucleotide"]
@@ -40,14 +48,15 @@ class Humann3(Utility.BaseTool):
         # make sure system requreiments not set outside of 
         # job_options and job_memory
         assert "--threads" not in options, (
-            "Humann3 multi-threading is set with job_memory and job_threads"
+            "Do not set --threads: Humann3 multi-threading is already set with job_memory and job_threads"
         )
         
         # the option to add a taxonomic profile for restricting mapping
         if self.taxonomic_profile:
             options = '--taxonomic-profile %s' % self.taxonomic_profile \
                 + ' ' + options
-        
+
+        #prefix = fastn_obj.prefix
         statement = ("humann"
                      f" --input {fastn_obj.fastn1}"
                      f" --output {self.outdir}"
@@ -62,6 +71,7 @@ class Humann3(Utility.BaseTool):
         return statement
 
     def post_process(self):
+
         if self.taxonomic_profile:
             options = ""
         else:

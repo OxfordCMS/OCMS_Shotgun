@@ -97,7 +97,7 @@ def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
 
     tool = H.Humann3(infile, outfile, **PARAMS)
-    statement = tool.concat_fastq(Utility.MetaFastn(infile))
+    statement = tool.concat_fastqs(Utility.MetaFastn(infile))
     P.run(statement)
     
 ###############################################################################
@@ -146,7 +146,7 @@ def poolTranscriptomeFastqs(infile, outfile):
     os.mkdir(outdir)
     
     tool = H.Humann3(infile, outfile, **PARAMS)
-    statement = tool.concat_fastq(Utilily.MetaFastn(infile))
+    statement = tool.concat_fastqs(Utilily.MetaFastn(infile))
     P.run(statement)
  
 
