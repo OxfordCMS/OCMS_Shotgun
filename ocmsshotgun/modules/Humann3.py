@@ -12,23 +12,27 @@ class Humann3(Utility.BaseTool):
     '''
     def __init__(self, infile, outfile, taxonomic_profile=None, **PARAMS):
         super().__init__(infile, outfile, **PARAMS)
-        self.prefix = P.snip(self.outfile, '_pathcoverage.tsv.gz', strip_path=True)
+
         self.taxonomic_profile = taxonomic_profile
 
     def concat_fastqs(self, fastn_obj):
         '''
-        Method to concatenate fastq files
+        Method to concatenate fastq files - symlink if there is
+        no paired one
         '''
-        fastqs = [fastn_obj.fastn1, fastn_obj.fastn2, fastn_obj.fastn3]
-        fastqs = [x for x in fastqs if os.path.exists(x)]
-        
-        if len(fastqs) == 1:
-            Utility.relink(self.infile, self.outfile)
+        if not fastn_obj.fastn2:
+            statement = f"ln -s {self.infile} {self.outfile}"
         else:
+            fastqs = [fastn_obj.fastn1, fastn_obj.fastn2, fastn_obj.fastn3]
+            fastqs = [x for x in fastqs if os.path.exists(x)]
             fastqs = ' '.join(fastqs)
             statement = f"cat {fastqs} > {self.outfile}"
-        
+        return(statement)
+            
     def build_statement(self, fastn_obj):
+        '''
+        build statement for executing humann3
+        '''
         db_metaphlan_path = self.PARAMS["humann3_db_metaphlan_path"]
         db_metaphlan_id = self.PARAMS["humann3_db_metaphlan_id"]
         db_nucleotide = self.PARAMS["humann3_db_nucleotide"]
@@ -40,14 +44,15 @@ class Humann3(Utility.BaseTool):
         # make sure system requreiments not set outside of 
         # job_options and job_memory
         assert "--threads" not in options, (
-            "Humann3 multi-threading is set with job_memory and job_threads"
+            "Do not set --threads: Humann3 multi-threading is already set with job_memory and job_threads"
         )
         
         # the option to add a taxonomic profile for restricting mapping
         if self.taxonomic_profile:
             options = '--taxonomic-profile %s' % self.taxonomic_profile \
                 + ' ' + options
-        
+
+        #prefix = fastn_obj.prefix
         statement = ("humann"
                      f" --input {fastn_obj.fastn1}"
                      f" --output {self.outdir}"
@@ -57,27 +62,29 @@ class Humann3(Utility.BaseTool):
                      f" --threads {threads}"
                      f" --metaphlan-options  \"--index {db_metaphlan_id}"
                      f" --bowtie2db={db_metaphlan_path}\""
-                     f" {options} 2> {self.outdir}/{self.prefix}.log")
+                     f" {options} 2> {self.outdir}/{fastn_obj.prefix}.log")
         
         return statement
 
     def post_process(self):
+
+        prefix = P.snip(os.path.basename(self.outfile), '_pathcoverage.tsv.gz')
         if self.taxonomic_profile:
             options = ""
         else:
-            metaphlan_bugs_list = (f"{self.outdir}/{self.prefix}_humann_temp/"
-                                   f"{self.prefix}_metaphlan_bugs_list.tsv")
+            metaphlan_bugs_list = (f"{self.outdir}/{prefix}_humann_temp/"
+                                   f"{prefix}_metaphlan_bugs_list.tsv")
             options = (f" gzip {metaphlan_bugs_list} &&"
                        f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
         
-        humann_log = (f"{self.outdir}/{self.prefix}_humann_temp/"
-                      f"{self.prefix}.log")
-        humann_tmp = f"{self.outdir}/{self.prefix}_humann_temp"
+        humann_log = (f"{self.outdir}/{prefix}_humann_temp/"
+                      f"{prefix}.log")
+        humann_tmp = f"{self.outdir}/{prefix}_humann_temp"
         statement =  (
             f"mv {humann_log} {self.outdir} &&"
-            f" gzip {self.outdir}/{self.prefix}_pathcoverage.tsv &&"
-            f" gzip {self.outdir}/{self.prefix}_pathabundance.tsv &&" 
-            f" gzip {self.outdir}/{self.prefix}_genefamilies.tsv &&"
+            f" gzip {self.outdir}/{prefix}_pathcoverage.tsv &&"
+            f" gzip {self.outdir}/{prefix}_pathabundance.tsv &&" 
+            f" gzip {self.outdir}/{prefix}_genefamilies.tsv &&"
             f" {options}"
             f" tar -zcvf {humann_tmp}.tar.gz {humann_tmp} &&"
             f" rm -rf {humann_tmp}"
