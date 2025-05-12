@@ -17,7 +17,7 @@ class Humann3(Utility.BaseTool):
 
         # input is always fasta or fastq so can use the prefix
         # from that object
-        self.prefix = Utility.MetaFastn(infile).prefix
+        fastn_obj.prefix = Utility.MetaFastn(infile).prefix
 
     def concat_fastqs(self, fastn_obj):
         '''
@@ -66,7 +66,7 @@ class Humann3(Utility.BaseTool):
                      f" --threads {threads}"
                      f" --metaphlan-options  \"--index {db_metaphlan_id}"
                      f" --bowtie2db={db_metaphlan_path}\""
-                     f" {options} 2> {self.outdir}/{self.prefix}.log")
+                     f" {options} 2> {self.outdir}/{fastn_obj.prefix}.log")
         
         return statement
 
@@ -75,19 +75,19 @@ class Humann3(Utility.BaseTool):
         if self.taxonomic_profile:
             options = ""
         else:
-            metaphlan_bugs_list = (f"{self.outdir}/{self.prefix}_humann_temp/"
-                                   f"{self.prefix}_metaphlan_bugs_list.tsv")
+            metaphlan_bugs_list = (f"{self.outdir}/{fastn_obj.prefix}_humann_temp/"
+                                   f"{fastn_obj.prefix}_metaphlan_bugs_list.tsv")
             options = (f" gzip {metaphlan_bugs_list} &&"
                        f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
         
-        humann_log = (f"{self.outdir}/{self.prefix}_humann_temp/"
-                      f"{self.prefix}.log")
-        humann_tmp = f"{self.outdir}/{self.prefix}_humann_temp"
+        humann_log = (f"{self.outdir}/{fastn_obj.prefix}_humann_temp/"
+                      f"{fastn_obj.prefix}.log")
+        humann_tmp = f"{self.outdir}/{fastn_obj.prefix}_humann_temp"
         statement =  (
             f"mv {humann_log} {self.outdir} &&"
-            f" gzip {self.outdir}/{self.prefix}_pathcoverage.tsv &&"
-            f" gzip {self.outdir}/{self.prefix}_pathabundance.tsv &&" 
-            f" gzip {self.outdir}/{self.prefix}_genefamilies.tsv &&"
+            f" gzip {self.outdir}/{fastn_obj.prefix}_pathcoverage.tsv &&"
+            f" gzip {self.outdir}/{fastn_obj.prefix}_pathabundance.tsv &&" 
+            f" gzip {self.outdir}/{fastn_obj.prefix}_genefamilies.tsv &&"
             f" {options}"
             f" tar -zcvf {humann_tmp}.tar.gz {humann_tmp} &&"
             f" rm -rf {humann_tmp}"
