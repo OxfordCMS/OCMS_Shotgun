@@ -15,10 +15,6 @@ class Humann3(Utility.BaseTool):
 
         self.taxonomic_profile = taxonomic_profile
 
-        # input is always fasta or fastq so can use the prefix
-        # from that object
-        fastn_obj.prefix = Utility.MetaFastn(infile).prefix
-
     def concat_fastqs(self, fastn_obj):
         '''
         Method to concatenate fastq files - symlink if there is
@@ -72,22 +68,23 @@ class Humann3(Utility.BaseTool):
 
     def post_process(self):
 
+        prefix = P.snip(self.outfile, '_pathcoverage.tsv.gz')
         if self.taxonomic_profile:
             options = ""
         else:
-            metaphlan_bugs_list = (f"{self.outdir}/{fastn_obj.prefix}_humann_temp/"
-                                   f"{fastn_obj.prefix}_metaphlan_bugs_list.tsv")
+            metaphlan_bugs_list = (f"{self.outdir}/{prefix}_humann_temp/"
+                                   f"{prefix}_metaphlan_bugs_list.tsv")
             options = (f" gzip {metaphlan_bugs_list} &&"
                        f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
         
-        humann_log = (f"{self.outdir}/{fastn_obj.prefix}_humann_temp/"
-                      f"{fastn_obj.prefix}.log")
-        humann_tmp = f"{self.outdir}/{fastn_obj.prefix}_humann_temp"
+        humann_log = (f"{self.outdir}/{prefix}_humann_temp/"
+                      f"{prefix}.log")
+        humann_tmp = f"{self.outdir}/{prefix}_humann_temp"
         statement =  (
             f"mv {humann_log} {self.outdir} &&"
-            f" gzip {self.outdir}/{fastn_obj.prefix}_pathcoverage.tsv &&"
-            f" gzip {self.outdir}/{fastn_obj.prefix}_pathabundance.tsv &&" 
-            f" gzip {self.outdir}/{fastn_obj.prefix}_genefamilies.tsv &&"
+            f" gzip {self.outdir}/{prefix}_pathcoverage.tsv &&"
+            f" gzip {self.outdir}/{prefix}_pathabundance.tsv &&" 
+            f" gzip {self.outdir}/{prefix}_genefamilies.tsv &&"
             f" {options}"
             f" tar -zcvf {humann_tmp}.tar.gz {humann_tmp} &&"
             f" rm -rf {humann_tmp}"
