@@ -68,7 +68,7 @@ class Humann3(Utility.BaseTool):
 
     def post_process(self):
 
-        prefix = P.snip(self.outfile, '_pathcoverage.tsv.gz')
+        prefix = P.snip(os.path.basename(self.outfile), '_pathcoverage.tsv.gz')
         if self.taxonomic_profile:
             options = ""
         else:
