@@ -14,6 +14,12 @@ class Humann3(Utility.BaseTool):
         super().__init__(infile, outfile, **PARAMS)
 
         self.taxonomic_profile = taxonomic_profile
+        self.humann_version = self.PARAMS["humann3"].get("humann_version")
+        self.metaphlan_version = self.PARAMS["humann3"].get("metaphlan_version")
+        
+        # Sanity check: ensure compatible versions since humann_version: "3.8" is not compatible with MetaPhlAn v4
+        if self.metaphlan_version == "4" and self.humann_version != "3.9":
+            raise ValueError("MetaPhlAn v4 is only supported with HUMAnN 3.9+. Please update your pipeline.yml accordingly.")
 
     def concat_fastqs(self, fastn_obj):
         '''
