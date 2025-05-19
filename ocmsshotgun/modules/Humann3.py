@@ -83,7 +83,7 @@ class Humann3(Utility.BaseTool):
                                    f"{prefix}_metaphlan_bugs_list.tsv")
 
             # get metaphlan version from YAML
-            metaphlan_version = self.PARAMS.get("humann3_metaphlan_version", "3")
+            metaphlan_version = self.PARAMS.get("humann3", {}).get("metaphlan_version", "3")
 
             if metaphlan_version == "4":
                 version_string = "#version: metaphlan 4.0.6"
