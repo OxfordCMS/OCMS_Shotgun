@@ -45,6 +45,7 @@ class Humann3(Utility.BaseTool):
         db_protein = self.PARAMS['humann3_db_protein']
         search_mode = self.PARAMS['humann3_search_mode']
         options = self.PARAMS["humann3_options"]
+        metaphlan_exta_options = self.PARAMS['humann3_metaphlan_exta_options']
         threads = self.PARAMS["humann3_job_threads"]
 
         # make sure system requreiments not set outside of 
@@ -66,7 +67,7 @@ class Humann3(Utility.BaseTool):
                      f" --protein-database {db_protein}"
                      f" --search-mode {search_mode}"
                      f" --threads {threads}"
-                     f" --metaphlan-options  \"--index {db_metaphlan_id}"
+                     f" --metaphlan-options  \"--index {db_metaphlan_id} {metaphlan_exta_options}"
                      f" --bowtie2db={db_metaphlan_path}\""
                      f" {options} 2> {self.outdir}/{fastn_obj.prefix}.log")
         
@@ -80,9 +81,23 @@ class Humann3(Utility.BaseTool):
         else:
             metaphlan_bugs_list = (f"{self.outdir}/{prefix}_humann_temp/"
                                    f"{prefix}_metaphlan_bugs_list.tsv")
-            options = (f" gzip {metaphlan_bugs_list} &&"
-                       f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
+
+            # get metaphlan version from YAML
+            metaphlan_version = self.PARAMS.get("humann3_metaphlan_version", "3")
+
+            if metaphlan_version == "4":
+                version_string = "#version: metaphlan 4.0.6"
+                options = (
+                    f" sed -i '2i{version_string}' {metaphlan_bugs_list} &&"
+                    f" gzip {metaphlan_bugs_list} &&"
+                    f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
         
+            else:
+                options = (
+                    f" gzip {metaphlan_bugs_list} &&"
+                    f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
+
+
         humann_log = (f"{self.outdir}/{prefix}_humann_temp/"
                       f"{prefix}.log")
         humann_tmp = f"{self.outdir}/{prefix}_humann_temp"
