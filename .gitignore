@@ -5,4 +5,26 @@ build/
 dist/
 ocms_shotgun.egg-info/
 __pycache__
+# Python bytecode
+*.pyc
+__pycache__/
+
+# Vim/Editor swap files
+*.swp
+*.swo
+*.swn
+
+# Hidden editor files
+.*.sw?
+
+# Backup files
+*~
+*.bak
+
+# Folders to ignore
+pipeline_meta_assembly/
+
+
+
+
 #*
