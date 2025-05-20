@@ -6,16 +6,14 @@ general:
     transcriptome: 
 
 humann3:
-    # version toggles
-    humann_version: "3.9"           # Set to "3.8" for older HUMAnN version
-    metaphlan_version: "4"          # Set to "3" for older MetaPhlAn version
-
+    
     # === DATABASE SETTINGS ===
     # For HUMAnN 3.9 and MetaPhlAn 4, use the following paths:
-    db_metaphlan_path: /gpfs3/well/kir/projects/mirror/microbiome/metaphlan/4.0.0
-    db_metaphlan_id: mpa_vJan21_CHOCOPhlAnSGB_202103
+    db_metaphlan_path: /well/kir-scratch/kir-ocms/metaphlan 
+    #/gpfs3/well/kir/projects/mirror/microbiome/metaphlan/4.0.0
+    db_metaphlan_id: mpa_vJun23_CHOCOPhlAnSGB_202403
     db_nucleotide: /gpfs3/well/kir/projects/mirror/humann3/v3.9/chocophlan
-    db_protein: /gpfs3/well/kir/projects/mirror/humann3/v3.9/uniref/uniref90
+    db_protein: /gpfs3/well/kir/projects/mirror/humann3/v3.9/uniref/
 
     # For HUMAnN 3.8 and MetaPhlAn 3, use the paths below instead:
     # db_metaphlan_path: /well/kir/mirror/metaphlan3/metaphlan_databases_3.1

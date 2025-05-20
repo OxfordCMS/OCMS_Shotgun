@@ -5,8 +5,6 @@ import os
 import ocmstoolkit.modules.Utility as Utility
 import subprocess
 import re
-import gzip
-import shutil
 
 class Humann3(Utility.BaseTool):
     '''
