@@ -3,7 +3,10 @@
 from cgatcore import pipeline as P
 import os
 import ocmstoolkit.modules.Utility as Utility
-
+import subprocess
+import re
+import gzip
+import shutil
 
 class Humann3(Utility.BaseTool):
     '''
@@ -21,7 +24,7 @@ class Humann3(Utility.BaseTool):
 
         # Sanity check
         if self.metaphlan_version.startswith("4") and self.humann_version != "3.9":
-            raise ValueError("MetaPhlAn v4 is only supported with HUMAnN 3.9+. Please update your HUMAnN version.")
+            raise ValueError("MetaPhlAn v4 is only supported with HUMAnN 3.9+.")
 
     def concat_fastqs(self, fastn_obj):
         '''
@@ -47,7 +50,6 @@ class Humann3(Utility.BaseTool):
         db_protein = self.PARAMS['humann3_db_protein']
         search_mode = self.PARAMS['humann3_search_mode']
         options = self.PARAMS["humann3_options"]
-        metaphlan_exta_options = self.PARAMS['humann3_metaphlan_exta_options']
         threads = self.PARAMS["humann3_job_threads"]
 
         # make sure system requreiments not set outside of 
@@ -69,7 +71,7 @@ class Humann3(Utility.BaseTool):
                      f" --protein-database {db_protein}"
                      f" --search-mode {search_mode}"
                      f" --threads {threads}"
-                     f" --metaphlan-options \"--index {db_metaphlan_id} {metaphlan_exta_options}"
+                     f" --metaphlan-options \"--index {db_metaphlan_id}"
                      f" --bowtie2db={db_metaphlan_path}\""
                      f" {options} 2> {self.outdir}/{fastn_obj.prefix}.log")
         
@@ -83,10 +85,8 @@ class Humann3(Utility.BaseTool):
         else:
             metaphlan_bugs_list = (f"{self.outdir}/{prefix}_humann_temp/"
                                    f"{prefix}_metaphlan_bugs_list.tsv")
-
-            options = (
-                f" gzip {metaphlan_bugs_list} &&"
-                f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
+            options = (f" gzip {metaphlan_bugs_list} &&"
+                       f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
 
         humann_log = (f"{self.outdir}/{prefix}_humann_temp/"
                       f"{prefix}.log")
@@ -107,8 +107,6 @@ class Humann3(Utility.BaseTool):
         return statement
 
     def detect_metaphlan_version(self):
-        import subprocess
-        import re
         try:
             result = subprocess.run(["metaphlan", "--version"], capture_output=True, text=True, check=True)
             match = re.search(r"MetaPhlAn version (\d+\.\d+\.\d+)", result.stdout)
@@ -117,8 +115,6 @@ class Humann3(Utility.BaseTool):
             return "unknown"
 
     def detect_humann_version(self):
-        import subprocess
-        import re
         try:
             result = subprocess.run(["humann", "--version"], capture_output=True, text=True, check=True)
             output = result.stdout + result.stderr  # combine both streams just in case
