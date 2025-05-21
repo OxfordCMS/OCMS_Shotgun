@@ -16,10 +16,10 @@ SEQUENCEFILES = ("*.fastq.1.gz")
 SEQUENCEFILES_REGEX = regex(
     r"(\S+).(fastq.1.gz)")
 
-@follows(mkdir("metaphlan.dir"))
+@follows(mkdir("metaphlan_relab.dir"))
 @transform(SEQUENCEFILES,
           SEQUENCEFILES_REGEX,
-          r"metaphlan.dir/\1.metaphlan_profile.txt")
+          r"metaphlan_relab.dir/\1.metaphlan_relab.profile.txt")
 def runMetaphlan(infile, outfile):
     read1 = infile
     read2 = infile.replace(".1.gz", ".2.gz")
@@ -57,52 +57,38 @@ def runMetaphlan(infile, outfile):
           job_options=PARAMS["metaphlan_cluster_options"])
 
 @follows(runMetaphlan)
-@merge(runMetaphlan, "metaphlan.dir/merged_abundance_table.txt")
+@merge(runMetaphlan, "metaphlan_relab.dir/merged_abundance_table.txt")
 def mergeMetaphlanTables(infiles, outfile):
     infiles_str = " ".join(infiles)
     
-    statement = '''merge_metaphlan_tables.py 
-                  {}
-                  > {}
-    '''.format(infiles_str, outfile)
+    statement = f"merge_metaphlan_tables.py {infiles_str} > {outfile}"
     
     P.run(statement)
 
-@follows(mkdir("species.dir"))
-@transform(mergeMetaphlanTables,
-          regex(r"metaphlan.dir/merged_abundance_table.txt"),
-          r"species.dir/species_abundance.txt")
-def extractSpeciesAbundance(infile, outfile):
-    statement = '''grep -E "s__|clade" {} | 
-                  grep "s__" | 
-                  sed 's/^.*s__//g' > {}
-    '''.format(infile, outfile)
-    
-    P.run(statement)
 
-@follows(mkdir("taxonomy.dir"))
+@follows(mkdir("taxonomy_relab.dir"))
 @transform(mergeMetaphlanTables,
-          regex(r"metaphlan.dir/merged_abundance_table.txt"),
-          [r"taxonomy.dir/kingdom.txt",
-           r"taxonomy.dir/phylum.txt",
-           r"taxonomy.dir/class.txt",
-           r"taxonomy.dir/order.txt",
-           r"taxonomy.dir/family.txt",
-           r"taxonomy.dir/genus.txt",
-           r"taxonomy.dir/species.txt",
-           r"taxonomy.dir/strain.txt"])
+          regex(r"metaphlan_relab.dir/merged_abundance_table.txt"),
+          [r"taxonomy_relab.dir/kingdom.txt",
+           r"taxonomy_relab.dir/phylum.txt",
+           r"taxonomy_relab.dir/class.txt",
+           r"taxonomy_relab.dir/order.txt",
+           r"taxonomy_relab.dir/family.txt",
+           r"taxonomy_relab.dir/genus.txt",
+           r"taxonomy_relab.dir/species.txt",
+           r"taxonomy_relab.dir/strain.txt"])
+
 def extractTaxonomyLevels(infile, outfiles):
-    levels = ['k__', 'p__', 'c__', 'o__', 'f__', 'g__', 's__','t__']
+    levels = ['k__', 'p__', 'c__', 'o__', 'f__', 'g__', 's__', 't__']
+
     for level, outfile in zip(levels, outfiles):
-        statement = '''grep -E "{level}|clade" {infile} | 
-                      grep "{level}" | 
-                      sed 's/^.*{level}//g' > {outfile}
-        '''.format(level=level, infile=infile, outfile=outfile)
-        
+        statement = (
+            f'(echo -e "$(head -n 2 {infile} | tail -n 1 | sed \'s/^clade_name/taxon/\')" && '
+            f'grep "{level}" {infile}) > {outfile}'
+        )
         P.run(statement)
 
-@follows(extractSpeciesAbundance,
-         extractTaxonomyLevels)
+@follows(extractTaxonomyLevels)
 def full():
     pass
 
