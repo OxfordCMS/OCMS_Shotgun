@@ -27,22 +27,26 @@ def runMetaphlan(infile, outfile):
     sample = os.path.basename(P.snip(infile, ".fastq.1.gz"))
     db_path = PARAMS["metaphlan_db"]  # Using the full path directly
     
-    statement = '''metaphlan {read1},{read2} 
-                  --input_type fastq 
-                  --bowtie2db {db_path}
-                  --nproc {threads}
-                  --index {db_ver}
-                  --bowtie2out metaphlan.dir/{sample}.bowtie2.bz2
-                  --tax_lev {tax_lev}
-                  -o {outfile}
-    '''.format(read1=read1,
-               read2=read2,
-               db_path=db_path,
-               db_ver=PARAMS["metaphlan_database_version"],
-               sample=sample,
-               threads=PARAMS["metaphlan_threads"],
-               tax_lev=PARAMS["metaphlan_tax_lev"],
-               outfile=outfile)
+    statement = (
+        "metaphlan {read1},{read2}" 
+        " --input_type fastq" 
+        " --bowtie2db {db_path}"
+        " --nproc {threads}"
+        " --index {db_ver}"
+        " --bowtie2out metaphlan.dir/{sample}.bowtie2.bz2"
+        " --tax_lev {tax_lev}"
+        " -t rel_ab_w_read_stats"
+        " -o {outfile}"
+    ).format(
+        read1=read1,
+        read2=read2,
+        db_path=db_path,
+        db_ver=PARAMS["metaphlan_database_version"],
+        sample=sample,
+        threads=PARAMS["metaphlan_threads"],
+        tax_lev=PARAMS["metaphlan_tax_lev"],
+        outfile=outfile
+    )
     
     if PARAMS["metaphlan_options"]:
         statement += ' ' + PARAMS["metaphlan_options"]
