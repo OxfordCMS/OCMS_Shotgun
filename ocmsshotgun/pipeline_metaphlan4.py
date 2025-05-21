@@ -94,9 +94,9 @@ def extractSpeciesAbundance(infile, outfile):
 def extractTaxonomyLevels(infile, outfiles):
     levels = ['k__', 'p__', 'c__', 'o__', 'f__', 'g__', 's__','t__']
     for level, outfile in zip(levels, outfiles):
-        statement = '''grep -E "{level}|clade" {} | 
+        statement = '''grep -E "{level}|clade" {infile} | 
                       grep "{level}" | 
-                      sed 's/^.*{level}//g' > {}
+                      sed 's/^.*{level}//g' > {outfile}
         '''.format(level=level, infile=infile, outfile=outfile)
         
         P.run(statement)
