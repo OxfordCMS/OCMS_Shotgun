@@ -6,7 +6,7 @@ general:
     transcriptome: 
 
 humann3:
-    
+    # database settings 
     db_metaphlan_path: /well/kir/mirror/metaphlan3/metaphlan_databases_3.1
     db_metaphlan_id: mpa_v31_CHOCOPhlAn_201901
     db_nucleotide: /well/kir/mirror/humann3/chocophlan
