@@ -7,19 +7,10 @@ general:
 
 humann3:
     
-    # === DATABASE SETTINGS ===
-    # For HUMAnN 3.9 and MetaPhlAn 4, use the following paths:
-    db_metaphlan_path: /well/kir-scratch/kir-ocms/metaphlan 
-    #/gpfs3/well/kir/projects/mirror/microbiome/metaphlan/4.0.0
-    db_metaphlan_id: mpa_vJun23_CHOCOPhlAnSGB_202403
-    db_nucleotide: /gpfs3/well/kir/projects/mirror/humann3/v3.9/chocophlan
-    db_protein: /gpfs3/well/kir/projects/mirror/humann3/v3.9/uniref/
-
-    # For HUMAnN 3.8 and MetaPhlAn 3, use the paths below instead:
-    # db_metaphlan_path: /well/kir/mirror/metaphlan3/metaphlan_databases_3.1
-    # db_metaphlan_id: mpa_v31_CHOCOPhlAn_201901
-    # db_nucleotide: /well/kir/mirror/humann3/chocophlan
-    # db_protein: /well/kir/mirror/humann3/uniref/uniref90
+    db_metaphlan_path: /well/kir/mirror/metaphlan3/metaphlan_databases_3.1
+    db_metaphlan_id: mpa_v31_CHOCOPhlAn_201901
+    db_nucleotide: /well/kir/mirror/humann3/chocophlan
+    db_protein: /well/kir/mirror/humann3/uniref/uniref90
     
     search_mode: uniref90
     
