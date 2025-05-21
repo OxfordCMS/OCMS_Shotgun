@@ -67,7 +67,7 @@ def main(argv=None):
     strain_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_strain.tsv.gz"), "w")
     unknown_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_unknown.tsv.gz"), "w")
 
-    out_list = [kingdom_file, phylum_file, class_file, order_file, family_file, genus_file, species_file, unknown_file]
+    out_list = [kingdom_file, phylum_file, class_file, order_file, family_file, genus_file, species_file, strain_file, unknown_file]
 
     # read in header
     with IOTools.open_file(args.infile) as f:
