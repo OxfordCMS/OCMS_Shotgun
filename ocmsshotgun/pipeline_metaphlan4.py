@@ -85,9 +85,10 @@ def extractSpeciesAbundance(infile, outfile):
            r"taxonomy.dir/order.txt",
            r"taxonomy.dir/family.txt",
            r"taxonomy.dir/genus.txt",
-           r"taxonomy.dir/species.txt"])
+           r"taxonomy.dir/species.txt",
+           r"taxonomy.dir/strain.txt"])
 def extractTaxonomyLevels(infile, outfiles):
-    levels = ['k__', 'p__', 'c__', 'o__', 'f__', 'g__', 's__']
+    levels = ['k__', 'p__', 'c__', 'o__', 'f__', 'g__', 's__','t__']
     for level, outfile in zip(levels, outfiles):
         statement = '''grep -E "{level}|clade" {} | 
                       grep "{level}" | 
