@@ -3,8 +3,7 @@
 from cgatcore import pipeline as P
 import os
 import ocmstoolkit.modules.Utility as Utility
-import subprocess
-import re
+from importlib.metadata import version, PackageNotFoundError
 
 class Humann3(Utility.BaseTool):
     '''
@@ -15,14 +14,18 @@ class Humann3(Utility.BaseTool):
         super().__init__(infile, outfile, **PARAMS)
 
         self.taxonomic_profile = taxonomic_profile
-        self.humann_version = self.detect_humann_version()
 
-        # Detect metaphlan version automatically
-        self.metaphlan_version = self.detect_metaphlan_version()
+        # Detect installed versions
+        try:
+            self.metaphlan_version = version("metaphlan")
+            self.humann_version = version("humann")
+        except PackageNotFoundError as e:
+            raise ImportError(f"Required tool not found: {e.name}")
+        
+        # Version sanity check
+        if self.metaphlan_version.startswith("4") and self.humann_version < "3.9":
+            raise ValueError(f"MetaPhlAn v4 is only supported with HUMAnN 3.9+.")
 
-        # Sanity check
-        if self.metaphlan_version.startswith("4") and self.humann_version != "3.9":
-            raise ValueError("MetaPhlAn v4 is only supported with HUMAnN 3.9+.")
 
     def concat_fastqs(self, fastn_obj):
         '''
@@ -103,21 +106,4 @@ class Humann3(Utility.BaseTool):
         if remove_humann_temp:
             statement = statement + f' && rm -f {humann_tmp}.tar.gz'
         return statement
-
-    def detect_metaphlan_version(self):
-        try:
-            result = subprocess.run(["metaphlan", "--version"], capture_output=True, text=True, check=True)
-            match = re.search(r"MetaPhlAn version (\d+\.\d+\.\d+)", result.stdout)
-            return match.group(1) if match else "unknown"
-        except Exception:
-            return "unknown"
-
-    def detect_humann_version(self):
-        try:
-            result = subprocess.run(["humann", "--version"], capture_output=True, text=True, check=True)
-            output = result.stdout + result.stderr  # combine both streams just in case
-            match = re.search(r"humann v?(\d+\.\d+)", output, re.IGNORECASE)
-            return match.group(1) if match else "unknown"
-        except Exception:
-            return "unknown"
 
