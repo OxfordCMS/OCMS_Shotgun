@@ -57,17 +57,17 @@ from ruffus import *
 from cgatcore import pipeline as P
 import ocmsshotgun.modules.Kraken2 as K
 import ocmstoolkit.modules.Utility as Utility
+
 PARAMS = P.get_parameters(["pipeline.yml"])
-
-# check files to be processed
-indir = PARAMS.get('general_input.dir', 'input.dir')
-FASTQ1 = Utility.get_fastns(indir)
-
-#get all files within the directory to process
-SEQUENCEFILES = (f"{indir}/*.fastq.1.gz")
-
-SEQUENCEFILES_REGEX = regex(
-    fr"{indir}/(\S+).(fastq.1.gz)")
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    indir = "."
+    FASTQ1S = None
+else:
+    # check that input files correspond
+    indir = PARAMS.get("general_input.dir", "input.dir")
+    FASTQ1S = Utility.get_fastns(indir)
 
 ########################################################
 ########################################################
@@ -78,8 +78,8 @@ SEQUENCEFILES_REGEX = regex(
 ########################################################
 
 @follows(mkdir("kraken2.dir"))
-@transform(SEQUENCEFILES, 
-           SEQUENCEFILES_REGEX, 
+@transform(FASTQ1S, 
+           regex(r".+/(\S+).(fastq.1.gz)"), 
            r"kraken2.dir/\1.k2.report.tsv")
 def runKraken2(infile, outfile):
     '''classify reads with kraken2
