@@ -48,19 +48,23 @@ import os,sys
 import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.PreProcess as PP
 
-# set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
-
-# check that input files correspond
-indir = PARAMS.get('general_input.dir', 'input.dir')
-FASTQ1S = Utility.get_fastns(indir)
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    indir = "."
+    FASTQ1S = None
+else:
+    # check that input files correspond
+    indir = PARAMS.get("general_input.dir", "input.dir")
+    FASTQ1S = Utility.get_fastns(indir)
 
 ################################################################################
 # remove host sequences with bmtagger or hisat
 ################################################################################
 @follows(mkdir('reads_hostRemoved.dir'))
 @transform(FASTQ1S,
-           regex(fr'{indir}/(\S+)_rRNAremoved.fastq.1.gz$'),
+           regex(r'.+/(\S+)_rRNAremoved.fastq.1.gz$'),
            r'reads_hostRemoved.dir/\1_dehost.fastq.1.gz')
 def alignAndRemoveHost(infile,outfile): 
     '''Align and remove host sequences with bmtagger or HISAT2

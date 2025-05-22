@@ -62,16 +62,17 @@ from ruffus import *
 from cgatcore import pipeline as P
 import ocmsshotgun.modules.Kraken2 as K
 import ocmsshotgun.modules.Utility as utility
+
 PARAMS = P.get_parameters(["pipeline.yml"])
-
-# check files to be processed
-FASTQ1 = utility.check_input()
-
-#get all files within the directory to process
-SEQUENCEFILES = ("*.fastq.1.gz")
-
-SEQUENCEFILES_REGEX = regex(
-    r"(\S+)/(\S+).fastq.1.gz")
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    indir = "."
+    FASTQ1S = None
+else:
+    # check that input files correspond
+    indir = PARAMS.get("general_input.dir", "input.dir")
+    FASTQ1S = Utility.get_fastns(indir)
 
 ########################################################
 ########################################################
@@ -92,7 +93,7 @@ SEQUENCEFILES_REGEX = regex(
          mkdir("confidence_09.dir"),
          mkdir("confidence_10.dir"))
 
-@split(SEQUENCEFILES, "confidence_*.dir/*.fastq.1.gz")
+@split(FASTQ1S, "confidence_*.dir/*.fastq.1.gz")
 def linkInputs(infiles, outfiles):
     '''
     link the original input files to new
@@ -123,7 +124,7 @@ def linkInputs(infiles, outfiles):
 ########################################################
 ########################################################
 @transform(linkInputs, 
-           SEQUENCEFILES_REGEX, 
+           regex(r"(\S+)/(\S+).fastq.1.gz"), 
            r"\1/\2.k2.report.tsv")
 def runKraken2(infile, outfile):
     '''classify reads with kraken2

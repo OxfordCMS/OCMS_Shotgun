@@ -53,26 +53,28 @@ from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
 
 import os,sys
-import warnings
 
 import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.PreProcess as PP
 
 # set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    indir = "."
+    FASTQ1S = None
+else:
+    # check that input files correspond
+    indir = PARAMS.get("general_input.dir", "input.dir")
+    FASTQ1S = Utility.get_fastns(indir)
 
-indir = PARAMS.get("general_input.dir", "input.dir")
-# check that input files correspond
-FASTQ1S = Utility.get_fastns(indir)
-warnings.warn("=================================================")
-out = '\n'.join(FASTQ1S)
-warnings.warn(f"\n{out}")
 ###############################################################################
 # Deduplicate
 ###############################################################################
 @follows(mkdir('reads_deduped.dir'))
 @transform(FASTQ1S,
-           regex(fr'{indir}/(.+).fastq.1.gz'),
+           regex(r'.+/(.+).fastq.1.gz'),
            r"reads_deduped.dir/\1_deduped.fastq.1.gz")
 def removeDuplicates(fastq1, outfile):
     '''Filter exact duplicates, if specified in config file'''
