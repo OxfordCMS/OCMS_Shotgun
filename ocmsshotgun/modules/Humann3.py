@@ -23,7 +23,7 @@ class Humann3(Utility.BaseTool):
             raise ImportError(f"Required tool not found: {e.name}")
         
         # Version sanity check
-        if self.metaphlan_version.startswith("4") and self.humann_version < "3.9":
+        if self.metaphlan_version == 4 and self.humann_version < 3.9:
             raise ValueError(f"MetaPhlAn v4 is only supported with HUMAnN 3.9+.")
 
 
