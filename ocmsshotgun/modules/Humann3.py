@@ -4,6 +4,8 @@ from cgatcore import pipeline as P
 import os
 import ocmstoolkit.modules.Utility as Utility
 from importlib.metadata import version, PackageNotFoundError
+from packaging.version import Version
+from packaging.specifiers import SpecifierSet
 
 class Humann3(Utility.BaseTool):
     '''
@@ -17,15 +19,23 @@ class Humann3(Utility.BaseTool):
 
         # Detect installed versions
         try:
-            self.metaphlan_version = version("metaphlan")
-            self.humann_version = version("humann")
+            # Wrap version string in Version() to ensure proper semantic comparison,
+            # including handling of versions like "3.10.1" or pre-releases like "4.0b1"
+            self.metaphlan_version = Version(version("metaphlan"))
+            self.humann_version = Version(version("humann"))
         except PackageNotFoundError as e:
             raise ImportError(f"Required tool not found: {e.name}")
         
-        # Version sanity check
-        if self.metaphlan_version == 4 and self.humann_version < 3.9:
-            raise ValueError(f"MetaPhlAn v4 is only supported with HUMAnN 3.9+.")
+        # Define version requirements
+        metaphlan_required = SpecifierSet(">=4.0")
+        humann_required = SpecifierSet(">=3.9")
 
+        # Versions sanity check
+        if self.metaphlan_version in metaphlan_required and self.humann_version not in humann_required:
+            raise ValueError(
+                f"MetaPhlAn v{self.metaphlan_version} requires HUMAnN >=3.9, "
+                f"but found HUMAnN v{self.humann_version}"
+            )
 
     def concat_fastqs(self, fastn_obj):
         '''
