@@ -3,7 +3,9 @@
 from cgatcore import pipeline as P
 import os
 import ocmstoolkit.modules.Utility as Utility
-
+from importlib.metadata import version, PackageNotFoundError
+from packaging.version import Version
+from packaging.specifiers import SpecifierSet
 
 class Humann3(Utility.BaseTool):
     '''
@@ -14,6 +16,26 @@ class Humann3(Utility.BaseTool):
         super().__init__(infile, outfile, **PARAMS)
 
         self.taxonomic_profile = taxonomic_profile
+
+        # Detect installed versions
+        try:
+            # Wrap version string in Version() to ensure proper semantic comparison,
+            # including handling of versions like "3.10.1" or pre-releases like "4.0b1"
+            self.metaphlan_version = Version(version("metaphlan"))
+            self.humann_version = Version(version("humann"))
+        except PackageNotFoundError as e:
+            raise ImportError(f"Required tool not found: {e.name}")
+        
+        # Define version requirements
+        metaphlan_required = SpecifierSet(">=4.0")
+        humann_required = SpecifierSet(">=3.9")
+
+        # Versions sanity check
+        if self.metaphlan_version in metaphlan_required and self.humann_version not in humann_required:
+            raise ValueError(
+                f"MetaPhlAn v{self.metaphlan_version} requires HUMAnN >=3.9, "
+                f"but found HUMAnN v{self.humann_version}"
+            )
 
     def concat_fastqs(self, fastn_obj):
         '''
@@ -60,7 +82,7 @@ class Humann3(Utility.BaseTool):
                      f" --protein-database {db_protein}"
                      f" --search-mode {search_mode}"
                      f" --threads {threads}"
-                     f" --metaphlan-options  \"--index {db_metaphlan_id}"
+                     f" --metaphlan-options \"--index {db_metaphlan_id}"
                      f" --bowtie2db={db_metaphlan_path}\""
                      f" {options} 2> {self.outdir}/{fastn_obj.prefix}.log")
         
@@ -76,7 +98,7 @@ class Humann3(Utility.BaseTool):
                                    f"{prefix}_metaphlan_bugs_list.tsv")
             options = (f" gzip {metaphlan_bugs_list} &&"
                        f" mv {metaphlan_bugs_list}.gz {self.outdir} &&")
-        
+
         humann_log = (f"{self.outdir}/{prefix}_humann_temp/"
                       f"{prefix}.log")
         humann_tmp = f"{self.outdir}/{prefix}_humann_temp"
@@ -94,4 +116,4 @@ class Humann3(Utility.BaseTool):
         if remove_humann_temp:
             statement = statement + f' && rm -f {humann_tmp}.tar.gz'
         return statement
-    
+
