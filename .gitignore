@@ -1,3 +1,4 @@
+
 ._*
 *~
 .ipynb*
@@ -5,4 +6,22 @@ build/
 dist/
 ocms_shotgun.egg-info/
 __pycache__
+
+# Ignore editor swap files
+*.swp
+*.swo
+*.swn
+
+# Ignore compiled Python files
+*.pyc
+__pycache__/
+
+# Ignore hidden or temp folders
+.pipeline_*
+modules/*.sw*
+modules/*.pyc
+pipeline_meta_assembly/
+
+
+
 #*
