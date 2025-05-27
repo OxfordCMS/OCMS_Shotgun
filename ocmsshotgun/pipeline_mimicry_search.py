@@ -99,7 +99,7 @@ from cgatcore import pipeline as P
 
 # get all fasta contig files within directory to process
 FASTAFILES = "input.dir/*contigs.fasta"
-FASTAFILES_REGEX = regex(r"input\.dir\/(\S+?)_.+\.fasta")
+FASTAFILES_REGEX = regex(r"input\.dir\/(.+)\.(fasta|fna)")
 
 PARAMS = P.get_parameters(
     ["pipeline.yml"],
@@ -138,7 +138,7 @@ def run_prokka(infile, outfiles):
     """Use prokka to predict ORFs and generate protein assemblies"""
 
     # capture sample id from infile
-    sample_id = re.search(r"input\.dir\/(\S+?)_.+\.fasta", infile).group(1)
+    sample_id = re.search(r"input\.dir\/(.+)\.(fasta|fna)", infile).group(1)
 
     # define output dir
     outdir = f"01_prokka_output.dir/{sample_id}"
