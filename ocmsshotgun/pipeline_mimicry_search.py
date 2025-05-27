@@ -98,7 +98,7 @@ from ruffus import regex, follows, collate, mkdir, originate, split, subdivide, 
 from cgatcore import pipeline as P
 
 # get all fasta contig files within directory to process
-FASTAFILES = "input.dir/*contigs.fasta"
+FASTAFILES = "input.dir/*"
 FASTAFILES_REGEX = regex(r"input\.dir\/(.+)\.(fasta|fna|faa)")
 
 PARAMS = P.get_parameters(
