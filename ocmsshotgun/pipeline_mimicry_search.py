@@ -259,16 +259,14 @@ def create_epi_fasta(outfile, extras=[epitope_seq, epitope_file]):
 @transform(
     create_epi_fasta,
     suffix(".faa"),
-    add_inputs("02_blast_database.dir/database.pbd"),
-    f"03_blast_search.dir/{output_folder}/blast_search.tsv"
+    r"\1_blast_search.tsv"
 )
-def blast_search(infiles, outfile):
+
+def blast_search(infile, outfile):
     """Run a homology search for a specific epitope"""
 
-    # split infiles into query and index files
-    query, index = infiles
-
-    index = P.snip(index, ".pdb")
+    # define indexed database to use for blast search
+    index = "02_blast_database.dir/database"
 
     # define parameters to use in the statement
     threads = PARAMS["blast_search_job_threads"]
@@ -277,7 +275,7 @@ def blast_search(infiles, outfile):
     statement = (
         "export BLASTDB=02_blast_database.dir &&" 
         " blastp" 
-        f" -query {query}" 
+        f" -query {infile}" 
         f" -db {index}" 
         f" -out {outfile}" 
         f" -num_threads {threads}"
