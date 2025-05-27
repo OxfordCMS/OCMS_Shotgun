@@ -1,3 +1,4 @@
+
 ._*
 *~
 .ipynb*
@@ -20,11 +21,5 @@ __pycache__/
 # Backup files
 *~
 *.bak
-
-# Folders to ignore
-pipeline_meta_assembly/
-
-
-
 
 #*
