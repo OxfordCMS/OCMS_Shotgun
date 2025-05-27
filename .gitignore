@@ -6,3 +6,20 @@ dist/
 ocms_shotgun.egg-info/
 __pycache__
 #*
+
+# Ignore Python bytecode files
+*.pyc
+
+# Ignore Vim/Editor swap files
+*.swp
+*.swo
+*.swn
+
+# Ignore YAML swap files
+*.yml.swo
+*.yml.swp
+
+# Ignore hidden temp files in all subdirectories
+.*.sw?
+
+
