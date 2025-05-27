@@ -101,7 +101,13 @@ from cgatcore import pipeline as P
 FASTAFILES = "input.dir/*contigs.fasta"
 FASTAFILES_REGEX = regex(r"input\.dir\/(\S+?)_.+\.fasta")
 
-PARAMS = P.get_parameters(["pipeline.yml"])
+PARAMS = P.get_parameters(
+    ["pipeline.yml"],
+    defaults = {
+        "blast_epitope_seq": "amino_acid_seq",
+        "blast_epitope_name": "name"
+    }
+)
 
 
 ###############################################################################
