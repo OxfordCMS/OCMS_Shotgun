@@ -94,7 +94,7 @@ Code
 import sys
 import re
 from pathlib import Path
-from ruffus import regex, follows, collate, mkdir, originate, split, subdivide
+from ruffus import regex, follows, collate, mkdir, originate, split, subdivide, transform, suffix, add_inputs
 from cgatcore import pipeline as P
 
 # get all fasta contig files within directory to process
@@ -255,11 +255,20 @@ def create_epi_fasta(outfile, extras=[epitope_seq, epitope_file]):
 ###############################################################################
 # Search for sequence homology to defined epitope
 ###############################################################################
-
 @follows(create_epi_fasta)
-@originate(f"03_blast_search.dir/{output_folder}/blast_search.tsv")
-def blast_search(outfile, extras=[output_folder, epitope_file]):
+@transform(
+    create_epi_fasta,
+    suffix(".faa"),
+    add_inputs("02_blast_database.dir/database.pbd"),
+    f"03_blast_search.dir/{output_folder}/blast_search.tsv"
+)
+def blast_search(infiles, outfile):
     """Run a homology search for a specific epitope"""
+
+    # split infiles into query and index files
+    query, index = infiles
+
+    index = P.snip(index, ".pdb")
 
     # define parameters to use in the statement
     threads = PARAMS["blast_search_job_threads"]
@@ -268,8 +277,8 @@ def blast_search(outfile, extras=[output_folder, epitope_file]):
     statement = (
         "export BLASTDB=02_blast_database.dir &&" 
         " blastp" 
-        f" -query 03_blast_search.dir/{output_folder}/{epitope_file}" 
-        " -db database" 
+        f" -query {query}" 
+        f" -db {index}" 
         f" -out {outfile}" 
         f" -num_threads {threads}"
         " -ungapped" 
@@ -285,7 +294,6 @@ def blast_search(outfile, extras=[output_folder, epitope_file]):
     P.run(statement,
           job_memory = PARAMS["blast_search_job_memory"],
           job_threads = PARAMS["blast_search_job_threads"])
-
 
 @follows(blast_search)
 def full():
