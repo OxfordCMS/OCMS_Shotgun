@@ -64,9 +64,10 @@ def main(argv=None):
     family_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_family.tsv.gz"), "w")
     genus_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_genus.tsv.gz"), "w")
     species_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_species.tsv.gz"), "w")
+    strain_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_strain.tsv.gz"), "w")
     unknown_file = IOTools.open_file(os.path.join(args.outdir, "metaphlan_unknown.tsv.gz"), "w")
 
-    out_list = [kingdom_file, phylum_file, class_file, order_file, family_file, genus_file, species_file, unknown_file]
+    out_list = [kingdom_file, phylum_file, class_file, order_file, family_file, genus_file, species_file, strain_file, unknown_file]
 
     # read in header
     with IOTools.open_file(args.infile) as f:
@@ -81,7 +82,9 @@ def main(argv=None):
         next(f)
         next(f)
         for line in f:
-            if "s__" in line:
+            if "t__" in line:
+                strain_file.write(line)
+            elif "s__" in line:
                 species_file.write(line)
             elif "g__" in line:
                 genus_file.write(line)
@@ -96,6 +99,9 @@ def main(argv=None):
             elif "k__" in line:
                 kingdom_file.write(line)
             elif line.startswith("UNKNOWN"):
+                unknown_file.write(line)
+            elif line.startswith("UNCLASSIFIED"):
+                line = line.replace("UNCLASSIFIED", "UNKNOWN", 1)
                 unknown_file.write(line)
             else:
                 raise ValueError("Unexpected line format in merged input: %s" % line)
