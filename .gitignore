@@ -1,25 +1,17 @@
-._*
-*~
-.ipynb*
-build/
-dist/
-ocms_shotgun.egg-info/
-__pycache__
-#*
 
-# Ignore Python bytecode files
+# Python bytecode
 *.pyc
+__pycache__/
 
-# Ignore Vim/Editor swap files
+# Vim/Editor swap files
 *.swp
 *.swo
 *.swn
 
-# Ignore YAML swap files
-*.yml.swo
-*.yml.swp
-
-# Ignore hidden temp files in all subdirectories
+# Hidden editor files
 .*.sw?
 
+# Backup files
+*~
+*.bak
 
