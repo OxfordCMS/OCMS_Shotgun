@@ -284,7 +284,7 @@ def blast_search(infile, outfile):
         " -matrix BLOSUM62" 
         " -evalue 10000" 
         " -num_alignments 100000" 
-        " -outfmt '7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore btop sseq stitle staxid'"
+        " -outfmt '7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore btop sseq stitle'"
         " -html"
     )
 
@@ -292,8 +292,25 @@ def blast_search(infile, outfile):
     P.run(statement,
           job_memory = PARAMS["blast_search_job_memory"],
           job_threads = PARAMS["blast_search_job_threads"])
+    
 
-@follows(blast_search)
+###############################################################################
+# Find nucleotides for proteins identified in blast search
+###############################################################################]
+@follows(blast_search, mkdir("04_extract_DNA_seq"))
+@split(
+    f"03_blast_search.dir/{output_folder}/{epitope_name}_epitope_blast_search.tsv",
+    ["04_extract_DNA_seq.dir/*ffn"]
+)
+
+def extract_DNA(infile, outfile):
+    """Find the DNA sequence of proteins identified by blast search"""
+
+    print(f"infile: {infile}")
+    print(f"infile: {outfile}")
+
+###############################################################################
+@follows(extract_DNA)
 def full():
     pass
 
