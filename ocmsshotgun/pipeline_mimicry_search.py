@@ -138,7 +138,7 @@ def run_prokka(infile, outfiles):
     """Use prokka to predict ORFs and generate protein assemblies"""
 
     # capture sample id from infile
-    sample_id = re.search(r"input\.dir\/(.+)\.(fasta|fna|faa)", infile).group(1)
+    sample_id = re.search(r"input\.dir\/(.+)\.fasta", infile).group(1)
 
     # define output dir
     outdir = f"01_prokka_output.dir/{sample_id}"
