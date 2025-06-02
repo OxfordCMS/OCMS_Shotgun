@@ -99,7 +99,7 @@ from cgatcore import pipeline as P
 
 # get all fasta contig files within directory to process
 FASTAFILES = "input.dir/*"
-FASTAFILES_REGEX = regex(r"input\.dir\/(.+)\.(fasta|fna|faa)")
+FASTAFILES_REGEX = regex(r"input\.dir\/(.+)\.fasta")
 
 PARAMS = P.get_parameters(
     ["pipeline.yml"],
