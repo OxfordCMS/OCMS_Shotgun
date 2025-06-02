@@ -6,6 +6,7 @@ build/
 dist/
 ocms_shotgun.egg-info/
 __pycache__
+
 # Python bytecode
 *.pyc
 __pycache__/
@@ -19,7 +20,5 @@ __pycache__/
 .*.sw?
 
 # Backup files
-*~
 *.bak
 
-#*

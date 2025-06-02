@@ -100,6 +100,9 @@ def main(argv=None):
                 kingdom_file.write(line)
             elif line.startswith("UNKNOWN"):
                 unknown_file.write(line)
+            elif line.startswith("UNCLASSIFIED"):
+                line = line.replace("UNCLASSIFIED", "UNKNOWN", 1)
+                unknown_file.write(line)
             else:
                 raise ValueError("Unexpected line format in merged input: %s" % line)
 
