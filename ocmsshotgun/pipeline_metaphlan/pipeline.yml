@@ -1,0 +1,27 @@
+
+################################################################
+# Pipeline configuration file for MetaPHlAn4 pipeline
+################################################################
+
+# Pipeline metadata
+projectname: metaphlan4_pipeline
+copyright: CGAT
+version: 0.1
+
+general:
+    # input directory (fastq single or paired end reads)
+    input.dir: 'input.dir'
+
+metaphlan:
+    # Path to existing MetaPHlAn database
+    db: /gpfs3/well/powrie/shared/metaphlan4/bowtie2index/mpa_vJun23_CHOCOPhlAnSGB_202403
+    database_version: mpa_vJun23_CHOCOPhlAnSGB_202403
+
+    # Analysis parameters
+    threads: 16
+    memory: 32G
+    tax_lev: a
+    options: '--offline'
+    
+    # Job options
+    cluster_options: ''

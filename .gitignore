@@ -1,13 +1,29 @@
+
+# Python bytecode
 *.pyc
 __pycache__/
-._*
-*~
+
+# Vim/Editor swap files
 *.swp
 *.swo
-*~
+*.swn
+
+# Hidden editor files
+.*.sw?
+
+# Backup files
+*.bak
+
+# IPython/Jupyter files
 .ipynb*
+
+# Build artifacts
 build/
 dist/
 ocms_shotgun.egg-info/
-__pycache__
+
+# Hidden temporary files
+._*
+
+# Miscellaneous
 #*

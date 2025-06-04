@@ -169,11 +169,11 @@ ocms_shotgun preprocess config
 ```
 
 ### Input files
-Pipeline preprocess takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in the working directory, alternatively, an input directory called `input.dir` can be specified in the yml with:
+Pipeline preprocess takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in an input directory called `input.dir`, or an alternative directory can be specified in the yml with:
 
 ```
 # pipeline.yml
-location_fastq: 1
+input.dir: 'your_input_directory'
 ```
 
 ### Pipeline tasks
@@ -217,6 +217,141 @@ reads_dusted.dir/
 </details>
 
 <details>
+  <summary>Pipeline Hisat2</summary>
+
+## Pipeline Hisat2
+Uses Hisat2 to align sequences to reference genome and remove those that are mapped to the reference genome. This is helpful for removing host contamination in metagenome data sets. This is the same pipeline that is run in pipeline_preprocess but is abstracted to run a hisat2 as a stand-alone tool.
+
+### Dependencies
+| Software      |
+|---------------|
+| HISAT2        |
+
+If using OCMS_Modulefiles you can simply load the modules:
+
+```
+module load pipelines/hisat2
+```
+
+### Configuration
+Initiate the configuration file.
+
+```
+ocms_shotgun hisat2 config
+```
+
+### Input files
+Pipeline hisat2 takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in an input directory called `input.dir`, or an alternative directory can be specified in the yml with:
+
+```
+# pipeline.yml
+input.dir: 'your_input_directory'
+```
+
+### Pipeline tasks
+
+```
+Task = "mkdir('hisat2.dir')   before pipeline_hisat2.runHisat2 
+Task = 'pipeline_hisat2.runHisat2'
+Task = 'pipeline_hisat2.mergeHisatSummary'
+Task = 'pipeline_hisat2.full'
+```
+
+### Run pipeline_hisat2
+Set the number of jobs `-p` to 7 times the number of samples (so Bracken can be run on all taxonomic levels in parallel), however please be mindful of the number of jobs.
+
+```
+ocms_shotgun kraken2 make full -p 140 -v 5
+```
+
+### Output
+```
+hisat2.dir
+|- sample.bam # bam alignment file
+|- sample_hisat_summary.log # hisat log file
+|- sample_mapped.fastq.1.gz # reads mapped to ref genome in PE data 
+|- sample_mapped.fastq.2.gz # reads mapped to ref genome in PE data
+|- sample_mapped.fastq.3.gz # singletone reads mapped to ref genome in PE data
+|- sample_mapped.fastq.gz # if SE data
+|- sample_unmapped.fastq.1.gz # reads not mapped to ref genome in PE data
+|- sample_unmapped.fastq.2.gz # reads not mapped to ref genome in PE data
+|- sample_unmapped.fastq.3.gz # singleton reads not mapped to ref genome in PE data
+|- sample_unmapped.fastq.gz # reads not mapped to ref genome in SE data
+```
+
+</details>
+
+<details>
+  <summary>Pipeline Remove Host</summary>
+
+## Pipeline Remove_host
+Abstracted from pipeline_preprocess. Uses bmtagger or HISAT2 to align and remove host reads.
+
+### Dependencies
+| Software      |
+|---------------|
+| HISAT2        |
+| bmtagger      |
+
+If using OCMS_Modulefiles you can simply load the modules:
+
+```
+module load pipelines/remove_host
+```
+
+### Configuration
+Initiate the configuration file.
+
+```
+ocms_shotgun remove_host config
+```
+
+### Input files
+Pipeline remove_host takes in single or paired end reads. Input files should use the notation `_rRNAremoved.fastq.1.gz`, `_rRNAremoved.fastq.2.gz`. Input files should be located in an input directory called `input.dir`, or an alternative directory can be specified in the yml with:
+
+```
+# pipeline.yml
+input.dir: 'your_input_directory'
+```
+
+### Pipeline tasks
+
+```
+Tasks which will be run:
+Task = "mkdir('reads_hostRemoved.dir')   before pipeline_remove_host.alignAndRemoveHost"
+
+Task = 'pipeline_remove_host.alignAndRemoveHost'                              
+Task = 'pipeline_remove_host.mergeHisatSummary'                               
+Task = 'pipeline_remove_host.removeHost'                                      
+Task = 'pipeline_remove_host.full'
+```
+
+### Run pipeline_remove_host
+Set the number of jobs `-p` to 7 times the number of samples (so Bracken can be run on all taxonomic levels in parallel), however please be mindful of the number of jobs.
+
+```
+ocms_shotgun kraken2 make full -p 140 -v 5
+```
+
+### Output
+```
+reads_hostRemoved.dir
+|- sample.bam # bam alignment file
+|- sample_hisat_summary.log # hisat log file
+|- sample_mapped.fastq.1.gz # reads mapped to ref genome in PE data 
+|- sample_mapped.fastq.2.gz # reads mapped to ref genome in PE data
+|- sample_mapped.fastq.3.gz # singletone reads mapped to ref genome in PE data
+|- sample_mapped.fastq.gz # if SE data
+|- sample_unmapped.fastq.1.gz # reads not mapped to ref genome in PE data
+|- sample_unmapped.fastq.2.gz # reads not mapped to ref genome in PE data
+|- sample_unmapped.fastq.3.gz # singleton reads not mapped to ref genome in PE data
+|- sample_unmapped.fastq.gz # reads not mapped to ref genome in SE data
+
+```
+
+</details>
+
+<details>
   <summary>Pipeline Kraken2</summary>
 
 ## Pipeline Kraken2
@@ -229,11 +364,11 @@ Taxonkit requires NCBI taxonomy files, which can be downloaded from the [NCBI FT
 
 Software requirements:
 
-| Software	|
+| Software	    |
 |---------------|
-| Kraken2	|
+| Kraken2       |
 | Bracken       |
-| taxonkit	|
+| taxonkit	    |
 
 
 If using OCMS_Modulefiles you can simply load the modules:
@@ -251,7 +386,12 @@ ocms_shotgun kraken2 config
 ```
 
 ### Input files
-Pipeline kraken2 takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in the working directory.
+Pipeline kraken2 takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in an input directory called `input.dir`, or an alternative directory can be specified in the yml with:
+
+```
+# pipeline.yml
+input.dir: 'your_input_directory'
+```
 
 ### Pipeline tasks
 
@@ -266,7 +406,7 @@ Task = 'pipeline_kraken2.full'
 ```
 
 ### Run pipeline_kraken2
-The pipeline must have input fastq files with the notation `.fastq.1.gz` and `pipeline.yml` in working directory. Set the number of jobs `-p` to 7 times the number of samples (so Bracken can be run on all taxonomic levels in parallel), however please be mindful of the number of jobs.
+Set the number of jobs `-p` to 7 times the number of samples (so Bracken can be run on all taxonomic levels in parallel), however please be mindful of the number of jobs.
 
 ```
 ocms_shotgun kraken2 make full -p 140 -v 5
@@ -348,7 +488,7 @@ This pipeline was written for Humann3 v3.8 and Metaphlan 3.1. If you're not work
 
 Software requirements:
 
-| Software	|
+| Software	    |
 |---------------|
 | Bowtie2       |
 | MetaPhlAn     |
@@ -371,7 +511,12 @@ ocms_shotgun humann3 config
 ```
 
 ### Input files
-Humann3 takes in single end reads. If you have paired-end reads, paired-ends need to be concatenated into one file. Concatenating paired-end fastqs can be done with ` pipeline_concatfastq`. Input files should end in the notation `fastq.gz`, located in the working directory.
+Pipeline humann3 takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in an input directory called `input.dir`, or an alternative directory can be specified in the yml with:
+
+```
+# pipeline.yml
+input.dir: 'your_input_directory'
+```
 
 ### Pipeline tasks
 
