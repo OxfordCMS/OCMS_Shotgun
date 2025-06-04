@@ -87,15 +87,15 @@ else:
     FASTQ1S = Utility.get_fastns(indir)
 
     if PARAMS['general_transcriptome']:
-        FASTQ2s = Utility.get_fastns(PARAMS['general_transcriptome'])
+        FASTQ2S = Utility.get_fastns(PARAMS['general_transcriptome'])
     else:
-        FASTQ2s = None
+        FASTQ2S = None
 
 ###############################################################################
 # Run humann3 on concatenated fastq.gz
 ###############################################################################
 @follows(mkdir("input_merged.dir"))
-@transform(FASTQ1s,
+@transform(FASTQ1S,
            regex(".+/(.+).fastq.1.gz"),
            r"input_merged.dir/\1.fastq.gz")
 def poolInputFastqs(infile, outfile):
@@ -138,7 +138,7 @@ def runHumann3(infile, outfiles):
 # Run humann3 on metatranscriptome data
 ###############################################################################
 @active_if(PARAMS['general_transcriptome'])    
-@transform(FASTQ2s,
+@transform(FASTQ2S,
            regex(".+/(.+).fastq.1.gz"),
            r"input_mtx_merged.dir/\1.fastq.gz")
 def poolTranscriptomeFastqs(infile, outfile):
