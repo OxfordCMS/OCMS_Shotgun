@@ -56,7 +56,15 @@ from pathlib import Path
 from ruffus import *
 import ocmsshotgun.modules.Databases as DB
 from cgatcore import pipeline as P
+from cgatcore import iotools as IOTools
+
 PARAMS = P.get_parameters(["pipeline.yml"])
+
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    raise RuntimeError("pipeline.yml not found in run directory. \
+                       please run 'ocms_shotgun databases config'")    
 
 ########################################################
 ########################################################
