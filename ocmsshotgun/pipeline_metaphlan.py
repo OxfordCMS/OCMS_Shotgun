@@ -8,7 +8,7 @@ from cgatcore import pipeline as P
 import ocmstoolkit.modules.Utility as Utility
 
 PARAMS = P.get_parameters("pipeline.yml")
-indir=PARAMS["general_input.dir"]
+indir=PARAMS.get("general_input.dir", "input.dir")
 
 #check all files to be processed
 FASTQs = Utility.get_fastns(indir)
