@@ -70,7 +70,7 @@ import re
 import shutil
 from ruffus import *
 from cgatcore import pipeline as P
-
+from cgatcore import iotools as IOTools
 import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.Humann3 as H
 

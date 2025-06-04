@@ -60,6 +60,7 @@ import yaml
 from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
+from cgatcore import iotools as IOTools
 import ocmsshotgun.modules.Kraken2 as K
 import ocmsshotgun.modules.Utility as utility
 

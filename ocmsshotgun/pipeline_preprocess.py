@@ -51,9 +51,7 @@ from ruffus import *
 from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 from cgatcore import experiment as E
-
 import os,sys
-
 import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.PreProcess as PP
 

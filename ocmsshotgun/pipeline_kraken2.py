@@ -55,6 +55,7 @@ import os
 import glob
 from ruffus import *
 from cgatcore import pipeline as P
+from cgatcore import iotools as IOTools
 import ocmsshotgun.modules.Kraken2 as K
 import ocmstoolkit.modules.Utility as Utility
 
