@@ -75,6 +75,7 @@ kraken2_version = PARAMS["kraken2_version"]
 metaphlan_version = PARAMS["metaphlan_version"]
 hisat2_version = PARAMS["hisat2_version"]
 minimap2_version = PARAMS["minimap2_version"]
+trimmomatic_version = PARAMS["trimmomatic_version"]
 
 ########################################################
 ########################################################
@@ -287,6 +288,7 @@ def buildMetaphlanDatabases():
 ########################################################
 ########################################################
 ########################################################
+
 @follows(mkdir(f"minimap2/human/{human_build}/GCC-{gcc_version}/minimap2-{minimap2_version}"))
 @follows(mkdir(f"minimap2/mouse/{mouse_build}/GCC-{gcc_version}/minimap2-{minimap2_version}"))
 @transform(getMammalianGenomes,
@@ -305,10 +307,33 @@ def getMinimap2Index(infile, outfile):
 def buildMinimap2Databases():
     pass
 
+########################################################
+########################################################
+# Trimmomatic adpater fasta files
+########################################################
+########################################################
+########################################################
+
+@follows(mkdir(f"Trimmomatic/trimmomatic-{trimmomatic_version}"))
+@split(None, "Trimmomatic/trimmomatic-{trimmomatic_version}/*.fasta")
+def getTrimmomaticSequences(infile, outfiles):
+    '''
+    just downloads adapter fasta files for
+    generic use
+    '''
+    without_cluster = True
+    tool = DB.Trimmomatic(PARAMS, "trimmomatic")
+    statement = tool.build_statement(infile, outfiles)
+
+    P.run(statement)
+
+
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows(buildPreprocessDatabases, buildKraken2Databases, 
-         buildMinimap2Databases)
+@follows(buildPreprocessDatabases,
+         buildKraken2Databases, 
+         buildMinimap2Databases,
+         getTrimmomaticSequences)
 def full():
     pass
 
