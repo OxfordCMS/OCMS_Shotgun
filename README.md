@@ -2,7 +2,7 @@
 This repository contains a series of pipelines used for processing shotgun metagenomic data. Pipelines are written within the [CGAT framework](https://github.com/cgat-developers/cgat-core). OMCS_Shotgun has a command line interface, and can be installed and executed as a stand alone command line tool. OCMS_Shotgun is primarily written for usage within the OCMS on our HPC system, however, it can be used on other HPC systems, or used locally.
 
 ## Install
-Clone the OCMS_Shotgun repository and install using pip, ideally within a python virtual environment.
+Clone the OCMS_Shotgun repository and install using pip, ideally within a python virtual environment. You will also need to install [OCMS Toolkit](https://github.com/OxfordCMS/OCMS_Toolkit).
 
 ```
 # Download the repo
@@ -18,6 +18,8 @@ Each pipeline has it's own set of dependencies. It is recommended that you only 
 
 ## Quick Start
 All pipelines are written to be used within a HPC system, but can be run using the `--local` flag to run locally. 
+
+Set up your input files. Input files should use the notation `.fastq.1.gz`, `.fastq.2.gz` and should be located in an input directory called `input.dir`. These need to be in place before running the config step. 
 
 Set up the pipeline configuration file within your working directory.
 
@@ -160,6 +162,8 @@ If using OCMS_Modulefiles you can simply load the modules:
 ```
 module load pipelines/preprocess
 ```
+### Input files
+Pipeline preprocess takes in single or paired end reads. Input files should use the notation `.fastq.1.gz`, `.fastq.2.gz`. Input files should be located in an input directory called `input.dir` and need to be in place before running the config step. 
 
 ### Configuration
 Initiate the configuration file.
@@ -167,15 +171,6 @@ Initiate the configuration file.
 ```
 ocms_shotgun preprocess config
 ```
-
-### Input files
-Pipeline preprocess takes in single or paired end reads. Input files should use the notation `fastq.1.gz`, `fastq.2.gz`. Input files should be located in an input directory called `input.dir`, or an alternative directory can be specified in the yml with:
-
-```
-# pipeline.yml
-input.dir: 'your_input_directory'
-```
-
 ### Pipeline tasks
 
 ```
