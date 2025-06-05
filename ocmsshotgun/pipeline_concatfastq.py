@@ -53,16 +53,20 @@ import sys
 import os
 from ruffus import *
 from cgatcore import pipeline as P 
+from cgatcore import iotools as IOTools
 import ocmsshotgun.modules.Humann3 as H
 import ocmstoolkit.modules.Utility as Utility
 # no params in config needed but putting here in case that changes
 PARAMS = P.get_parameters(["pipeline.yml"])
-
-# set input directory
-indir = PARAMS.get('general_input.dir', 'input.dir')
-
-# get all sequence files within directory to process
-SEQUENCEFILES = Utility.get_fastns(indir)
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    indir = "."
+    FASTQ1S = None
+else:
+    # check that input files correspond
+    indir = PARAMS.get("general_input.dir", "input.dir")
+    FASTQ1S = Utility.get_fastns(indir, 1,2)
 
 ######################################################
 ######################################################
@@ -76,8 +80,8 @@ SEQUENCEFILES = Utility.get_fastns(indir)
 ######################################################
 
 @follows(mkdir("concat_fastq.dir"))
-@transform(SEQUENCEFILES, 
-         regex(fr"{indir}/(\S+)\.(fastq.1.gz)"),
+@transform(FASTQ1S, 
+         regex(r".+/(\S+)\.(fastq.1.gz)"),
          r"concat_fastq.dir/\1.fastq.gz")
 def concatFastq(infile, outfile):
     """Expects paired end fastq files to be in format fastq.1.gz, fastq.2.gz
