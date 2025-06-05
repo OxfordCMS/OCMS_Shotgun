@@ -138,7 +138,7 @@ def runHumann3(infile, outfiles):
 # Run humann3 on metatranscriptome data
 ###############################################################################
 @active_if(PARAMS['general_transcriptome'])    
-@transform(FASTQ2S,
+@transform(FASTQ1S,
            regex(".+/(.+).fastq.1.gz"),
            r"input_mtx_merged.dir/\1.fastq.gz")
 def poolTranscriptomeFastqs(infile, outfile):

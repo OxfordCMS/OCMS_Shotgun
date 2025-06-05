@@ -62,7 +62,7 @@ from ruffus import *
 from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 import ocmsshotgun.modules.Kraken2 as K
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as Utility
 
 PARAMS = P.get_parameters(["pipeline.yml"])
 try:
