@@ -60,17 +60,18 @@ from cgatcore import iotools as IOTools
 
 PARAMS = P.get_parameters(["pipeline.yml"])
 
-try:
-    IOTools.open_file("pipeline.yml")
-except FileNotFoundError as e:
-    raise RuntimeError("pipeline.yml not found in run directory. \
-                       please run 'ocms_shotgun databases config'")    
-
 ########################################################
 ########################################################
 # get the general information on versions etc
 ########################################################
 ########################################################
+
+
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    # allow config to make yml
+    pass
 
 gcc_version = PARAMS["gcc"]
 python_version = PARAMS["python"]
