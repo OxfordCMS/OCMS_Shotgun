@@ -40,7 +40,8 @@ trimmomatic:
     # Location of contaminants file
     # NexteraPE-PE.fa, TruSeq2-PE.fa, TruSeq3-PE-2.fa, TruSeq3-PE.fa
     # TruSeq2-SE.fa, TruSeq3-SE.fa
-    adapters: /gpfs3/well/johnson/shared/databases/adapters/HTG_oligov2/HTG_oligov2.fa
+    # if in the Kennedy can use e.g. /path/to/mirror/ocms/databases/Trimmomatic/trimmomatic-0.39/NexteraPE-PE.fa
+    adapters: 
 
     # Number of mismatches tolerated in seed alignment of adapter sequence (16 bases)
     seed_mismatches: 3
@@ -111,9 +112,11 @@ bmtagger:
     executable: bmtagger_mod.sh
 
     # Comma-separated list of genomes to screen against
-    bitmask: /databases/bmtool/human/hg38/GCC-12.2.0/bmtool-v.3.102.4/hg38.bitmask
-
-    srprism: /databases/SRPRISM/human/hg38/GCC-12.2.0/srprism-3.3.2/hg38.srprism
+    #if in the kennedy can use /path/to/mirror/ocms/databases/bmtool/human/hg38/GCC-12.2.0/bmtool-v.3.102.4/hg38.bitmask
+    bitmask: 
+    
+    # if in the kennedy can use /path/to/mirror/ocms/databases/SRPRISM/human/hg38/GCC-12.2.0/srprism-3.3.2/hg38.srprism
+    srprism: 
 
    
     # Cluster options  
@@ -123,7 +126,8 @@ bmtagger:
 
 hisat2:
     # index for reference genome
-    ref_genome: /databases/HISAT2/human/hg38/GCC-12.2.0/hisat2-2.2.1/hg38
+    # If in the Kennedy can use /path/to/mirror/ocms/databases/HISAT2/human/hg38/GCC-12.2.0/hisat2-2.2.1/hg38
+    ref_genome: 
 
     # additional hisat2 options
     options: ''
