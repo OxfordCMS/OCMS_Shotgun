@@ -311,11 +311,11 @@ def blast_search(infile, outfile):
 ###############################################################################
 # Find nucleotide contigs that contain proteins identified in blast search
 ###############################################################################]
-@follows(blast_search, mkdir(f"04_find_mimicry_contigs.dir/{epitope_name}"))
+@follows(blast_search, mkdir(f"04_find_mimicry_contigs.dir/{output_folder}"))
 @transform(
     "01_prokka_output.dir/*/*.fna",
     regex("01_prokka_output.dir/(.+)/.+.fna"),
-    rf"04_find_mimicry_contigs.dir/{epitope_name}/\1_mimicry_contigs.fasta",
+    rf"04_find_mimicry_contigs.dir/{output_folder}/\1_mimicry_contigs.fasta",
 )
 
 def extract_contigs(infile, outfile):
@@ -454,7 +454,7 @@ def extract_contigs(infile, outfile):
         # Write the data to the file
         output.write(blast_hits_fasta)
 
-    print(f"                                             extarcted {len(df)} contigs encoding proteins with potenital mimicry", flush=True)
+    print(f"                                             extarcted {len(df)} contigs encoding proteins with potenital mimicry toward {epitope_name}", flush=True)
 
 ###############################################################################
 @follows(extract_contigs)
