@@ -23,11 +23,11 @@ BLAST+ documentation: https://www.ncbi.nlm.nih.gov/books/NBK279690/
 Usage
 =====
 Script takes in all contigs.fasta files located in the input.dir, and runs
-prokka on these files to return a protein assembly. The .faa files are used as
-input for blast to create a blast database, which can then be searched for
-sequence homology. Using the homology search output, the corresponding full
-nucleotide contig fasta files are extracted and used as input for a blastn
-search to identify the corresponding microbial taxa.
+prokka on these files to return a protein assembly as well as other outputs. 
+The .faa files are used as input for blast to create a blast database, which 
+can then be searched for sequence homology. Using the homology search output, 
+the corresponding full nucleotide contig fasta files are extracted and used 
+as input for a blastn search to identify the corresponding microbial taxa.
 
 
 Example::
@@ -87,9 +87,12 @@ sequence to a taxonomic node (through the taxid of the sequence).
 blast homology search. This folder contains the fasta file corresponding to the 
 epitope of interest as well as a .tsv file containing the blast search results.
 
-04_find_mimicry_contigs.dir contains a fasta file containing the nucleotide 
-sequences of the full contigs that were identified to contain a mimic.
+04_find_mimicry_contigs.dir contains a folder for each mimicry epitope, which 
+contains a fasta file for each sample containing the nucleotide sequences of
+the full contigs that were identified to contain a protein mimic.
 
+05_find_contig_taxonomy.dir contains the outputs of the blastn sequence homolgy
+search of all contigs containing.
 
 Glossary
 ========
@@ -455,6 +458,44 @@ def extract_contigs(infile, outfile):
         output.write(blast_hits_fasta)
 
     print(f"                                             extarcted {len(df)} contigs encoding proteins with potenital mimicry toward {epitope_name}", flush=True)
+
+
+###############################################################################
+# Blastn sequence homology homology to identify taxa
+###############################################################################
+@follows(extract_contigs, mkdir(f"05_find_contig_taxonomy.dir/{output_folder}"))
+
+@transform(
+    f"04_find_mimicry_contigs.dir/{output_folder}/*_mimicry_contigs.fasta",
+    regex(f"01_prokka_output.dir/{output_folder}/(.+)_mimicry_contigs.fasta"),
+    rf"05_find_contig_taxonomy.dir/{output_folder}/\1_blastn_taxonomy.tsv",
+)
+
+def contig_taxa_blastn(infile, outfile):
+    """Run nucleotide homology search for entire contig to idenifty taxonmy"""
+
+    # define indexed database to use for blast search
+    index = "02_blast_database.dir/database"
+
+    # define parameters to use in the statement
+    threads = PARAMS["blast_search_job_threads"]
+
+    # define path to downloaded blast nucleotide database
+    nt_database = PARAMS["blast_nt_database"]
+
+    # create command line statment to run blast search 
+    statement = (
+        "blastn"
+        f" -query {infile}"
+        f" -db {nt_database}"
+        f" -out {outfile}" 
+        f" -num_threads {threads}"
+    )
+
+    # submit statement as a job
+    P.run(statement,
+          job_memory = PARAMS["blast_search_job_memory"],
+          job_threads = PARAMS["blast_search_job_threads"])
 
 ###############################################################################
 @follows(extract_contigs)

@@ -16,3 +16,5 @@ blast:
   epitope_name: Ins_B9-25
   # define protein sequence to perform homology search
   epitope_seq: SHLVEALYLVCGERGFF
+  # define path to downloaded blast nucleotide database
+  nt_database: /gpfs3/well/todd/projects/Microbiome/Ref_Databases/blastdb_v5/nt/nt
