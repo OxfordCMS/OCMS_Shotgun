@@ -338,15 +338,7 @@ def extract_contigs(infile, outfile):
     # define sampleid
     sample_id = re.search(r"01_prokka_output.dir/(.+)/.+.fna", str(infile)).group(1)
 
-    print(f"infile: {infile}")
-    print(f"outfile: {outfile}")
-    print(f"fna_file: {fna_file}")
-    print(f"tbl_file: {tbl_file}")
-    print(f"mimicry_results: {mimicry_results}")
-    print(f"sample_id: {sample_id}")
-
-
-        # read in the blast mimicry search results as a dataframe
+    # read in the blast mimicry search results as a dataframe
     mimicry_df = pd.read_csv(
         mimicry_results,
         sep="\t",
@@ -371,10 +363,6 @@ def extract_contigs(infile, outfile):
         ],
     )
 
-    print("mimicry_df")
-
-    print(mimicry_df[:5])
-
     # create dict containing the data stored in fna_file
     # key = contig id
     # value = contig nucleiotide fasta seq
@@ -384,10 +372,6 @@ def extract_contigs(infile, outfile):
     for id_seq in fna_file.read_text().split(">")[1:]:
         id, *seq = id_seq.split("\n")
         fna_dict[id] = "".join(seq)
-
-    print(f"fna_dict length:{len(fna_dict)}")
-
-    print(dict(islice(fna_dict.items(), 5)))
 
     # create a nested dict containg the information stored in the tbl_file
     # key = locus_tag (unique id referenced as subject_id in blast search output)
@@ -421,10 +405,6 @@ def extract_contigs(infile, outfile):
                 # Reset for next locus block
                 locus_tag = protein_name = None
 
-    print(f"tbl_dict length:{len(tbl_dict)}")
-
-    print(dict(islice(tbl_dict.items(), 5)))   
-
     # convert dict into data frame
     tbl_df = pd.DataFrame([{"locus_tag": k, **v} for k, v in tbl_dict.items()])
 
@@ -445,10 +425,6 @@ def extract_contigs(infile, outfile):
         .merge(fna_df, on="contig_id", how="left")
     )
 
-    print("df:")
-
-    df.info()
-
     # create nucleotide fasta file containing contigs identified in blast search
     # >subject_id contig_id
     # contig_seq
@@ -468,8 +444,6 @@ def extract_contigs(infile, outfile):
         
         # add fasta to a list containing all contigs fastas
         blast_hits_fasta.append(fasta)
-
-    print(f"Number of contigs containing blast hits: {len(blast_hits_fasta)}")
     
     # save output
     with open(outfile, 'w') as output:
