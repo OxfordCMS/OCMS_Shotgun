@@ -108,7 +108,7 @@ from pathlib import Path
 from ruffus import regex, follows, collate, mkdir, originate, split, subdivide, transform, suffix, add_inputs
 from cgatcore import pipeline as P
 import pandas as pd
-from itertools import islice
+from datetime import datetime
 
 
 # get all fasta contig files within directory to process
@@ -338,6 +338,8 @@ def extract_contigs(infile, outfile):
     # define sampleid
     sample_id = re.search(r"01_prokka_output.dir/(.+)/.+.fna", str(infile)).group(1)
 
+    print(f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} INFO main execution - running extract_contigs() for {sample_id}", flush=True)                                
+
     # read in the blast mimicry search results as a dataframe
     mimicry_df = pd.read_csv(
         mimicry_results,
@@ -451,6 +453,8 @@ def extract_contigs(infile, outfile):
         blast_hits_fasta = '\n'.join(blast_hits_fasta)
         # Write the data to the file
         output.write(blast_hits_fasta)
+
+    print(f"                                             extarcted {len(df)} contigs encoding proteins with potenital mimicry", flush=True)
 
 ###############################################################################
 @follows(extract_contigs)
