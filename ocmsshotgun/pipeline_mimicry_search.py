@@ -311,11 +311,11 @@ def blast_search(infile, outfile):
 ###############################################################################
 # Find nucleotide contigs that contain proteins identified in blast search
 ###############################################################################]
-@follows(blast_search, mkdir("04_find_mimicry_contigs.dir"))
+@follows(blast_search, mkdir(f"04_find_mimicry_contigs.dir/{epitope_name}"))
 @transform(
     "01_prokka_output.dir/*/*.fna",
     regex("01_prokka_output.dir/(.+)/.+.fna"),
-    r"04_find_mimicry_contigs.dir/\1_mimicry_contigs.fasta",
+    rf"04_find_mimicry_contigs.dir/{epitope_name}/\1_mimicry_contigs.fasta",
 )
 
 def extract_contigs(infile, outfile):
