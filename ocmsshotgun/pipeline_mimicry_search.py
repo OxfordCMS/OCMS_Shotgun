@@ -474,9 +474,6 @@ def extract_contigs(infile, outfile):
 def contig_taxa_blastn(infile, outfile):
     """Run nucleotide homology search for entire contig to idenifty taxonmy"""
 
-    # define indexed database to use for blast search
-    index = "02_blast_database.dir/database"
-
     # define parameters to use in the statement
     threads = PARAMS["blast_search_job_threads"]
 
@@ -490,15 +487,18 @@ def contig_taxa_blastn(infile, outfile):
         f" -db {nt_database}"
         f" -out {outfile}" 
         f" -num_threads {threads}"
+        " -max_hsps"
+        " -outfmt '7 qaccver saccver pident evalue qcovs ssciname'"
     )
 
     # submit statement as a job
+    # print(statement)
     P.run(statement,
           job_memory = PARAMS["blast_search_job_memory"],
           job_threads = PARAMS["blast_search_job_threads"])
 
 ###############################################################################
-@follows(extract_contigs)
+@follows(contig_taxa_blastn)
 def full():
     pass
 
