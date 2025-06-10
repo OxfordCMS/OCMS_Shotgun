@@ -467,7 +467,7 @@ def extract_contigs(infile, outfile):
 
 @transform(
     f"04_find_mimicry_contigs.dir/{output_folder}/*_mimicry_contigs.fasta",
-    regex(f"01_prokka_output.dir/{output_folder}/(.+)_mimicry_contigs.fasta"),
+    regex(f"04_find_mimicry_contigs.dir/{output_folder}/(.+)_mimicry_contigs.fasta"),
     rf"05_find_contig_taxonomy.dir/{output_folder}/\1_blastn_taxonomy.tsv",
 )
 
@@ -492,7 +492,6 @@ def contig_taxa_blastn(infile, outfile):
     )
 
     # submit statement as a job
-    # print(statement)
     P.run(statement,
           job_memory = PARAMS["blast_search_job_memory"],
           job_threads = PARAMS["blast_search_job_threads"])
