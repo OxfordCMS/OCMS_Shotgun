@@ -1,10 +1,7 @@
 
 general:
-  # directory where reads are located, specified as:
-  # "0" for the current directory "."
-  # "1" for the subdirectory "./data.dir".
-  # alternatively, a path may be specified, but this is not recommended.
-  input: input.dir
+  # input directory (fastq single or paired end reads)
+  input.dir: 'input.dir'
   
   # A comma-separated list of assemblers to run
   assemblers: metaspades,megahit
