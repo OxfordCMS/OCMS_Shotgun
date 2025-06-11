@@ -9,7 +9,7 @@ import shutil
 import sqlite3 as s3
 import pandas as pd
 import cgatcore.pipeline as P
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.MetaAssembly as PMA
 
 ###############################################################################
@@ -18,21 +18,10 @@ import ocmsshotgun.modules.MetaAssembly as PMA
 
 # Load pipeline parameters from the configuration file
 PARAMS = P.get_parameters(["pipeline.yml"])
-
-# Location of the input files (reads)
-if PARAMS['general']['input'] == 0:
-    DATADIR = '.'
-elif PARAMS['general']['input'] == 1:
-    DATADIR = './data.dir'
-else:
-    DATADIR = PARAMS['general']['input']
-assert os.path.isdir(DATADIR), f'Input directory does not exist: {DATADIR}'
-
-# print(f"Using DATADIR: {DATADIR}")
-# print(f"Pipeline parameters: {PARAMS}")
+ndir = PARAMS.get('general_input.dir','input.dir')
 
 # Check the input files correspond
-FASTQ1s = utility.check_input(DATADIR)
+FASTQ1s = Utility.get_fastns(indir)
 
 # utility function
 def connect():
