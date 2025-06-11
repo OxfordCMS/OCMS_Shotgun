@@ -4,7 +4,6 @@ import gzip
 import shutil
 import os
 import glob
-import ocmsshotgun.modules.Utility as utility
 import cgatcore.pipeline as P
 from ruffus import *
 
