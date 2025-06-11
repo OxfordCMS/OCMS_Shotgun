@@ -18,7 +18,7 @@ import ocmsshotgun.modules.MetaAssembly as PMA
 
 # Load pipeline parameters from the configuration file
 PARAMS = P.get_parameters(["pipeline.yml"])
-ndir = PARAMS.get('general_input.dir','input.dir')
+indir = PARAMS.get('general_input.dir','input.dir')
 
 # Check the input files correspond
 FASTQ1s = Utility.get_fastns(indir)
@@ -43,24 +43,24 @@ def poolSamples(infiles, out_fastq1):
     '''Pool samples based on the provided regular expression and handle paired reads.'''
     print(f"Pooling samples from: {infiles} to {out_fastq1}")
 
-    samples = [utility.matchReference(x, out_fastq1, **PARAMS) for x in infiles]
+    samples = [Utility.MetaFastn(x) for x in infiles]
 
     # A list of the fastq1 files
-    in_fastqs1 = [fq.fastq1 for fq in samples]
+    in_fastqs1 = [fq.fastn1 for fq in samples]
     
     # Check for paired read files
-    in_fastqs2 = [fq.fastq2 for fq in samples]
+    in_fastqs2 = [fq.fastn2 for fq in samples]
     if any(in_fastqs2):
         # Sanity check... all files need to be paired for pooling.
         for fq in samples:
-            fq2 = P.snip(fq.fastq1, fq.fq1_suffix) + fq.fq2_suffix
+            fq2 = P.snip(fq.fastn1, fq.fn1_suffix) + fq.fn2_suffix
             assert os.path.exists(fq2),  f"Expected paired file {fq2} does not exist."
-        out_fastq2 = P.snip(out_fastq1, samples[0].fq1_suffix) + samples[0].fq2_suffix
+        out_fastq2 = P.snip(out_fastq1, samples[0].fn1_suffix) + samples[0].fn2_suffix
             
     # Check for singleton read files (not essential for all samples to have singletons)
-    in_fastqs3 = [fq.fastq3 for fq in samples if fq.fastq3 is not None]
+    in_fastqs3 = [fq.fastn3 for fq in samples if fq.fastn3 is not None]
     if any(in_fastqs3):
-        out_fastq3 = P.snip(out_fastq1, samples[0].fq1_suffix) + samples[0].fq3_suffix
+        out_fastq3 = P.snip(out_fastq1, samples[0].fn1_suffix) + samples[0].fn3_suffix
 
     if len(in_fastqs1) == 1:
         # Create symlinks for single input
