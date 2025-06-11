@@ -487,9 +487,10 @@ def contig_taxa_blastn(infile, outfile):
         f" -db {nt_database}"
         f" -out {outfile}" 
         f" -num_threads {threads}"
-        " -max_hsps 5"
-        " -outfmt '7 qaccver saccver evalue bitscore length pident qcovs staxid stitle'"
+        " -num_alignments 5"
+        " -outfmt '7 qaccver saccver evalue bitscore length pident qcovs stitle'"
     )
+
 
     # submit statement as a job
     P.run(statement,
