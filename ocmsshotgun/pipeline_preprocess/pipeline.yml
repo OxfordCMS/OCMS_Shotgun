@@ -1,27 +1,16 @@
 ################################################################
 #
-# Pipeline pipeline_mwgs_preprocess.py configuration file
+# Pipeline pipeline_preprocess.py configuration file
 # Add pipeline specific options into separate sections
 #
 ################################################################
 ## general options
+general:
+    # input directory (fastq single or paired end reads)
+    input.dir: 'input.dir'
 
-# Project name
-projectname: Preprocess mWGS Samples
-
-# Copyright statement
-copyright: Jethro Johnson
-
-# The short X.Y version.
-version: 0.1
-
-# The full version, including alpha/beta/rc tags.
-release: 0.1
-
-#location_fastq: 0
-
-# Sequence data type (metatranscriptome or metagenome)
-data_type: metagenome
+    # Sequence data type (metatranscriptome or metagenome)
+    data_type: metagenome
 
 
 ################################################################
@@ -48,14 +37,10 @@ trimmomatic:
 
     jar_path: $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar
 
-    n_threads: 4
-
     # Location of contaminants file
     # NexteraPE-PE.fa, TruSeq2-PE.fa, TruSeq3-PE-2.fa, TruSeq3-PE.fa
     # TruSeq2-SE.fa, TruSeq3-SE.fa
     adapters: /gpfs3/well/johnson/shared/databases/adapters/HTG_oligov2/HTG_oligov2.fa
-    
-    phred_format: 33
 
     # Number of mismatches tolerated in seed alignment of adapter sequence (16 bases)
     seed_mismatches: 3
@@ -79,6 +64,9 @@ trimmomatic:
 
     # Minimum length for surviving read
     minlen: 36
+
+    # additional trimmomatic options
+    options: ''
 
     # Cluster options
     job_threads: 4
@@ -120,12 +108,12 @@ bmtagger:
 
     # which executable to use - bmtagger_mod.sh fixes some apparent
     # bugs. Choices are bmtagger.sh or bmtagger_mod.sh
-    executable: bmtagger.sh
+    executable: bmtagger_mod.sh
 
     # Comma-separated list of genomes to screen against
-    bitmask: /gpfs3/well/johnson/shared/mirror/genome/bmtagger/bitmask/hg38.bitmask
+    bitmask: /databases/bmtool/human/hg38/GCC-12.2.0/bmtool-v.3.102.4/hg38.bitmask
 
-    srprism: /gpfs3/well/johnson/shared/mirror/genome/bmtagger/srprism/hg38.srprism
+    srprism: /databases/SRPRISM/human/hg38/GCC-12.2.0/srprism-3.3.2/hg38.srprism
 
    
     # Cluster options  
@@ -135,14 +123,14 @@ bmtagger:
 
 hisat2:
     # index for reference genome
-    ref_genome: /well/kir/mirror/genomes/hisat2/hg38.ensembl91.genome.dir/hg38
+    ref_genome: /databases/HISAT2/human/hg38/GCC-12.2.0/hisat2-2.2.1/hg38
 
     # additional hisat2 options
     options: ''
 
     # cluster options
-    job_threads: 10
-    job_memory: 2G
+    job_threads: 4
+    job_memory: 20G
   
 ################################################################
 # Masking or removal of repetitive sequence

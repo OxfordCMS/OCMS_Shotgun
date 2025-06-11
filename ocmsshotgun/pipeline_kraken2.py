@@ -52,19 +52,16 @@ Code
 """
 import sys
 import os
-import re
 import glob
-import yaml
-from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
 import ocmsshotgun.modules.Kraken2 as K
-import ocmsshotgun.modules.Utility as utility
+import ocmstoolkit.modules.Utility as Utility
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 # check files to be processed
 indir = PARAMS.get('general_input.dir', 'input.dir')
-FASTQ1 = utility.check_input(indir)
+FASTQ1 = Utility.get_fastns(indir)
 
 #get all files within the directory to process
 SEQUENCEFILES = (f"{indir}/*.fastq.1.gz")
@@ -87,7 +84,8 @@ SEQUENCEFILES_REGEX = regex(
 def runKraken2(infile, outfile):
     '''classify reads with kraken2
     '''
-    statement  = K.kraken2(infile, outfile, **PARAMS).buildStatement()
+    tool = K.Kraken2(infile, outfile, **PARAMS)
+    statement = tool.build_statement(Utility.MetaFastn(infile))
     
     P.run(statement,
           job_threads = PARAMS["kraken2_job_threads"],
@@ -111,7 +109,8 @@ def runBracken(infile, outfile):
     '''
     convert read classifications into abundance with Bracken
     '''
-    statement = K.bracken(infile, outfile, **PARAMS).buildStatement()
+    tool = K.Bracken(infile, outfile, **PARAMS)
+    statement = tool.build_statement()
 
     P.run(statement,
           job_threads = PARAMS["bracken_job_threads"],
