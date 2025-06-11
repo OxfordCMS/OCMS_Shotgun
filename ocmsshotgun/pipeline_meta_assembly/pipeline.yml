@@ -37,7 +37,7 @@ megahit:
 quast:
   # options for running quast
   options: '--threads 8 ' #no-check flag tells QUAST not to perform any reference searches/checks or downlaod from NCBI
-  reference: /well/kir-scratch/kir-ocms/quast_MAG/gut_microbiome_references.fasta.gz
+  reference: /well/kir/projects/mirror/ocms/quast/human_gut_meta_assemblies_v1/gut_microbiome_references.fasta.gz
   meta_threads: 2
   meta_memory: 15G
           
