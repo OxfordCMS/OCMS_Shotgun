@@ -1,7 +1,5 @@
 #import modules
 import re
-import gzip
-import shutil
 import os
 import glob
 import cgatcore.pipeline as P
