@@ -488,7 +488,8 @@ def contig_taxa_blastn(infile, outfile):
         f" -out {outfile}" 
         f" -num_threads {threads}"
         " -num_alignments 5"
-        " -outfmt '7 qaccver saccver evalue bitscore length pident qcovs stitle'"
+        " -num_descriptions 5"
+        " -outfmt '7 qaccver saccver length evalue bitscore pident qcovs stitle'"
     )
 
 
