@@ -5,13 +5,19 @@ import glob
 from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
+from cgatcore import iotools as IOTools
 import ocmstoolkit.modules.Utility as Utility
 
-PARAMS = P.get_parameters("pipeline.yml")
-indir=PARAMS.get("general_input.dir", "input.dir")
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError:
+    raise RuntimeError("Required configuration file 'pipeline.yml' not found. Please provide one to run the pipeline.")
+else:
+    PARAMS = P.get_parameters("pipeline.yml")
+    indir = PARAMS.get("general_input.dir", "input.dir")
 
-#check all files to be processed
-FASTQs = Utility.get_fastns(indir)
+    # Check all files to be processed
+    FASTQs = Utility.get_fastns(indir)
 
 @follows(mkdir("metaphlan.dir"))
 @transform(FASTQs,
