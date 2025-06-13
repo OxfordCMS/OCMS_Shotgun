@@ -352,22 +352,22 @@ class runMegaHit(MetaAssembler):
             libraries = ' '.join([' '.join(x) for x in libraries])
 
 
-        mega_threads = PARAMS['megahit_meta_threads']
-        mega_memory_per_thread = PARAMS['megahit_meta_memory']
+        #mega_threads = PARAMS['megahit_meta_threads']
+        #mega_memory_per_thread = PARAMS['megahit_meta_memory']
 
         # Parse and compute total memory in GB
-        memory_value = int(mega_memory_per_thread.strip().upper().replace('G', ''))
-        total_memory = mega_threads * memory_value
+        #memory_value = int(mega_memory_per_thread.strip().upper().replace('G', ''))
+        #total_memory = mega_threads * memory_value
 
         # Dynamically compute run options
-        run_options = f"-t {mega_threads} -m {total_memory}"
+        #run_options = f"-t {mega_threads} -m {total_memory}"
                 
         # Megahit is randomly failing when large numbers of jobs submitted
         # /usr/lib64/libgomp.so.1: version `GOMP_4.0' not found
         delay = random.randint(1, 1000)
         statement1 = ("sleep {delay} &&"
                       " megahit"
-                      "  {run_options}"
+                     # "  {run_options}"
                       "  {libraries}"
                       "  -o {out_sub_dir}"
                       "  2> {outfile}.log".format(**locals()))
