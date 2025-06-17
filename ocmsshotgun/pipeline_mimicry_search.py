@@ -111,6 +111,7 @@ from pathlib import Path
 from ruffus import regex, follows, collate, mkdir, originate, split, subdivide, transform, suffix, add_inputs
 from cgatcore import pipeline as P
 import pandas as pd
+import numpy as np
 from datetime import datetime
 
 
@@ -497,9 +498,129 @@ def contig_taxa_blastn(infile, outfile):
     P.run(statement,
           job_memory = PARAMS["blast_search_job_memory"],
           job_threads = PARAMS["blast_search_job_threads"])
+    
+###############################################################################
+# Extract top blast hit for each mimicry hit
+###############################################################################
+@follows(contig_taxa_blastn, mkdir(f"06_top_taxa_blastn.dir/{output_folder}"))
+
+@transform(
+    f"05_contig_blastn.dir/{output_folder}/*_contig_blastn.tsv",
+    regex(f"05_contig_blastn.dir/{output_folder}/(.+)_contig_blastn.tsv"),
+    rf"06_top_taxa_blastn.dir/{output_folder}/\1_top_taxa_blastn.tsv",
+)
+
+def contig_top_taxa(infile, outfile):
+    """Find the best blast hit for each contig based on bitscore, evalue, 
+    alignment length, and percentage idenity"""
+
+    # define sampleid
+    sample_id = re.search(rf"05_contig_blastn.dir/{output_folder}/(.+)_contig_blastn.tsv", str(infile)).group(1)
+
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} INFO main execution - finding top blast hits of each mimicry contig for sample {sample_id}", flush=True) 
+
+    # define file path to contig blast results
+    # this contains the results of the contig blast search
+    contig_blastn = Path(infile)
+
+    # use genarator to extract list of query ids and store in dataframe
+    queries_df = []
+    for line in contig_blastn.open("r"):
+        if line.startswith("# Query: "):
+            queries_df.append(line.removeprefix("# Query: ").strip())
+
+    queries_df = pd.DataFrame({"query": queries_df})
+
+    # open contig blastn results as dataframe
+    contig_blastn_df = pd.read_csv(
+        contig_blastn,
+        sep="\t",
+        comment="#",
+        names=[
+            "query",
+            "subject_acc.ver",
+            "alignment_length",
+            "evalue",
+            "bit_score",
+            "perc_identity",
+            "perc_query_coverage_per_subject",
+            "subject_title",
+        ],
+        dtype={
+            "query": str,
+            "subject_acc.ver": str,
+            "alignment_length": np.float64,
+            "evalue": np.float64,
+            "bit_score": np.float64,
+            "perc_identity": np.float64,
+            "perc_query_coverage_per_subject": np.float64,
+            "subject_title": str,
+        },
+    )
+
+    # find number of hits per query
+    num_hits = contig_blastn_df.groupby("query", as_index=False).agg(
+        total_hits=("query", "count")
+    )
+
+    # find the best hit per query
+    # based on bit-score (highest), eval (lowest), length (longest)
+    top_hits = (
+        contig_blastn_df.sort_values(
+            by=["bit_score", "evalue", "alignment_length", "perc_identity"],
+            ascending=[False, True, False, False],
+            na_position="last",
+        )
+        .groupby("query", as_index=False)
+        .head(1)
+    )
+
+    # find number of hits for best scoring taxa per query
+    taxa_hits = (
+        top_hits[["query", "subject_acc.ver"]].merge(
+            contig_blastn_df[["query", "subject_acc.ver"]],
+            on=["query", "subject_acc.ver"],
+            how="left",
+        )
+        .groupby(["query", "subject_acc.ver"], as_index=False)
+        .agg(
+            top_taxa_hits = ("subject_acc.ver", "count")
+        )
+    )
+
+    # add number of hits per query
+    final_df = pd.merge(
+        queries_df,
+        num_hits,
+        on="query",
+        how="left"
+    )
+
+    # add number of hits for each top blast hit per query
+    final_df = pd.merge(
+        final_df,
+        taxa_hits,
+        on="query",
+        how="left"
+    )
+
+    # add data relating to the top blast hit per query
+    final_df = pd.merge(
+        final_df,
+        top_hits,
+        on=["query", "subject_acc.ver"],
+        how="left"
+    )
+
+    # save output
+    final_df.to_csv(outfile, sep="\t", na_rep='NULL')
+
+    print(f"                                             found top blast hits for {len(final_df)} contigs encoding proteins with potenital mimicry toward {epitope_name}", flush=True)
+
+                    
 
 ###############################################################################
-@follows(contig_taxa_blastn)
+@follows(contig_top_taxa)
 def full():
     pass
 
