@@ -91,7 +91,7 @@ epitope of interest as well as a .tsv file containing the blast search results.
 contains a fasta file for each sample containing the nucleotide sequences of
 the full contigs that were identified to contain a protein mimic.
 
-05_find_contig_taxonomy.dir contains the outputs of the blastn sequence homolgy
+05_contig_blastn.dir contains the outputs of the blastn sequence homolgy
 search of all contigs containing.
 
 Glossary
@@ -463,12 +463,12 @@ def extract_contigs(infile, outfile):
 ###############################################################################
 # Blastn sequence homology homology to identify taxa
 ###############################################################################
-@follows(extract_contigs, mkdir(f"05_find_contig_taxonomy.dir/{output_folder}"))
+@follows(extract_contigs, mkdir(f"05_contig_blastn.dir/{output_folder}"))
 
 @transform(
     f"04_find_mimicry_contigs.dir/{output_folder}/*_mimicry_contigs.fasta",
     regex(f"04_find_mimicry_contigs.dir/{output_folder}/(.+)_mimicry_contigs.fasta"),
-    rf"05_find_contig_taxonomy.dir/{output_folder}/\1_blastn_taxonomy.tsv",
+    rf"05_contig_blastn.dir/{output_folder}/\1_contig_blastn.tsv",
 )
 
 def contig_taxa_blastn(infile, outfile):
@@ -487,8 +487,8 @@ def contig_taxa_blastn(infile, outfile):
         f" -db {nt_database}"
         f" -out {outfile}" 
         f" -num_threads {threads}"
-        " -num_alignments 5"
-        " -num_descriptions 5"
+        " -num_alignments 50"
+        " -num_descriptions 50"
         " -outfmt '7 qaccver saccver length evalue bitscore pident qcovs stitle'"
     )
 
