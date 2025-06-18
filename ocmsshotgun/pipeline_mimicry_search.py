@@ -640,13 +640,11 @@ def contig_top_taxa(infile, outfile):
             on=["query", "subject_acc.ver"],
             how="left"
         )
-
-        # save output
-        final_df.to_csv(outfile, sep="\t", na_rep='NULL')
-
         print(f"                                             found top blast hits for {len(final_df)} contigs encoding proteins with potenital mimicry toward {epitope_name}", flush=True)
 
-                        
+    # save output
+    final_df.to_csv(outfile, sep="\t", na_rep='NULL')
+                       
 ###############################################################################
 # Merge all protein assemblies into one fasta file
 ###############################################################################
