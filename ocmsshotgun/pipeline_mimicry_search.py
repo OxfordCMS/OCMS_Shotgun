@@ -618,9 +618,63 @@ def contig_top_taxa(infile, outfile):
     print(f"                                             found top blast hits for {len(final_df)} contigs encoding proteins with potenital mimicry toward {epitope_name}", flush=True)
 
                     
-
+###############################################################################
+# Merge all protein assemblies into one fasta file
 ###############################################################################
 @follows(contig_top_taxa)
+@collate(
+    f"06_top_taxa_blastn.dir/{output_folder}/*_top_taxa_blastn.tsv",
+    regex(f"06_top_taxa_blastn.dir/{output_folder}/(.+)_top_taxa_blastn.tsv"),
+    f"06_top_taxa_blastn.dir/{output_folder}/merged_top_taxa_blastn.tsv",
+)
+
+def merge_top_taxa(infiles, outfile):
+    """Concatenate each top_taxa_blastn.tsv per sample to create one file"""
+
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} INFO main execution - creating erged_top_taxa_blastn.tsv for {epitope_name}", flush=True) 
+
+
+    print(f"infiles: {infiles}")
+    print(f"outfile: {outfile}")
+
+    # create empty dataframe to store output
+    merged_df = pd.DataFrame(
+            columns=[
+                "query",
+                "total_hits",
+                "subject_acc.ver",
+                "top_taxa_hits",
+                "alignment_length",
+                "evalue",
+                "bit_score",
+                "perc_identity",
+                "perc_query_coverage_per_subject",
+                "subject_title",
+            ]
+        )
+    
+    # add data for each file
+    for file in infiles:
+        # define sampleid
+        sample_id = re.search(rf"06_top_taxa_blastn.dir/{output_folder}/(.+)_top_taxa_blastn.tsv", str(file)).group(1)
+        print(f"                                             concatenating dataframe for sample {sample_id}", flush=True)
+
+        # open file as a dataframe
+        file_df = pd.read_csv(
+            file,
+            sep="\t",
+            comment="#",
+            index_col=0
+        )
+
+        # concatenate files
+        merged_df = pd.concat([merged_df, file_df])
+    
+    # save output
+    merged_df.to_csv(outfile, sep="\t", na_rep='NULL')
+
+###############################################################################
+@follows(merge_top_taxa)
 def full():
     pass
 
