@@ -113,6 +113,7 @@ from cgatcore import pipeline as P
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import os
 
 
 # get all fasta contig files within directory to process
@@ -517,107 +518,135 @@ def contig_top_taxa(infile, outfile):
     # define sampleid
     sample_id = re.search(rf"05_contig_blastn.dir/{output_folder}/(.+)_contig_blastn.tsv", str(infile)).group(1)
 
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} INFO main execution - finding top blast hits of each mimicry contig for sample {sample_id}", flush=True) 
-
     # define file path to contig blast results
     # this contains the results of the contig blast search
     contig_blastn = Path(infile)
 
-    # use genarator to extract list of query ids and store in dataframe
-    queries_df = []
-    for line in contig_blastn.open("r"):
-        if line.startswith("# Query: "):
-            queries_df.append(line.removeprefix("# Query: ").strip())
+    # check if sample contains any hits / contigs with potenital mimicry
+    if os.stat(contig_blastn).st_size == 0 :
 
-    queries_df = pd.DataFrame({"query": queries_df})
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} INFO main execution - zero mimicry hits towards {epitope_name} were identified for sample: {sample_id}", flush=True) 
 
-    # open contig blastn results as dataframe
-    contig_blastn_df = pd.read_csv(
-        contig_blastn,
-        sep="\t",
-        comment="#",
-        names=[
-            "query",
-            "subject_acc.ver",
-            "alignment_length",
-            "evalue",
-            "bit_score",
-            "perc_identity",
-            "perc_query_coverage_per_subject",
-            "subject_title",
-        ],
-        dtype={
-            "query": str,
-            "subject_acc.ver": str,
-            "alignment_length": np.float64,
-            "evalue": np.float64,
-            "bit_score": np.float64,
-            "perc_identity": np.float64,
-            "perc_query_coverage_per_subject": np.float64,
-            "subject_title": str,
-        },
-    )
+        # create empty dataframe corresponding to this sample store output
+        final_df = pd.DataFrame(
+                np.nan,
+                index = [0],
+                columns=[
+                    "query",
+                    "total_hits",
+                    "subject_acc.ver",
+                    "top_taxa_hits",
+                    "alignment_length",
+                    "evalue",
+                    "bit_score",
+                    "perc_identity",
+                    "perc_query_coverage_per_subject",
+                    "subject_title",
+                ]
+            )
+        
+        # add identifier
+        final_df['query'] = f"{sample_id}_no_mimicry_hits"
 
-    # find number of hits per query
-    num_hits = contig_blastn_df.groupby("query", as_index=False).agg(
-        total_hits=("query", "count")
-    )
+    elif os.stat(contig_blastn).st_size > 0 :  
+        
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} INFO main execution - finding top blast hits of each mimicry contig for sample: {sample_id}", flush=True) 
+   
+        # use genarator to extract list of query ids and store in dataframe
+        queries_df = []
+        for line in contig_blastn.open("r"):
+            if line.startswith("# Query: "):
+                queries_df.append(line.removeprefix("# Query: ").strip())
 
-    # find the best hit per query
-    # based on bit-score (highest), eval (lowest), length (longest)
-    top_hits = (
-        contig_blastn_df.sort_values(
-            by=["bit_score", "evalue", "alignment_length", "perc_identity"],
-            ascending=[False, True, False, False],
-            na_position="last",
+        queries_df = pd.DataFrame({"query": queries_df})
+
+        # open contig blastn results as dataframe
+        contig_blastn_df = pd.read_csv(
+            contig_blastn,
+            sep="\t",
+            comment="#",
+            names=[
+                "query",
+                "subject_acc.ver",
+                "alignment_length",
+                "evalue",
+                "bit_score",
+                "perc_identity",
+                "perc_query_coverage_per_subject",
+                "subject_title",
+            ],
+            dtype={
+                "query": str,
+                "subject_acc.ver": str,
+                "alignment_length": np.float64,
+                "evalue": np.float64,
+                "bit_score": np.float64,
+                "perc_identity": np.float64,
+                "perc_query_coverage_per_subject": np.float64,
+                "subject_title": str,
+            },
         )
-        .groupby("query", as_index=False)
-        .head(1)
-    )
 
-    # find number of hits for best scoring taxa per query
-    taxa_hits = (
-        top_hits[["query", "subject_acc.ver"]].merge(
-            contig_blastn_df[["query", "subject_acc.ver"]],
+        # find number of hits per query
+        num_hits = contig_blastn_df.groupby("query", as_index=False).agg(
+            total_hits=("query", "count")
+        )
+
+        # find the best hit per query
+        # based on bit-score (highest), eval (lowest), length (longest)
+        top_hits = (
+            contig_blastn_df.sort_values(
+                by=["bit_score", "evalue", "alignment_length", "perc_identity"],
+                ascending=[False, True, False, False],
+                na_position="last",
+            )
+            .groupby("query", as_index=False)
+            .head(1)
+        )
+
+        # find number of hits for best scoring taxa per query
+        taxa_hits = (
+            top_hits[["query", "subject_acc.ver"]].merge(
+                contig_blastn_df[["query", "subject_acc.ver"]],
+                on=["query", "subject_acc.ver"],
+                how="left",
+            )
+            .groupby(["query", "subject_acc.ver"], as_index=False)
+            .agg(
+                top_taxa_hits = ("subject_acc.ver", "count")
+            )
+        )
+
+        # add number of hits per query
+        final_df = pd.merge(
+            queries_df,
+            num_hits,
+            on="query",
+            how="left"
+        )
+
+        # add number of hits for each top blast hit per query
+        final_df = pd.merge(
+            final_df,
+            taxa_hits,
+            on="query",
+            how="left"
+        )
+
+        # add data relating to the top blast hit per query
+        final_df = pd.merge(
+            final_df,
+            top_hits,
             on=["query", "subject_acc.ver"],
-            how="left",
+            how="left"
         )
-        .groupby(["query", "subject_acc.ver"], as_index=False)
-        .agg(
-            top_taxa_hits = ("subject_acc.ver", "count")
-        )
-    )
 
-    # add number of hits per query
-    final_df = pd.merge(
-        queries_df,
-        num_hits,
-        on="query",
-        how="left"
-    )
+        # save output
+        final_df.to_csv(outfile, sep="\t", na_rep='NULL')
 
-    # add number of hits for each top blast hit per query
-    final_df = pd.merge(
-        final_df,
-        taxa_hits,
-        on="query",
-        how="left"
-    )
+        print(f"                                             found top blast hits for {len(final_df)} contigs encoding proteins with potenital mimicry toward {epitope_name}", flush=True)
 
-    # add data relating to the top blast hit per query
-    final_df = pd.merge(
-        final_df,
-        top_hits,
-        on=["query", "subject_acc.ver"],
-        how="left"
-    )
-
-    # save output
-    final_df.to_csv(outfile, sep="\t", na_rep='NULL')
-
-    print(f"                                             found top blast hits for {len(final_df)} contigs encoding proteins with potenital mimicry toward {epitope_name}", flush=True)
-
-                    
+                        
 ###############################################################################
 # Merge all protein assemblies into one fasta file
 ###############################################################################
