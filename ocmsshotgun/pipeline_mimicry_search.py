@@ -673,8 +673,109 @@ def merge_top_taxa(infiles, outfile):
     # save output
     merged_df.to_csv(outfile, sep="\t", na_rep='NULL')
 
+
+###############################################################################
+# Create final table by adding infered taxonomy to mimicry results
 ###############################################################################
 @follows(merge_top_taxa)
+
+@transform(
+    f"06_top_taxa_blastn.dir/{output_folder}/merged_top_taxa_blastn.tsv",
+    suffix(f"06_top_taxa_blastn.dir/{output_folder}/merged_top_taxa_blastn.tsv"),
+    f"03_blast_search.dir/{output_folder}/{epitope_name}_epitope_blast_search_with_taxa_ids.csv"
+)
+
+def add_taxa(infile, outfile):
+    """Find the best blastn taxonomy hit for each contig to the mimicry results"""
+
+    # define file path to the mimicry blast search results
+    mimicry_path = re.sub("_with_taxa_ids", "", outfile)
+    mimicry_path = Path(re.sub("csv", "tsv", mimicry_path))
+
+    # read in the blast mimicry search results as a dataframe
+    mimicry_df = pd.read_csv(
+        mimicry_path,
+        sep="\t",
+        comment="#",
+        names=[
+            "query_id",
+            "subject_id",
+            "perc_identity",
+            "alignment_length",
+            "mismatches",
+            "gap opens",
+            "q_start",
+            "q_end",
+            "s_start",
+            "s_end",
+            "evalue",
+            "bit_score",
+            "BTOP",
+            "subject_seq",
+            "subject_title",
+            "subject_tax_id",
+        ],
+        dtype={
+            "query_id" : str,
+            "subject_id" : str,
+            "perc_identity" : np.float64,
+            "alignment_length" : np.float64,
+            "mismatches" : np.float64,
+            "gap opens" : np.float64,
+            "q_start" : np.float64,
+            "q_end" : np.float64,
+            "s_start" : np.float64,
+            "s_end" : np.float64,
+            "evalue" : np.float64,
+            "bit_score" : np.float64,
+            "BTOP" : str,
+            "subject_seq" : str,
+            "subject_title" : str,
+            "subject_tax_id" : str,
+        }
+    )
+
+    # open dataframe containg top blast hit for each contig with potenital mimciry
+    contig_df = pd.read_csv(
+        infile,
+        sep="\t",
+        comment="#",
+        na_values= "NULL",
+        index_col=0
+    )
+
+    # select columns required
+    contig_df = contig_df[[
+            'query',
+            'subject_acc.ver',
+            'subject_title'
+        ]]
+
+    # rename columns
+    contig_df = contig_df.rename(columns={
+            'query': 'contig_query',
+            'subject_acc.ver': 'top_taxa_ncbi_id',
+            'subject_title': 'top_taxa_subject_title'
+        }
+    )
+
+    # extract protein locus tag, and contig id
+    contig_df[['subject_id','contig_id']] = contig_df['contig_query'].str.split("__", expand=True)
+
+    # add contig taxonomy data to blast mimicry search output
+    final_df = pd.merge(
+        mimicry_df,
+        contig_df,
+        on = "subject_id",
+        how="left"
+    )
+    
+    # save output
+    final_df.to_csv(outfile, na_rep='NULL')
+
+
+###############################################################################
+@follows(add_taxa)
 def full():
     pass
 
