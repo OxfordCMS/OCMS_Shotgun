@@ -56,6 +56,8 @@ from pathlib import Path
 from ruffus import *
 import ocmsshotgun.modules.Databases as DB
 from cgatcore import pipeline as P
+from cgatcore import iotools as IOTools
+
 PARAMS = P.get_parameters(["pipeline.yml"])
 
 ########################################################
@@ -63,6 +65,13 @@ PARAMS = P.get_parameters(["pipeline.yml"])
 # get the general information on versions etc
 ########################################################
 ########################################################
+
+
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    # allow config to make yml
+    pass
 
 gcc_version = PARAMS["gcc"]
 python_version = PARAMS["python"]

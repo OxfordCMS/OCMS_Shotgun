@@ -45,12 +45,16 @@ import os,sys,re
 import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.PreProcess as PP
 
-# set up params
 PARAMS = P.get_parameters(["pipeline.yml"])
-
-# check that input files correspond
-indir = PARAMS.get("general_input.dir", "input.dir")
-FASTQ1S = Utility.get_fastns(indir)
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    indir = "."
+    FASTQ1S = None
+else:
+    # check that input files correspond
+    indir = PARAMS.get("general_input.dir", "input.dir")
+    FASTQ1S = Utility.get_fastns(indir)
 
 @follows(mkdir('hisat2.dir'))
 @transform(FASTQ1S,
