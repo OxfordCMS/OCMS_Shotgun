@@ -1,3 +1,4 @@
+
 import os
 
 class MetaBAT2Runner:
@@ -33,4 +34,45 @@ class MetaBAT2Runner:
             f"-t {metabat2_threads}"
         )
         return statement
+
+class MaxBin2Runner:
+    def __init__(self, assembly, prefix, output_dir, abundance_file=None, abundance_list=None, **PARAMS):
+        """
+        Initialize MaxBin2Runner using parameters from YAML config.
+
+        :param assembly: Path to assembly FASTA file
+        :param abundance_file: Path to abundance/depth file (for unpooled samples)
+        :param abundance_list: Path to abundance list file (for pooled samples)
+        :param output_dir: Output directory for MaxBin2 bins
+        :param prefix: Prefix for output bin files
+        :param PARAMS: Additional parameter like maxbin2_threads
+        """
+        self.assembly = assembly
+        self.abundance_file = abundance_file
+        self.abundance_list = abundance_list
+        self.output_dir = output_dir
+        self.prefix = prefix
+        self.PARAMS = PARAMS
+
+    def build_command(self):
+        """
+        Build statement for MaxBin2.
+        """
+        maxbin2_threads = self.PARAMS.get("maxbin2_threads", 4)
+
+        output_prefix = os.path.join(self.output_dir, f"{self.prefix}_bin")
+
+        statement = (
+            f"MaxBin "
+            f"-fasta {self.assembly} "
+            f"-out {output_prefix} "
+            f"-thread {maxbin2_threads}"
+        )
+        # Add abundance file or list
+        if self.abundance_list:
+            statement += f" -abund_list {self.abundance_list}"
+        elif self.abundance_file:
+            statement += f" -abund {self.abundance_file}"
+
+        return statement.strip()
 
