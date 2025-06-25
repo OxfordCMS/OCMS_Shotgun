@@ -263,17 +263,16 @@ def collateContigStatsAcrossAssemblers(infiles, outfile):
 # Calculate Assembly Statistics through QUAST
 @follows(assembleMetaGenome)
 @transform(ASSEMBLY_TARGETS,
-           regex('(.+)/(.+).contigs.fasta'),
-           r'\1/\2_quast.dir/combined_reference/report.tsv')
+           regex('(.+)/(.+)\.contigs\.fasta'),
+           r'\1/\2_quast.dir')
 
 def runQUAST(contig_file, outfile):
-    '''Run Quast without reference to get contig/scaffold stats'''
+    '''Run Quast with reference to get contig/scaffold stats'''
    
-    out_dir = os.path.dirname(outfile)
-    out_log = P.snip(out_dir, '.dir') + '.log'
+    out_log = P.snip(outfile, '.dir') + '.log'
 
     statement = ("metaquast.py %(contig_file)s"
-                 " --output-dir %(out_dir)s"
+                 " --output-dir %(outfile)s"
                  " %(quast_options)s"
                  " -r %(quast_reference)s"
                  " &> %(out_log)s")
@@ -281,28 +280,53 @@ def runQUAST(contig_file, outfile):
           job_threads=PARAMS['quast']['meta_threads'],
           job_memory=PARAMS['quast']['meta_memory'])
 
-#Merge QUAST reprots for megahit and metaSPades assemblies
-@collate(runQUAST,
-         regex(r'(.+)_assembly\.dir/(.+)_quast\.dir/combined_reference/report\.tsv'),
-         r'\1_quast_assembly_stats.tsv.gz')
-
-def mergeQUASToutput(infiles, outfile):    
+#Merge QUAST reports for MetaSpades
+@merge(runQUAST,
+       "quast_spades_assembly_stats.tsv.gz")
+def mergeQUASToutputSpades(infiles, outfile):
     '''
-    Merge quast reports of SPAdes and Megahit assemblies.
+    Merge QUAST reports from SPAdes assemblies.
     '''
-    
+    spades_files = [x for x in infiles if "spades" in x]
     out_log = P.snip(outfile, '.tsv.gz') + ".log"
-    infiles = ' '.join(infiles)
- 
-    statement = ("ocms_shotgun combine_tables"
-                 " --skip-titles"
-                 " %(infiles)s "
-                 " -m 0"
-                 " -k 2"
-                 " -c 1"
-                 " --log=%(out_log)s | sed 's/^Assembly/Statistics/' | gzip > %(outfile)s")
+    files_str = ' '.join(spades_files)
 
+    statement = (
+        f"ocms_shotgun combine_tables "
+        f"--skip-titles "
+        f"{files_str} "
+        f"-m 0 "
+        f"-k 2 "
+        f"-c 1 "
+        f"--log={out_log} "
+        f"| sed 's/^Assembly/Statistics/' "
+        f"| gzip > {outfile}"
+    )
     P.run(statement)
+
+@merge(runQUAST,
+       "quast_megahit_assembly_stats.tsv.gz")
+def mergeQUASToutputMegahit(infiles, outfile):
+    '''
+    Merge QUAST reports from MEGAHIT assemblies.
+    '''
+    megahit_files = [x for x in infiles if "megahit" in x]
+    out_log = P.snip(outfile, '.tsv.gz') + ".log"
+    files_str = ' '.join(megahit_files)
+
+    statement = (
+        f"ocms_shotgun combine_tables "
+        f"--skip-titles "
+        f"{files_str} "
+        f"-m 0 "
+        f"-k 2 "
+        f"-c 1 "
+        f"--log={out_log} "
+        f"| sed 's/^Assembly/Statistics/' "
+        f"| gzip > {outfile}"
+    )
+    P.run(statement)
+
 
 
 ##############################################################################
