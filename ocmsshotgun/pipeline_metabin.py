@@ -86,17 +86,20 @@ def indexfasta(infile, outfile):
     out_dir = re.sub(r'\.fasta$', '_index', infile)
     os.makedirs(out_dir, exist_ok=True)
 
+    threads = PARAMS.get("bowtie2_indexing", {}).get("threads", 1)
     out_prefix = os.path.join(out_dir, re.sub(r'\.fasta$', '', os.path.basename(infile)))
-    index_options = PARAMS["assembly_mapping"].get("index_options", "")
 
     statement = (
         "bowtie2-build "
-        " %(index_options)s"
-        " %(infile)s"
+        " --threads %(threads)s "
+        " %(infile)s "
         " %(out_prefix)s > %(out_prefix)s.log"
     )
 
-    P.run(statement)
+    P.run(statement,
+          infile=infile,
+          out_prefix=out_prefix,
+          threads=threads)
 
 def main(argv=None):
     if argv is None:

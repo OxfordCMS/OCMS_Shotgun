@@ -4,3 +4,5 @@ general:
   fasta.dir: input_metagenome_fasta.dir
   fastq.dir: input_metagenome_fastq.dir
 
+bowtie2_indexing:
+  threads: 8
