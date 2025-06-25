@@ -264,15 +264,16 @@ def collateContigStatsAcrossAssemblers(infiles, outfile):
 @follows(assembleMetaGenome)
 @transform(ASSEMBLY_TARGETS,
            regex('(.+)/(.+)\.contigs\.fasta'),
-           r'\1/\2_quast.dir')
+           r'\1/\2_quast.dir/combined_reference/report.tsv')
 
 def runQUAST(contig_file, outfile):
     '''Run Quast with reference to get contig/scaffold stats'''
    
-    out_log = P.snip(outfile, '.dir') + '.log'
+    quast_dir = os.path.dirname(os.path.dirname(outfile))  # strips .../combined_reference/report.tsv
+    out_log = quast_dir + '.log'
 
     statement = ("metaquast.py %(contig_file)s"
-                 " --output-dir %(outfile)s"
+                 " --output-dir %(quast_dir)s"
                  " %(quast_options)s"
                  " -r %(quast_reference)s"
                  " &> %(out_log)s")
