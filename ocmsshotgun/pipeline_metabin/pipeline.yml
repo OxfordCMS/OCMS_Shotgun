@@ -1,25 +1,6 @@
 # pipeline.yml
 
-# Input directory with FASTQ files
-fastq_input_dir: fastq.dir
-
-# Input directory with FASTA files
-fasta_input_dir: fasta.dir
-
-fastq_prepped_dir: fastq_prepped_for_metawrap.dir
-
-# Whether you're using a pooled assembly (true/false)
-is_pooled: false
-
-# Options for binning tools to be used by MetaWRAP.
-# Specify any combination of the following (up to 3):
-# --metabat2, --maxbin2, --concoct
-# Example: "--metabat2 --concoct"
-binning_tools: "--metabat2 --maxbin2 --concoct"
-
-# Number of threads to use per job
-threads: 8
-
-# Memory to request per job
-job_memory: 10G
+general:
+  fasta.dir: input_metagenome_fasta.dir
+  fastq.dir: input_metagenome_fastq.dir
 
