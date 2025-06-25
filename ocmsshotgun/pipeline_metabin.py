@@ -55,84 +55,48 @@ to the regular expression provided.
 import re
 import os
 import glob
-import cgatcore.pipeline as P
+from cgatcore import pipeline as P
+import ocmstoolkit.modules.Utility as Utility
 from ruffus import *
 
-###############################################################################
-# Setting up pipeline parameters
-###############################################################################
-# Load options from the config file
 PARAMS = P.get_parameters("pipeline.yml")
 
-FASTAS= glob.glob(os.path.join(PARAMS['fasta_input_dir'], "*.fasta"))
+# Access nested YAML entries under 'general'
+fasta_indir = PARAMS["general"]["fasta.dir"]
+fastq_indir = PARAMS["general"]["fastq.dir"]
 
-@collate(
-    FASTAS,
-    regex(r".*/(.+)_corrected\.(megahit|spades)\.contigs\.fasta$"),
-    r"metawrap_binning.dir/\1"
-)
+#check all files to be processed
+FASTQs = Utility.get_fastns(fastq_indir)
 
-def runMetawrapBinning(infiles, outfile):
-    sample = re.sub(r"_corrected\.(megahit|spades)\.contigs\.fasta$", "", os.path.basename(infiles[0]))
+# List all FASTA files in the input directory
+fasta_files = glob.glob(os.path.join(fasta_indir, "*.fasta"))
 
-    if PARAMS["is_pooled"]:
-        fasta_file = infiles[0]  # only one pooled fasta file expected
-        # Correctly ordered fastqs
-        fastq_1_files = sorted(glob.glob(os.path.join(PARAMS["fastq_input_dir"], "*_1.fastq")))
-        fastq_args_list = []
+###############################################################################
+# Index Fasta files (individual or pooled)
+###############################################################################
 
-        for fwd in fastq_1_files:
-            rev = re.sub(r'_1\.fastq$', '_2.fastq', fwd)
-            if os.path.exists(rev):
-                fastq_args_list.extend([fwd, rev])
-            else:
-                raise FileNotFoundError(f"Missing reverse pair for {fwd}")
+@transform(fasta_files,
+           regex(r'(.+)/(.+).fasta'),
+           r'\1/\2_index/\2.1.bt2')
+def indexfasta(infile, outfile):
+    """
+    Index metagenome assembly FASTA files using Bowtie2.
+    Outputs index files to <sample>_index/ within the same base directory.
+    """
+    out_dir = re.sub(r'\.fasta$', '_index', infile)
+    os.makedirs(out_dir, exist_ok=True)
 
-        fastq_args = " ".join(fastq_args_list)
-        outdir = "metawrap_binning.dir/pooled"
-    else:
-    
-        fasta_file = infiles[0]
-        fastq_1 = os.path.join(PARAMS["fastq_input_dir"], f"{sample}_1.fastq")
-        fastq_2 = os.path.join(PARAMS["fastq_input_dir"], f"{sample}_2.fastq")
-        fastq_args = f"{fastq_1} {fastq_2}"
-        outdir = outfile
+    out_prefix = os.path.join(out_dir, re.sub(r'\.fasta$', '', os.path.basename(infile)))
+    index_options = PARAMS["assembly_mapping"].get("index_options", "")
 
-    
-    threads = PARAMS["threads"]
-    binning_tools = PARAMS["binning_tools"]
-    
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    statement = (
+        "bowtie2-build "
+        " %(index_options)s"
+        " %(infile)s"
+        " %(out_prefix)s > %(out_prefix)s.log"
+    )
 
-    out_log = os.path.join(outdir, "metawrap_binning.log")
-
-    print("Creating output dir:", outdir)
-    print("Output log path:", out_log)
-
-    statement = ("module purge && "
-                  "module load metaWRAP/1.4-20230728-foss-2023a-Python-2.7.18 && "
-                  "mkdir -p %(outdir)s && "
-                  "metawrap binning "
-                  " -o %(outdir)s "
-                  " -t %(threads)s "
-                  " -a %(fasta_file)s "
-                  " %(binning_tools)s "
-                  " %(fastq_args)s "
-                  " --run-checkm "
-                  " &> %(out_log)s "
-                  )
-
-    P.run(statement,
-          job_threads=threads,
-          job_memory=PARAMS["job_memory"],
-          fasta_file=fasta_file,
-          fastq_args=fastq_args,
-          outdir=outdir,
-          binning_tools= binning_tools,
-          threads=threads,
-          out_log=out_log)
-
+    P.run(statement)
 
 def main(argv=None):
     if argv is None:
