@@ -19,7 +19,7 @@ Each pipeline has it's own set of dependencies. It is recommended that you only 
 ## Quick Start
 All pipelines are written to be used within a HPC system, but can be run using the `--local` flag to run locally. 
 
-Set up your input files. Input files should use the notation `.fastq.1.gz`, `.fastq.2.gz` and should be located in an input directory called `input.dir`. These need to be in place before running the config step. 
+Set up your input files. Input files should use the notation `.fastq.1.gz`, `.fastq.2.gz` and should be located in an input directory called `input.dir`.
 
 Set up the pipeline configuration file within your working directory.
 
@@ -163,7 +163,7 @@ If using OCMS_Modulefiles you can simply load the modules:
 module load pipelines/preprocess
 ```
 ### Input files
-Pipeline preprocess takes in single or paired end reads. Input files should use the notation `.fastq.1.gz`, `.fastq.2.gz`. Input files should be located in an input directory called `input.dir` and need to be in place before running the config step. 
+Pipeline preprocess takes in single or paired end reads. Input files should use the notation `.fastq.1.gz`, `.fastq.2.gz`. Input files should be located in an input directory called `input.dir`. 
 
 ### Configuration
 Initiate the configuration file.
