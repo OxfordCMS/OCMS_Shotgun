@@ -133,8 +133,8 @@ hisat2:
     options: ''
 
     # cluster options
-    job_threads: 4
-    job_memory: 20G
+    job_threads: 1
+    job_memory: 80G
   
 ################################################################
 # Masking or removal of repetitive sequence
