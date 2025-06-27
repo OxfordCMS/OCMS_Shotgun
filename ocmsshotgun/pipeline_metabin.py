@@ -101,6 +101,59 @@ def indexfasta(infile, outfile):
           out_prefix=out_prefix,
           threads=threads)
 
+
+@follows(indexfasta)
+@transform(FASTQs,
+           regex(r'.*/(.+)\.fastq\.1\.gz'),
+           r'mapping.dir/\1_depth.txt')
+def mapfastq2fasta(infile, outfile):
+    """
+    Map FASTQ files to reference, sort BAM, and generate depth file.
+    Supports both individual and pooled assemblies based on YAML config.
+    """
+    os.makedirs("mapping.dir", exist_ok=True)
+
+    sample = os.path.basename(infile).split(".fastq")[0]
+
+    # Check if pooled or individual mapping
+    pooled_fasta = PARAMS.get("bowtie2_mapping", {}).get("pooled_fasta", None)
+
+    if pooled_fasta:
+        fasta = pooled_fasta
+        index_base = os.path.basename(fasta).replace(".fasta", "")
+        index = fasta.replace(".fasta", f"_index/{index_base}")
+    else:
+        fasta_dir = PARAMS["general"]["fasta.dir"]
+        fasta = os.path.join(fasta_dir, f"{sample}.fasta")
+        index = fasta.replace(".fasta", f"_index/{sample}")
+
+    # Define paths and parameters
+    fastq_1 = infile
+    fastq_2 = infile.replace(".1.gz", ".2.gz")
+    bam = f"mapping.dir/{sample}.bam"
+    sorted_bam = f"mapping.dir/{sample}_sorted.bam"
+    depth = outfile
+    threads = PARAMS.get("bowtie2_indexing", {}).get("threads", 1)
+
+    # Unified statement
+    statement = (
+        "bowtie2 --threads %(threads)s -x %(index)s "
+        "-1 %(fastq_1)s -2 %(fastq_2)s | "
+        "samtools view -bS - > %(bam)s && "
+        "samtools sort -o %(sorted_bam)s %(bam)s && "
+        "jgi_summarize_bam_contig_depths --outputDepth %(depth)s %(sorted_bam)s"
+    )
+
+    # Run the combined command
+    P.run(statement,
+          fastq_1=fastq_1,
+          fastq_2=fastq_2,
+          index=index,
+          bam=bam,
+          sorted_bam=sorted_bam,
+          depth=depth,
+          threads=threads)
+    
 def main(argv=None):
     if argv is None:
         argv = sys.argv
