@@ -55,6 +55,7 @@ to the regular expression provided.
 import re
 import os
 import glob
+import sys
 from cgatcore import pipeline as P
 import ocmstoolkit.modules.Utility as Utility
 from ruffus import *
@@ -101,41 +102,79 @@ def indexfasta(infile, outfile):
           out_prefix=out_prefix,
           threads=threads)
 
-
 @follows(indexfasta)
 @transform(FASTQs,
            regex(r'.*/(.+)\.fastq\.1\.gz'),
            r'mapping.dir/\1_depth.txt')
 def mapfastq2fasta(infile, outfile):
     """
-    Map FASTQ files to reference, sort BAM, and generate depth file.
-    Supports both individual and pooled assemblies based on YAML config.
+    Map FASTQ files to a reference: individual or pooled.
+    - If 'pooled_fasta' is False → use sample-specific FASTA
+    - If 'pooled_fasta' is True:
+        - If only one *.fasta in fasta.dir → map all samples to it
+        - If multiple *.fasta → map to group-specific FASTA based on sample prefix
+    Each mapping is performed individually per sample.
     """
     os.makedirs("mapping.dir", exist_ok=True)
 
     sample = os.path.basename(infile).split(".fastq")[0]
+    fasta_dir = PARAMS["general"]["fasta.dir"]
+    use_pooled = PARAMS.get("bowtie2_mapping", {}).get("pooled_fasta", False)
 
-    # Check if pooled or individual mapping
-    pooled_fasta = PARAMS.get("bowtie2_mapping", {}).get("pooled_fasta", None)
+    if use_pooled:
+        # List all FASTA files to determine if this is single or grouped pooled mapping
+        fasta_files = glob.glob(os.path.join(fasta_dir, "*.fasta"))
 
-    if pooled_fasta:
-        fasta = pooled_fasta
-        index_base = os.path.basename(fasta).replace(".fasta", "")
-        index = fasta.replace(".fasta", f"_index/{index_base}")
+        if len(fasta_files) == 1:
+            # Single pooled FASTA for all samples (no grouping)
+            fasta = fasta_files[0]
+        else:
+            # Grouped pooled mapping — requires user-defined regex
+            grouping_regex = PARAMS["bowtie2_mapping"].get("grouping_regex")
+            if not grouping_regex:
+                raise ValueError(
+                    "Multiple FASTA files found in pooled mode, but no 'grouping_regex' defined in the YAML. "
+                    "Either provide a regex or reduce to a single pooled FASTA."
+                )
+            match = re.search(grouping_regex, sample)
+            if not match:
+                raise ValueError(
+                    f"Could not extract pooling group from sample '{sample}' using regex '{grouping_regex}'."
+                )
+            group = match.group(1)
+            matches = glob.glob(os.path.join(fasta_dir, f"*{group}*.fasta"))  # match like pooled_chow.fasta or chow_pooled.fasta
+            if len(matches) != 1:
+                raise FileNotFoundError(
+                    f"Could not uniquely find group-level pooled FASTA for group '{group}' in {fasta_dir}. "
+                    f"Expected 1 match for '*{group}*.fasta', found {len(matches)}: {matches}"
+                )
+            fasta = matches[0]
     else:
-        fasta_dir = PARAMS["general"]["fasta.dir"]
-        fasta = os.path.join(fasta_dir, f"{sample}.fasta")
-        index = fasta.replace(".fasta", f"_index/{sample}")
+        # Individual mapping — match based on sample name prefix
+        matches = glob.glob(os.path.join(fasta_dir, f"{sample}*.fasta"))
+        if len(matches) != 1:
+            raise FileNotFoundError(
+                f"Could not uniquely find FASTA for sample '{sample}' in {fasta_dir}. "
+                f"Expected 1 match, found {len(matches)}: {matches}"
+            )
+        fasta = matches[0]
 
-    # Define paths and parameters
+    # Determine correct Bowtie2 index path
+    fasta_base = os.path.splitext(os.path.basename(fasta))[0]
+    index_dir = os.path.join(fasta_dir, f"{fasta_base}_index")
+    index = os.path.join(index_dir, fasta_base)
+
+    # Input FASTQ pairs
     fastq_1 = infile
     fastq_2 = infile.replace(".1.gz", ".2.gz")
+
+    # Output files
     bam = f"mapping.dir/{sample}.bam"
     sorted_bam = f"mapping.dir/{sample}_sorted.bam"
     depth = outfile
     threads = PARAMS.get("bowtie2_indexing", {}).get("threads", 1)
 
-    # Unified statement
+    # Run mapping
     statement = (
         "bowtie2 --threads %(threads)s -x %(index)s "
         "-1 %(fastq_1)s -2 %(fastq_2)s | "
@@ -144,7 +183,6 @@ def mapfastq2fasta(infile, outfile):
         "jgi_summarize_bam_contig_depths --outputDepth %(depth)s %(sorted_bam)s"
     )
 
-    # Run the combined command
     P.run(statement,
           fastq_1=fastq_1,
           fastq_2=fastq_2,
