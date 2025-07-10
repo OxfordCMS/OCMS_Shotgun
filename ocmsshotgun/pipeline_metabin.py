@@ -75,7 +75,6 @@ fasta_files = glob.glob(os.path.join(fasta_indir, "*.fasta"))
 ###############################################################################
 # Index Fasta files (individual or pooled)
 ###############################################################################
-
 @transform(fasta_files,
            regex(r'(.+)/(.+).fasta'),
            r'\1/\2_index/\2.1.bt2')
@@ -88,14 +87,14 @@ def indexfasta(infile, outfile):
     os.makedirs(out_dir, exist_ok=True)
 
     threads = PARAMS.get("bowtie2_indexing", {}).get("threads", 1)
-    out_prefix = os.path.join(out_dir, re.sub(r'\.fasta$', '', os.path.basename(infile)))
+    out_prefix = os.path.join(out_dir,
+                              re.sub(r'\.fasta$', '', os.path.basename(infile)))
 
-    statement = (
-        "bowtie2-build "
-        " --threads %(threads)s "
-        " %(infile)s "
-        " %(out_prefix)s > %(out_prefix)s.log"
-    )
+    statement = ("bowtie2-build "
+                 " --threads %(threads)s "
+                 " %(infile)s "
+                 " %(out_prefix)s > %(out_prefix)s.log"
+                )
 
     P.run(statement,
           infile=infile,
@@ -103,9 +102,15 @@ def indexfasta(infile, outfile):
           threads=threads)
 
 @follows(indexfasta)
-@transform(FASTQs,
-           regex(r'.*/(.+)\.fastq\.1\.gz'),
-           r'mapping.dir/\1_depth.txt')
+@collate(FASTQs,
+         # Regular expression for the query fastq
+         regex('.+/' + PARAMS['mapfastq2fasta_fastq_regex']),
+         # Regular expression for the reference fasta
+         add_inputs(os.path.join(PARAMS['general_fasta_dir'],
+                                 PARAMS['mapfastq2fasta_fasta_regex'])),
+         # Regular expression for the output file
+         os.path.join('01_mapping.dir',
+                      PARAMS['mapfastq2fasta_output_regex']) 
 def mapfastq2fasta(infile, outfile):
     """
     Map FASTQ files to a reference: individual or pooled.

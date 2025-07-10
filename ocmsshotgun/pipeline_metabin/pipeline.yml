@@ -1,8 +1,8 @@
 # pipeline.yml
 
 general:
-  fasta.dir: input_metagenome_fasta.dir # directory with *.fasta files (individual or pooled)
-  fastq.dir: input_metagenome_fastq.dir # directory with *.fastq.1.gz and *.fastq.2.gz
+  fasta_dir: input_metagenome_fasta.dir # directory with *.fasta files (individual or pooled)
+  fastq_dir: input_metagenome_fastq.dir # directory with *.fastq.1.gz and *.fastq.2.gz
 
 bowtie2_indexing:
   threads: 8
@@ -21,3 +21,10 @@ bowtie2_mapping:
   # - pooled_fasta is true, but there's only one pooled FASTA used for all samples
 
   #grouping_regex: '_(chow|KO)'
+
+mapfastq2fasta:
+  fastq_regex: (.+).fastq.1.gz
+
+  fasta_regex: \1_index/\1.1.bt2
+
+  output_regex: \1.bam
