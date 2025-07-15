@@ -4,27 +4,16 @@ general:
   fasta_dir: input_metagenome_fasta.dir # directory with *.fasta files (individual or pooled)
   fastq_dir: input_metagenome_fastq.dir # directory with *.fastq.1.gz and *.fastq.2.gz
 
-bowtie2_indexing:
-  threads: 8
-
-bowtie2_mapping:
-  pooled_fasta: false # true = pooled assembly mode; false = individual mode
-  # Use 'grouping_regex' ONLY if:
-  # 1. pooled_fasta is true AND
-  # 2. pooling was done by grouping samples (e.g., chow, ko, hf)
-
-  # Uncomment and customize the line below **only if using grouped pooled assemblies**
-  # grouping_regex: '_(group1|group2|group3)$'
-
-  # DO NOT include 'grouping_regex' if:
-  # - pooled_fasta is false (individual mode)
-  # - pooled_fasta is true, but there's only one pooled FASTA used for all samples
-
-  #grouping_regex: '_(chow|KO)'
 
 mapfastq2fasta:
+  #For 1-1 mapping
   fastq_regex: (.+).fastq.1.gz
-
   fasta_regex: \1_index/\1.1.bt2
-
   output_regex: \1.bam
+  
+  #For many to one mapping
+  #fastq_regex: (.+)_.+.fastq.1.gz
+  #fasta_regex: \1_pooled_index/\1_pooled.1.bt2
+  #output_regex: \1_\2_depth.txt
+
+  threads: 8
