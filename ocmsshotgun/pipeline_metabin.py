@@ -63,8 +63,8 @@ from ruffus import *
 PARAMS = P.get_parameters("pipeline.yml")
 
 # Access nested YAML entries under 'general'
-fasta_indir = PARAMS["general"]["fasta.dir"]
-fastq_indir = PARAMS["general"]["fastq.dir"]
+fasta_indir = PARAMS["general"]["fasta_dir"]
+fastq_indir = PARAMS["general"]["fastq_dir"]
 
 #check all files to be processed
 FASTQs = Utility.get_fastns(fastq_indir)
@@ -86,7 +86,7 @@ def indexfasta(infile, outfile):
     out_dir = re.sub(r'\.fasta$', '_index', infile)
     os.makedirs(out_dir, exist_ok=True)
 
-    threads = PARAMS.get("bowtie2_indexing", {}).get("threads", 1)
+    threads = PARAMS["mapfastq2fasta"]["threads"]
     out_prefix = os.path.join(out_dir,
                               re.sub(r'\.fasta$', '', os.path.basename(infile)))
 
@@ -110,94 +110,52 @@ def indexfasta(infile, outfile):
                                  PARAMS['mapfastq2fasta_fasta_regex'])),
          # Regular expression for the output file
          os.path.join('01_mapping.dir',
-                      PARAMS['mapfastq2fasta_output_regex']) 
-def mapfastq2fasta(infile, outfile):
+                      PARAMS['mapfastq2fasta_output_regex'])) 
+def mapfastq2fasta(infiles, outfile):
     """
-    Map FASTQ files to a reference: individual or pooled.
-    - If 'pooled_fasta' is False → use sample-specific FASTA
-    - If 'pooled_fasta' is True:
-        - If only one *.fasta in fasta.dir → map all samples to it
-        - If multiple *.fasta → map to group-specific FASTA based on sample prefix
-    Each mapping is performed individually per sample.
+    Map FASTQ files to reference FASTA based on regex-defined logic.
+    The mapping can be:
+      - 1-to-1: sample to its own FASTA
+      - many-to-1: multiple samples to a shared pooled FASTA
+    The FASTA to map to is resolved using `fastq_regex` and `fasta_regex` defined in the YAML.
     """
-    os.makedirs("mapping.dir", exist_ok=True)
 
-    sample = os.path.basename(infile).split(".fastq")[0]
-    fasta_dir = PARAMS["general"]["fasta.dir"]
-    use_pooled = PARAMS.get("bowtie2_mapping", {}).get("pooled_fasta", False)
+    # Unpack the tuple: (fastq_path, index_path)
+    fastq_path, index_path = infiles[0]
 
-    if use_pooled:
-        # List all FASTA files to determine if this is single or grouped pooled mapping
-        fasta_files = glob.glob(os.path.join(fasta_dir, "*.fasta"))
+    # Derive second read
+    fastq_1 = fastq_path
+    fastq_2 = fastq_path.replace(".1.gz", ".2.gz")
+    sample = os.path.basename(fastq_path).split(".fastq")[0]
 
-        if len(fasta_files) == 1:
-            # Single pooled FASTA for all samples (no grouping)
-            fasta = fasta_files[0]
-        else:
-            # Grouped pooled mapping — requires user-defined regex
-            grouping_regex = PARAMS["bowtie2_mapping"].get("grouping_regex")
-            if not grouping_regex:
-                raise ValueError(
-                    "Multiple FASTA files found in pooled mode, but no 'grouping_regex' defined in the YAML. "
-                    "Either provide a regex or reduce to a single pooled FASTA."
-                )
-            match = re.search(grouping_regex, sample)
-            if not match:
-                raise ValueError(
-                    f"Could not extract pooling group from sample '{sample}' using regex '{grouping_regex}'."
-                )
-            group = match.group(1)
-            matches = glob.glob(os.path.join(fasta_dir, f"*{group}*.fasta"))  # match like pooled_chow.fasta or chow_pooled.fasta
-            if len(matches) != 1:
-                raise FileNotFoundError(
-                    f"Could not uniquely find group-level pooled FASTA for group '{group}' in {fasta_dir}. "
-                    f"Expected 1 match for '*{group}*.fasta', found {len(matches)}: {matches}"
-                )
-            fasta = matches[0]
-    else:
-        # Individual mapping — match based on sample name prefix
-        matches = glob.glob(os.path.join(fasta_dir, f"{sample}*.fasta"))
-        if len(matches) != 1:
-            raise FileNotFoundError(
-                f"Could not uniquely find FASTA for sample '{sample}' in {fasta_dir}. "
-                f"Expected 1 match, found {len(matches)}: {matches}"
-            )
-        fasta = matches[0]
-
-    # Determine correct Bowtie2 index path
-    fasta_base = os.path.splitext(os.path.basename(fasta))[0]
-    index_dir = os.path.join(fasta_dir, f"{fasta_base}_index")
-    index = os.path.join(index_dir, fasta_base)
-
-    # Input FASTQ pairs
-    fastq_1 = infile
-    fastq_2 = infile.replace(".1.gz", ".2.gz")
+    # Bowtie2 index prefix (remove .1.bt2)
+    index_prefix = index_path.replace(".1.bt2", "")
 
     # Output files
     bam = f"mapping.dir/{sample}.bam"
     sorted_bam = f"mapping.dir/{sample}_sorted.bam"
     depth = outfile
-    threads = PARAMS.get("bowtie2_indexing", {}).get("threads", 1)
+    threads = PARAMS["mapfastq2fasta"]["threads"]
 
-    # Run mapping
     statement = (
-        "bowtie2 --threads %(threads)s -x %(index)s "
-        "-1 %(fastq_1)s -2 %(fastq_2)s | "
-        "samtools view -bS - > %(bam)s && "
-        "samtools sort -o %(sorted_bam)s %(bam)s && "
-        "jgi_summarize_bam_contig_depths --outputDepth %(depth)s %(sorted_bam)s"
-    )
+                 "bowtie2 --threads %(threads)s -x %(index)s "
+                 "-1 %(fastq_1)s -2 %(fastq_2)s | "
+                 "samtools view -bS - > %(bam)s && "
+                 "samtools sort -o %(sorted_bam)s %(bam)s && "
+                 "jgi_summarize_bam_contig_depths --outputDepth %(depth)s %(sorted_bam)s"
+                )
 
     P.run(statement,
           fastq_1=fastq_1,
           fastq_2=fastq_2,
-          index=index,
+          index=index_prefix,
           bam=bam,
           sorted_bam=sorted_bam,
           depth=depth,
           threads=threads)
-    
+
 def main(argv=None):
+
     if argv is None:
         argv = sys.argv
     P.main(argv)
