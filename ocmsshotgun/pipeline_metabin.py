@@ -164,6 +164,20 @@ def mapfastq2fasta(infiles, outfile):
           threads=threads,
           logfile = logfile)
 
+@follows(mapfastq2fasta)
+@active_if(PARAMS["mapfastq2fasta"]["mapping_mode"] == "many2one")
+@originate("01_mapping.dir/cumulative_depth.txt")
+def generate_cumulative_depth(outfile):
+    bam_files = glob.glob("01_mapping.dir/*_sorted.bam")
+    assert len(bam_files) > 1, "Expected multiple BAM files for pooled samples."
+
+    bam_inputs = " ".join(bam_files)
+    statement = f'''
+    jgi_summarize_bam_contig_depths --outputDepth {outfile} {bam_inputs};
+    touch {outfile}
+    '''
+    P.run(statement)
+
 def main(argv=None):
 
     if argv is None:
