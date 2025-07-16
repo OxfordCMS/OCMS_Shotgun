@@ -6,6 +6,8 @@ general:
 
 
 mapfastq2fasta:
+  mapping_mode: one2one  # or many2one
+
   #For 1-1 mapping
   fastq_regex: (.+).fastq.1.gz
   fasta_regex: \1_index/\1.1.bt2
