@@ -101,6 +101,10 @@ def indexfasta(infile, outfile):
           out_prefix=out_prefix,
           threads=threads)
 
+# Print YAML parameters before @collate is evaluated
+print("DEBUG fastq_regex:", PARAMS["mapfastq2fasta"]["fastq_regex"])
+print("DEBUG fasta_regex:", PARAMS["mapfastq2fasta"]["fasta_regex"])
+print("DEBUG output_regex:", PARAMS["mapfastq2fasta"]["output_regex"])
 @follows(indexfasta)
 @collate(FASTQs,
          # Regular expression for the query fastq
@@ -110,7 +114,7 @@ def indexfasta(infile, outfile):
                                  PARAMS['mapfastq2fasta_fasta_regex'])),
          # Regular expression for the output file
          os.path.join('01_mapping.dir',
-                      PARAMS['mapfastq2fasta_output_regex'])) 
+                      PARAMS['mapfastq2fasta_output_regex']))
 def mapfastq2fasta(infiles, outfile):
     """
     Map FASTQ files to reference FASTA based on regex-defined logic.
@@ -119,6 +123,9 @@ def mapfastq2fasta(infiles, outfile):
       - many-to-1: multiple samples to a shared pooled FASTA
     The FASTA to map to is resolved using `fastq_regex` and `fasta_regex` defined in the YAML.
     """
+    
+    # Ensure output directory exists
+    os.makedirs("01_mapping.dir", exist_ok=True)
 
     # Unpack the tuple: (fastq_path, index_path)
     fastq_path, index_path = infiles[0]
@@ -132,17 +139,19 @@ def mapfastq2fasta(infiles, outfile):
     index_prefix = index_path.replace(".1.bt2", "")
 
     # Output files
-    bam = f"mapping.dir/{sample}.bam"
-    sorted_bam = f"mapping.dir/{sample}_sorted.bam"
+    bam = f"01_mapping.dir/{sample}.bam"
+    sorted_bam = f"01_mapping.dir/{sample}_sorted.bam"
     depth = outfile
     threads = PARAMS["mapfastq2fasta"]["threads"]
-
+    logfile = f"01_mapping.dir/{sample}_mapping.log"
+    
     statement = (
-                 "bowtie2 --threads %(threads)s -x %(index)s "
+                 "(bowtie2 --threads %(threads)s -x %(index)s "
                  "-1 %(fastq_1)s -2 %(fastq_2)s | "
                  "samtools view -bS - > %(bam)s && "
                  "samtools sort -o %(sorted_bam)s %(bam)s && "
-                 "jgi_summarize_bam_contig_depths --outputDepth %(depth)s %(sorted_bam)s"
+                 "jgi_summarize_bam_contig_depths --outputDepth %(depth)s %(sorted_bam)s) "
+                 " &> %(logfile)s"
                 )
 
     P.run(statement,
@@ -152,7 +161,8 @@ def mapfastq2fasta(infiles, outfile):
           bam=bam,
           sorted_bam=sorted_bam,
           depth=depth,
-          threads=threads)
+          threads=threads,
+          logfile = logfile)
 
 def main(argv=None):
 
