@@ -21,17 +21,21 @@ class MetaBAT2Runner:
         """
         Build statement for MetaBAT2
         """
-        metabat2_threads = self.PARAMS.get("metabat2_threads", 4)
-        metabat2_min_contig_length = self.PARAMS.get("metabat2_min_contig_length", 2500)
+        metabat2_threads = self.PARAMS.get("threads", 4)
+        metabat2_min_contig_length = self.PARAMS.get("min_contig_length", 2500)
         
         output_prefix = os.path.join(self.output_dir, f"{self.prefix}_bin")
+        log_file = os.path.join(self.output_dir, f"{self.prefix}_metabat2.log")
+
         statement = (
             f"metabat2 "
             f"-i {self.assembly} "
             f"-a {self.depth_file} "
             f"-o {output_prefix} "
             f"-m {metabat2_min_contig_length} "
-            f"-t {metabat2_threads}"
+            f"-t {metabat2_threads} "
+            f"> {log_file} 2>&1 && "  # Capture stdout+stderr into log
+            f"gzip -f {output_prefix}.*.fa"  # Compress all resulting bin files 
         )
         return statement
 
