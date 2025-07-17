@@ -22,3 +22,7 @@ mapfastq2fasta:
   #fasta_regex: \1_pooled_index/\1_pooled.1.bt2
   #output_regex: \1_\2_depth.txt
   threads: 8
+
+metabat2:
+  threads: 8
+  min_contig_length: 2500
