@@ -59,6 +59,8 @@ import sys
 from cgatcore import pipeline as P
 import ocmstoolkit.modules.Utility as Utility
 from ruffus import *
+import ocmsshotgun.modules.MetaBin as MB
+from pathlib import Path
 
 PARAMS = P.get_parameters("pipeline.yml")
 
@@ -101,10 +103,6 @@ def indexfasta(infile, outfile):
           out_prefix=out_prefix,
           threads=threads)
 
-# Print YAML parameters before @collate is evaluated
-print("DEBUG fastq_regex:", PARAMS["mapfastq2fasta"]["fastq_regex"])
-print("DEBUG fasta_regex:", PARAMS["mapfastq2fasta"]["fasta_regex"])
-print("DEBUG output_regex:", PARAMS["mapfastq2fasta"]["output_regex"])
 @follows(indexfasta)
 @collate(FASTQs,
          # Regular expression for the query fastq
@@ -177,6 +175,65 @@ def generate_cumulative_depth(outfile):
     touch {outfile}
     '''
     P.run(statement)
+
+@transform(mapfastq2fasta,
+           regex(r"01_mapping.dir/(.+)_depth.txt"),
+           add_inputs(os.path.join(PARAMS['general']['fasta_dir'], r"\1.fasta")),
+           r"03_bins.dir/\1_bins")
+@active_if(PARAMS["mapfastq2fasta"]["mapping_mode"] == "one2one")
+def run_metabat2_unpooled(infiles, outfile):
+    depth_file, assembly = infiles
+    sample = os.path.basename(depth_file).replace("_depth.txt", "")
+    
+    # Define output directory and bin file prefix
+    output_dir = outfile  # e.g., '03_bins/<sample>_bins.dir'
+    os.makedirs(output_dir, exist_ok=True)
+
+    prefix = os.path.basename(outfile).replace("_bins", "")
+    output_prefix = os.path.join(output_dir, prefix)
+
+    binner = MB.MetaBAT2Runner(
+        assembly=assembly,
+        depth_file=depth_file,
+        prefix=prefix,
+        output_dir=output_dir,
+        **PARAMS["metabat2"]
+    )
+
+    statement = binner.build_command()
+    P.run(statement)
+    Path(outfile).touch()
+
+@merge(os.path.join("01_mapping.dir", "cumulative_depth.txt"),
+       "03_bins.dir/pooled_bins_done.txt")
+@active_if(PARAMS["mapfastq2fasta"]["mapping_mode"] == "many2one")
+def run_metabat2_pooled(depth_file, outfile):
+
+    # Get pooled fasta
+    fasta_dir = PARAMS["general"]["fasta_dir"]
+    fasta_pattern = glob.glob(os.path.join(fasta_dir, "*.fasta"))
+    assert len(fasta_pattern) == 1, f"Expected one pooled fasta, found: {fasta_pattern}"
+    pooled_fasta = fasta_pattern[0]
+
+    # Setup output
+    prefix = os.path.splitext(os.path.basename(pooled_fasta))[0]
+    output_dir = "03_bins.dir"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Run MetaBAT2
+    binner = MB.MetaBAT2Runner(
+        assembly=pooled_fasta,
+        depth_file=depth_file,
+        prefix=prefix,
+        output_dir=output_dir,
+        **PARAMS["metabat2"]
+    )
+
+    statement = binner.build_command()
+    P.run(statement)
+
+    # Mark completion
+    Path(outfile).touch()
 
 def main(argv=None):
 
