@@ -26,3 +26,7 @@ mapfastq2fasta:
 metabat2:
   threads: 8
   min_contig_length: 2500
+
+binners:
+  job_threads: 8
+  job_memory: 1G
