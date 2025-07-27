@@ -163,85 +163,63 @@ def mapfastq2fasta(infiles, outfile):
           logfile = logfile)
 
 @follows(mapfastq2fasta)
-@active_if(PARAMS["mapfastq2fasta"]["mapping_mode"] == "many2one")
 @originate("01_mapping.dir/cumulative_depth.txt")
 def generate_cumulative_depth(outfile):
+    """
+    Generates cumulative depth file for pooled mode (many2one).
+    For one2one mode, creates an empty placeholder file to satisfy dependencies.
+    """
+    if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
+        # Create a placeholder so the pipeline doesn’t fail.
+        Path(outfile).touch()
+        return
+
     bam_files = glob.glob("01_mapping.dir/*_sorted.bam")
-    assert len(bam_files) > 1, "Expected multiple BAM files for pooled samples."
+    if len(bam_files) <= 1:
+        raise ValueError("Expected multiple BAM files for pooled samples.")
 
     bam_inputs = " ".join(bam_files)
-    statement = f'''
-    jgi_summarize_bam_contig_depths --outputDepth {outfile} {bam_inputs};
-    touch {outfile}
-    '''
-    P.run(statement)
-
-@transform(mapfastq2fasta,
-           regex(r"01_mapping.dir/(.+)_depth.txt"),
-           add_inputs(os.path.join(PARAMS['general']['fasta_dir'], r"\1.fasta")),
-           r"03_bins.dir/\1_bins")
-@active_if(PARAMS["mapfastq2fasta"]["mapping_mode"] == "one2one")
-def run_metabat2_unpooled(infiles, outfile):
-    depth_file, assembly = infiles
-    sample = os.path.basename(depth_file).replace("_depth.txt", "")
-    
-    # Define output directory and bin file prefix
-    output_dir = outfile  # e.g., '03_bins/<sample>_bins.dir'
-    os.makedirs(output_dir, exist_ok=True)
-
-    prefix = os.path.basename(outfile).replace("_bins", "")
-    output_prefix = os.path.join(output_dir, prefix)
-
-    binner = MB.MetaBAT2Runner(
-        assembly=assembly,
-        depth_file=depth_file,
-        prefix=prefix,
-        output_dir=output_dir,
-        **PARAMS["metabat2"]
-    )
-
-    statement = binner.build_command()
+    statement = f"jgi_summarize_bam_contig_depths --outputDepth {outfile} {bam_inputs}"
     P.run(statement)
     Path(outfile).touch()
 
-@merge(os.path.join("01_mapping.dir", "cumulative_depth.txt"),
-       "03_bins.dir/pooled_bins_done.txt")
-@active_if(PARAMS["mapfastq2fasta"]["mapping_mode"] == "many2one")
-def run_metabat2_pooled(depth_file, outfile):
 
-    # Get pooled fasta
-    fasta_dir = PARAMS["general"]["fasta_dir"]
-    fasta_pattern = glob.glob(os.path.join(fasta_dir, "*.fasta"))
-    assert len(fasta_pattern) == 1, f"Expected one pooled fasta, found: {fasta_pattern}"
-    pooled_fasta = fasta_pattern[0]
+if PARAMS["mapfastq2fasta"]["mapping_mode"] == "many2one":
 
-    # Setup output
-    prefix = os.path.splitext(os.path.basename(pooled_fasta))[0]
-    output_dir = "03_bins.dir"
-    os.makedirs(output_dir, exist_ok=True)
+    @follows(generate_cumulative_depth)
+    @files("01_mapping.dir/cumulative_depth.txt",
+           "02_bins.dir/pooled/pooled_metabat2_done.txt")
+    def run_metabat2(infile, outfile):
+        pooled_dir = "02_bins.dir/pooled/metabat2_bins"
+        os.makedirs(pooled_dir, exist_ok=True)
 
-    # Run MetaBAT2
-    binner = MB.MetaBAT2Runner(
-        assembly=pooled_fasta,
-        depth_file=depth_file,
-        prefix=prefix,
-        output_dir=output_dir,
-        **PARAMS["metabat2"]
-    )
+        statement = MB.MetaBAT2Runner.run_for_sample(infile, pooled_dir, PARAMS, pooled=True)
+        P.run(statement,
+              job_memory=PARAMS["binners_job_memory"],
+              job_threads=PARAMS["binners_job_threads"])
+        Path(outfile).touch()
 
-    statement = binner.build_command()
-    P.run(statement)
+else:
 
-    # Mark completion
-    Path(outfile).touch()
+    @subdivide("01_mapping.dir/*_depth.txt",
+               regex(r"01_mapping\.dir/(.+)_depth\.txt"),
+               r"02_bins.dir/\1/\1_metabat2_done.txt")
+    def run_metabat2(infile, outfile):
+        sample = os.path.basename(infile).replace("_depth.txt", "")
+        sample_dir = f"02_bins.dir/{sample}/metabat2_bins"
+        os.makedirs(sample_dir, exist_ok=True)
+
+        statement = MB.MetaBAT2Runner.run_for_sample(infile, sample_dir, PARAMS)
+        P.run(statement,
+              job_memory=PARAMS["binners_job_memory"],
+              job_threads=PARAMS["binners_job_threads"])
+        Path(outfile).touch()
 
 def main(argv=None):
-
     if argv is None:
         argv = sys.argv
     P.main(argv)
 
 if __name__ == "__main__":
-    import sys
     sys.exit(main())
 
