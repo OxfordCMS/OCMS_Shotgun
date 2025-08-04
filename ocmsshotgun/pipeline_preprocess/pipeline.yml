@@ -132,9 +132,10 @@ hisat2:
     # additional hisat2 options
     options: ''
 
-    # cluster options
-    job_threads: 4
-    job_memory: 20G
+    # cluster options 
+    # Warning: setting job threads >1 may significantly increase runtime due to reordering of reads in hisat2
+    job_threads: 1
+    job_memory: 80G
   
 ################################################################
 # Masking or removal of repetitive sequence
