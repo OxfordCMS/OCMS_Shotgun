@@ -51,7 +51,7 @@ to the regular expression provided.
 
 
 '''
-
+import sys
 import re
 import os
 import glob
@@ -74,9 +74,9 @@ FASTQs = Utility.get_fastns(fastq_indir)
 # List all FASTA files in the input directory
 fasta_files = glob.glob(os.path.join(fasta_indir, "*.fasta"))
 
-###############################################################################
-# Index Fasta files (individual or pooled)
-###############################################################################
+# ---------------------------------------------------------
+# 1. Index Fasta files (individual or pooled)
+# ---------------------------------------------------------
 @transform(fasta_files,
            regex(r'(.+)/(.+).fasta'),
            r'\1/\2_index/\2.1.bt2')
@@ -103,6 +103,13 @@ def indexfasta(infile, outfile):
           out_prefix=out_prefix,
           threads=threads)
 
+###############################################################################
+# 2. Prepare depth/coverage files for all binning tools
+###############################################################################
+
+# ---------------------------------------------------------
+# a. Map FASTQs to FASTAs and generate MetaBAT2 depth
+# ---------------------------------------------------------
 @follows(indexfasta)
 @collate(FASTQs,
          # Regular expression for the query fastq
@@ -111,8 +118,9 @@ def indexfasta(infile, outfile):
          add_inputs(os.path.join(PARAMS['general_fasta_dir'],
                                  PARAMS['mapfastq2fasta_fasta_regex'])),
          # Regular expression for the output file
-         os.path.join('01_mapping.dir',
-                      PARAMS['mapfastq2fasta_output_regex']))
+#         os.path.join('01_mapping.dir',
+ #                     PARAMS['mapfastq2fasta_output_regex']+ ".done"))
+         r"01_mapping.dir/" + PARAMS["mapfastq2fasta"]["output_regex"] + ".done")
 def mapfastq2fasta(infiles, outfile):
     """
     Map FASTQ files to reference FASTA based on regex-defined logic.
@@ -136,41 +144,37 @@ def mapfastq2fasta(infiles, outfile):
     # Bowtie2 index prefix (remove .1.bt2)
     index_prefix = index_path.replace(".1.bt2", "")
 
-    # Output files
-    bam = f"01_mapping.dir/{sample}.bam"
-    sorted_bam = f"01_mapping.dir/{sample}_sorted.bam"
-    depth = outfile
-    threads = PARAMS["mapfastq2fasta"]["threads"]
-    logfile = f"01_mapping.dir/{sample}_mapping.log"
+    #Output files
+    bam = os.path.join("01_mapping.dir", sample + ".bam")
+    sorted_bam = os.path.join("01_mapping.dir", sample + "_sorted.bam")
+    depth = os.path.join("01_mapping.dir", sample + "_metabat2_depth.txt")
+    threads = PARAMS["mapfastq2fasta"]["job_threads"]
+    logfile = os.path.join("01_mapping.dir", sample + "_mapping.log")
     
     statement = (
-                 "(bowtie2 --threads %(threads)s -x %(index)s "
-                 "-1 %(fastq_1)s -2 %(fastq_2)s | "
-                 "samtools view -bS - > %(bam)s && "
-                 "samtools sort -o %(sorted_bam)s %(bam)s && "
-                 "jgi_summarize_bam_contig_depths --outputDepth %(depth)s %(sorted_bam)s) "
-                 " &> %(logfile)s"
-                )
+        "(bowtie2 --threads %(threads)s -x %(index_prefix)s "
+        "-1 %(fastq_1)s -2 %(fastq_2)s | "
+        "samtools view -bS - > %(bam)s && "
+        "samtools sort -o %(sorted_bam)s %(bam)s && "
+        "samtools index %(sorted_bam)s && "
+        "jgi_summarize_bam_contig_depths --outputDepth %(depth)s %(sorted_bam)s) "
+        " &> %(logfile)s"
+    )
 
     P.run(statement,
-          fastq_1=fastq_1,
-          fastq_2=fastq_2,
-          index=index_prefix,
-          bam=bam,
-          sorted_bam=sorted_bam,
-          depth=depth,
-          threads=threads,
-          logfile = logfile)
+          job_memory=PARAMS["mapfastq2fasta_job_memory"],
+          job_threads=PARAMS["mapfastq2fasta_job_threads"])
+    
+    # Mark task complete
+    Path(outfile).touch()
 
 @follows(mapfastq2fasta)
-@originate("01_mapping.dir/cumulative_depth.txt")
-def generate_cumulative_depth(outfile):
+@originate("01_mapping.dir/cumulative_metabat2_depth.txt")
+def generate_cumulative_metabat2_depth(outfile):
     """
-    Generates cumulative depth file for pooled mode (many2one).
-    For one2one mode, creates an empty placeholder file to satisfy dependencies.
+    Generate cumulative MetaBAT2 depth file (pooled mode only).
     """
     if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
-        # Create a placeholder so the pipeline doesn’t fail.
         Path(outfile).touch()
         return
 
@@ -179,41 +183,201 @@ def generate_cumulative_depth(outfile):
         raise ValueError("Expected multiple BAM files for pooled samples.")
 
     bam_inputs = " ".join(bam_files)
-    statement = f"jgi_summarize_bam_contig_depths --outputDepth {outfile} {bam_inputs}"
+    statement = "jgi_summarize_bam_contig_depths --outputDepth %(outfile)s %(bam_inputs)s"
     P.run(statement)
     Path(outfile).touch()
 
+# ---------------------------------------------------------
+# b. Generate MaxBin2 depth (per-sample OR pooled)
+# ---------------------------------------------------------
+@follows(mapfastq2fasta)
+@transform("01_mapping.dir/*_metabat2_depth.txt",
+           regex(r"01_mapping.dir/(?!cumulative)(.+)_metabat2_depth.txt"),
+           r"01_mapping.dir/\1_maxbin2_depth.txt")
+def generate_maxbin2_depth(infile, outfile):
+    print("DEBUG >>> infiles:", infile)
+    """
+    Create MaxBin2-compatible depth file from MetaBAT2 depth,
+    keeping only (contigName, contigLen, totalAvgDepth).
+    """
+    statement = "cut -f 1,2,3 %(infile)s > %(outfile)s"
+    P.run(statement)
 
-if PARAMS["mapfastq2fasta"]["mapping_mode"] == "many2one":
+@follows(generate_maxbin2_depth)
+@collate("01_mapping.dir/*_maxbin2_depth.txt",
+         regex(r"01_mapping.dir/.+_maxbin2_depth.txt"),
+         "01_mapping.dir/cumulative_maxbin2_depth.txt")
+def generate_cumulative_maxbin2_depth(infiles, outfile):
+    """
+    Merge per-sample MaxBin2 depth files into a single cumulative file.
+    Columns: contigName, contigLen, depth_sample1, depth_sample2, ...
+    """
+    if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
+        Path(outfile).touch()
+        return
 
-    @follows(generate_cumulative_depth)
-    @files("01_mapping.dir/cumulative_depth.txt",
-           "02_bins.dir/pooled/pooled_metabat2_done.txt")
+    input_files = sorted(infiles)
+    print("DEBUG >>> input_files:", input_files)
+
+    sample_names = [
+        os.path.basename(f).replace("_maxbin2_depth.txt", "")
+        for f in input_files
+    ]
+
+    first = f"<(cut -f1,2,3 {input_files[0]})"
+    others = " ".join([f"<(cut -f3 {f})" for f in input_files[1:]])
+
+    if others:
+        paste_cmd = f"paste {first} {others}"
+    else:
+        paste_cmd = f"cat {input_files[0]}"
+
+    header = "contigName\tcontigLen\t" + "\t".join(sample_names)
+    statement = f"(echo -e '{header}' && {paste_cmd} | tail -n +2) > {outfile}"
+
+    P.run(f"bash -c \"{statement}\"")
+
+# ---------------------------------------------------------
+# c. Generate CONCOCT coverage files
+# ---------------------------------------------------------
+@follows(generate_cumulative_maxbin2_depth)
+@transform("01_mapping.dir/*_sorted.bam",
+           regex(r"01_mapping.dir/(.+)_sorted.bam"),
+           r"01_mapping.dir/\1_concoct_depth.txt")
+def generate_concoct_depth_one2one(infile, outfile):
+    if PARAMS["mapfastq2fasta"]["mapping_mode"] != "one2one":
+        Path(outfile).touch()
+        return
+
+    sample = os.path.basename(infile).replace("_sorted.bam", "")
+    contig_fasta = f"input_metagenome_fasta.dir/{sample}.fasta"
+    bed_file = f"01_mapping.dir/{sample}_10k.bed"
+    cut_fasta = f"01_mapping.dir/{sample}_10k.fa"
+
+    statement = (
+        "PYTHONPATH= bash -c 'module purge && module load CONCOCT/1.1.0-foss-2023a-Python-2.7.18 && "
+        f"cut_up_fasta.py {contig_fasta} -c 10000 -o 0 --merge_last -b {bed_file} > {cut_fasta} && "
+        f"concoct_coverage_table.py {bed_file} {infile} > {outfile}'"
+    )
+    P.run(statement)
+
+@transform("01_mapping.dir/*_sorted.bam",
+           regex(r"01_mapping.dir/(.+)_sorted.bam"),
+           r"01_mapping.dir/\1_concoct_depth.txt")
+def generate_concoct_depth_many2one(infile, outfile):
+    if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
+        Path(outfile).touch()
+        return
+
+    fasta_files = glob.glob("input_metagenome_fasta.dir/*.fasta")
+    if len(fasta_files) != 1:
+        raise ValueError(f"Expected one pooled fasta file, found: {fasta_files}")
+    contig_fasta = fasta_files[0]
+    prefix = os.path.basename(contig_fasta).replace(".fasta", "")
+
+    bed_file = f"01_mapping.dir/{prefix}_10k.bed"
+    cut_fasta = f"01_mapping.dir/{prefix}_10k.fa"
+
+    statement = (
+        "module purge && module load CONCOCT/1.1.0-foss-2023a-Python-2.7.18 && "
+        f"cut_up_fasta.py {contig_fasta} -c 10000 -o 0 --merge_last "
+        f"-b {bed_file} > {cut_fasta} && "
+        f"concoct_coverage_table.py {bed_file} {infile} > {outfile}"
+    )
+    P.run(statement)
+
+@follows(generate_concoct_depth_many2one)
+@originate("01_mapping.dir/cumulative_concoct_depth.txt")
+def generate_cumulative_concoct_depth(outfile):
+    """
+    Merge per-sample CONCOCT depth files into a cumulative depth file
+    with contig + position columns from the first file and depth columns
+    from all files.
+    """
+    if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
+        Path(outfile).touch()
+        return
+
+    input_files = sorted(glob.glob("01_mapping.dir/*_concoct_depth.txt"))
+    if not input_files:
+        raise ValueError("No CONCOCT depth files found for merging.")
+
+    # Build paste command
+    # First file contributes contig + position (fields 1 and 2)
+    first = f"<(cut -f1,2 {input_files[0]})"
+    # All files contribute depth (field 3)
+    others = " ".join([f"<(cut -f3 {f})" for f in input_files])
+    statement = f"paste {first} {others} > {outfile}"
+
+    # Run inside bash to interpret <() process substitution
+    P.run(f"bash -c \"{statement}\"")
+
+# ---------------------------------------------------------
+# d. Prepare all binning input files
+# ---------------------------------------------------------
+@follows(
+    generate_maxbin2_depth,
+    generate_cumulative_maxbin2_depth,
+    generate_concoct_depth_one2one,
+    generate_concoct_depth_many2one,
+    generate_cumulative_concoct_depth,
+    generate_cumulative_metabat2_depth
+)
+def prepare_binning_inputs():
+    """
+    Prepares all depth/coverage files required for MetaBAT2, MaxBin2, and CONCOCT.
+    """
+    pass
+# ---------------------------------------------------------
+# 3. Run Binning Tools
+# ---------------------------------------------------------
+# -------------------------------------------------------------------------
+# MetaBAT2 execution via DepthFileManager
+# -------------------------------------------------------------------------
+mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
+depth_manager = MB.DepthFileManager("01_mapping.dir")
+depth_files = depth_manager.get_depth_files(mapping_mode)
+
+if mapping_mode == "many2one":
+
+    @follows(prepare_binning_inputs)
+    @files(depth_files[0], "02_bins.dir/pooled/pooled_metabat2_done.txt")
     def run_metabat2(infile, outfile):
         pooled_dir = "02_bins.dir/pooled/metabat2_bins"
         os.makedirs(pooled_dir, exist_ok=True)
 
-        statement = MB.MetaBAT2Runner.run_for_sample(infile, pooled_dir, PARAMS, pooled=True)
+        commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS)
+        assert len(commands) == 1, f"Expected 1 pooled command, got {len(commands)}"
+        _, statement = commands[0]
+
         P.run(statement,
               job_memory=PARAMS["binners_job_memory"],
               job_threads=PARAMS["binners_job_threads"])
         Path(outfile).touch()
 
-else:
+elif mapping_mode == "one2one":
 
-    @subdivide("01_mapping.dir/*_depth.txt",
-               regex(r"01_mapping\.dir/(.+)_depth\.txt"),
+    @follows(prepare_binning_inputs)
+    @subdivide(depth_files,
+               regex(r"01_mapping\.dir/(.+)_metabat2_depth\.txt"),
                r"02_bins.dir/\1/\1_metabat2_done.txt")
     def run_metabat2(infile, outfile):
-        sample = os.path.basename(infile).replace("_depth.txt", "")
+        sample = os.path.basename(infile).replace("_metabat2_depth.txt", "")
         sample_dir = f"02_bins.dir/{sample}/metabat2_bins"
         os.makedirs(sample_dir, exist_ok=True)
 
-        statement = MB.MetaBAT2Runner.run_for_sample(infile, sample_dir, PARAMS)
+        # Build all MetaBAT2 commands
+        commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS)
+        command_map = dict(commands)
+        if sample not in command_map:
+            raise RuntimeError(f"No MetaBAT2 command built for {sample}")
+        statement = command_map[sample]
+
         P.run(statement,
               job_memory=PARAMS["binners_job_memory"],
               job_threads=PARAMS["binners_job_threads"])
         Path(outfile).touch()
+
 
 def main(argv=None):
     if argv is None:
