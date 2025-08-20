@@ -258,16 +258,20 @@ def prepare_binning_inputs():
 # MetaBAT2 execution via DepthFileManager
 # -------------------------------------------------------------------------
 mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
-depth_manager = MB.DepthFileManager("01_mapping.dir")
-depth_files = depth_manager.get_depth_files(mapping_mode)
 
 if mapping_mode == "many2one":
 
     @follows(prepare_binning_inputs)
-    @files(depth_files[0], "02_bins.dir/pooled/pooled_metabat2_done.txt")
+    @files("01_mapping.dir/cumulative_metabat2_depth.txt",
+           "02_bins.dir/pooled/pooled_metabat2_done.txt")
     def run_metabat2(infile, outfile):
         pooled_dir = "02_bins.dir/pooled/metabat2_bins"
         os.makedirs(pooled_dir, exist_ok=True)
+
+        # Safe to call DepthFileManager here if you need it
+        depth_manager = MB.DepthFileManager("01_mapping.dir")
+        depth_files = depth_manager.get_depth_files("many2one")
+        assert len(depth_files) == 1, f"Expected 1 pooled depth file, got {len(depth_files)}"
 
         commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS)
         assert len(commands) == 1, f"Expected 1 pooled command, got {len(commands)}"
@@ -280,9 +284,11 @@ if mapping_mode == "many2one":
 
 elif mapping_mode == "one2one":
 
+    depth_files = "01_mapping.dir/*_metabat2_depth.txt"
+
     @follows(prepare_binning_inputs)
     @subdivide(depth_files,
-               regex(r"01_mapping\.dir/(.+)_metabat2_depth\.txt"),
+               regex(r"01_mapping\.dir/(?!cumulative)(.+)_metabat2_depth\.txt"),
                r"02_bins.dir/\1/\1_metabat2_done.txt")
     def run_metabat2(infile, outfile):
         sample = os.path.basename(infile).replace("_metabat2_depth.txt", "")
@@ -292,15 +298,16 @@ elif mapping_mode == "one2one":
         # Build all MetaBAT2 commands
         commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS)
         command_map = dict(commands)
+
         if sample not in command_map:
             raise RuntimeError(f"No MetaBAT2 command built for {sample}")
+
         statement = command_map[sample]
 
         P.run(statement,
               job_memory=PARAMS["binners_job_memory"],
               job_threads=PARAMS["binners_job_threads"])
         Path(outfile).touch()
-
 
 def main(argv=None):
     if argv is None:
