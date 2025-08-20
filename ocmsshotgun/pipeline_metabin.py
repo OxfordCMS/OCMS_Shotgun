@@ -238,90 +238,13 @@ def generate_cumulative_maxbin2_depth(infiles, outfile):
     P.run(f"bash -c \"{statement}\"")
 
 # ---------------------------------------------------------
-# c. Generate CONCOCT coverage files
-# ---------------------------------------------------------
-@follows(generate_cumulative_maxbin2_depth)
-@transform("01_mapping.dir/*_sorted.bam",
-           regex(r"01_mapping.dir/(.+)_sorted.bam"),
-           r"01_mapping.dir/\1_concoct_depth.txt")
-def generate_concoct_depth_one2one(infile, outfile):
-    if PARAMS["mapfastq2fasta"]["mapping_mode"] != "one2one":
-        Path(outfile).touch()
-        return
-
-    sample = os.path.basename(infile).replace("_sorted.bam", "")
-    contig_fasta = f"input_metagenome_fasta.dir/{sample}.fasta"
-    bed_file = f"01_mapping.dir/{sample}_10k.bed"
-    cut_fasta = f"01_mapping.dir/{sample}_10k.fa"
-
-    statement = (
-        "PYTHONPATH= bash -c 'module purge && module load CONCOCT/1.1.0-foss-2023a-Python-2.7.18 && "
-        f"cut_up_fasta.py {contig_fasta} -c 10000 -o 0 --merge_last -b {bed_file} > {cut_fasta} && "
-        f"concoct_coverage_table.py {bed_file} {infile} > {outfile}'"
-    )
-    P.run(statement)
-
-@transform("01_mapping.dir/*_sorted.bam",
-           regex(r"01_mapping.dir/(.+)_sorted.bam"),
-           r"01_mapping.dir/\1_concoct_depth.txt")
-def generate_concoct_depth_many2one(infile, outfile):
-    if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
-        Path(outfile).touch()
-        return
-
-    fasta_files = glob.glob("input_metagenome_fasta.dir/*.fasta")
-    if len(fasta_files) != 1:
-        raise ValueError(f"Expected one pooled fasta file, found: {fasta_files}")
-    contig_fasta = fasta_files[0]
-    prefix = os.path.basename(contig_fasta).replace(".fasta", "")
-
-    bed_file = f"01_mapping.dir/{prefix}_10k.bed"
-    cut_fasta = f"01_mapping.dir/{prefix}_10k.fa"
-
-    statement = (
-        "module purge && module load CONCOCT/1.1.0-foss-2023a-Python-2.7.18 && "
-        f"cut_up_fasta.py {contig_fasta} -c 10000 -o 0 --merge_last "
-        f"-b {bed_file} > {cut_fasta} && "
-        f"concoct_coverage_table.py {bed_file} {infile} > {outfile}"
-    )
-    P.run(statement)
-
-@follows(generate_concoct_depth_many2one)
-@originate("01_mapping.dir/cumulative_concoct_depth.txt")
-def generate_cumulative_concoct_depth(outfile):
-    """
-    Merge per-sample CONCOCT depth files into a cumulative depth file
-    with contig + position columns from the first file and depth columns
-    from all files.
-    """
-    if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
-        Path(outfile).touch()
-        return
-
-    input_files = sorted(glob.glob("01_mapping.dir/*_concoct_depth.txt"))
-    if not input_files:
-        raise ValueError("No CONCOCT depth files found for merging.")
-
-    # Build paste command
-    # First file contributes contig + position (fields 1 and 2)
-    first = f"<(cut -f1,2 {input_files[0]})"
-    # All files contribute depth (field 3)
-    others = " ".join([f"<(cut -f3 {f})" for f in input_files])
-    statement = f"paste {first} {others} > {outfile}"
-
-    # Run inside bash to interpret <() process substitution
-    P.run(f"bash -c \"{statement}\"")
-
-# ---------------------------------------------------------
-# d. Prepare all binning input files
+# c. Prepare all binning input files
 # ---------------------------------------------------------
 @follows(
     generate_maxbin2_depth,
     generate_cumulative_maxbin2_depth,
-    generate_concoct_depth_one2one,
-    generate_concoct_depth_many2one,
-    generate_cumulative_concoct_depth,
-    generate_cumulative_metabat2_depth
+    generate_cumulative_metabat2_depth,
+    mapfastq2fasta
 )
 def prepare_binning_inputs():
     """
