@@ -11,7 +11,7 @@ mapfastq2fasta:
   #For 1-1 mapping
   fastq_regex: (.+).fastq.1.gz
   fasta_regex: \1_index/\1.1.bt2
-  output_regex: \1_depth.txt
+  output_regex: \1_metabat2_depth.txt
   
   #For many to one mapping
   # All FASTQ samples prefixed with 'chow_' (e.g., chow_sample1, chow_sample2)
@@ -20,9 +20,10 @@ mapfastq2fasta:
   # such as chow_sample1_depth.txt and chow_sample2_depth.txt
   #fastq_regex: ([^_]+)_(.+).fastq.1.gz
   #fasta_regex: \1_pooled_index/\1_pooled.1.bt2
-  #output_regex: \1_\2_depth.txt
-  threads: 8
-
+  #output_regex: \1_\2_metabat2_depth.txt
+  job_threads: 8
+  job_memory: 1G
+  
 metabat2:
   threads: 8
   min_contig_length: 2500
