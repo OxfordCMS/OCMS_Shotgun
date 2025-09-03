@@ -5,18 +5,34 @@ class DepthFileManager:
     def __init__(self, depth_dir="01_mapping.dir"):
         self.depth_dir = depth_dir
 
-    def get_depth_files(self, mapping_mode):
+    def get_depth_files(self, mapping_mode, tool):
+        """
+        Get depth files for the given binning tool.
+        
+        Parameters
+        ----------
+        mapping_mode : str
+            "many2one" or "one2one"
+        tool : str
+            Which tool's depth files to fetch ("metabat2" or "maxbin2")
+        """
+        if tool not in ("metabat2", "maxbin2"):
+            raise ValueError(f"Unsupported tool: {tool}")
+
         if mapping_mode == "many2one":
-            return [os.path.join(self.depth_dir, "cumulative_metabat2_depth.txt")]
+            return [os.path.join(self.depth_dir, f"cumulative_{tool}_depth.txt")]
+        
         elif mapping_mode == "one2one":
-            depth_files = glob.glob(os.path.join(self.depth_dir, "*_metabat2_depth.txt"))
+            pattern = os.path.join(self.depth_dir, f"*_{tool}_depth.txt")
+            depth_files = glob.glob(pattern)
+            
             # exclude cumulative marker files
             depth_files = [
                 f for f in depth_files
                 if "cumulative" not in os.path.basename(f)
             ]
             if not depth_files:
-                raise FileNotFoundError(f"No per-sample depth files in {self.depth_dir}")
+                raise FileNotFoundError(f"No per-sample {tool} depth files in {self.depth_dir}")
             return sorted(depth_files)
         else:
             raise ValueError(f"Unknown mapping mode: {mapping_mode}")
@@ -67,26 +83,26 @@ class MetaBAT2Runner:
         )
 
     @staticmethod
-    def run_all(output_dir, PARAMS):
+    def run_all(output_dir, PARAMS, tool="metabat2"):
         """
-        Build MetaBAT2 commands for all samples (one2one) or pooled run (many2one).
+        Build binning commands for all samples (one2one) or pooled run (many2one).
         Returns a list of (prefix, command).
         """
         mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
         depth_manager = DepthFileManager()
-        depth_files = depth_manager.get_depth_files(mapping_mode)
+        depth_files = depth_manager.get_depth_files(mapping_mode, tool=tool)
 
         commands = []
         if mapping_mode == "many2one":
             prefix = "pooled"
-            sample_dir = os.path.join(output_dir, prefix, "metabat2_bins")
+            sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
             os.makedirs(sample_dir, exist_ok=True)
             cmd = MetaBAT2Runner.run_for_sample(depth_files[0], sample_dir, PARAMS, mapping_mode)
             commands.append((prefix, cmd))
         else:  # one2one
             for depth_file in depth_files:
-                prefix = os.path.basename(depth_file).replace("_metabat2_depth.txt", "")
-                sample_dir = os.path.join(output_dir, prefix, "metabat2_bins")
+                prefix = os.path.basename(depth_file).replace(f"_{tool}_depth.txt", "")
+                sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
                 os.makedirs(sample_dir, exist_ok=True)
                 cmd = MetaBAT2Runner.run_for_sample(depth_file, sample_dir, PARAMS, mapping_mode)
                 commands.append((prefix, cmd))
@@ -94,43 +110,66 @@ class MetaBAT2Runner:
         return commands
 
 class MaxBin2Runner:
-    def __init__(self, assembly, prefix, output_dir, abundance_file=None, abundance_list=None, **PARAMS):
-        """
-        Initialize MaxBin2Runner using parameters from YAML config.
+    """
+    Wraps MaxBin2 command building for pooled (many2one) or per-sample (one2one) binning.
+    """
 
-        :param assembly: Path to assembly FASTA file
-        :param abundance_file: Path to abundance/depth file (for unpooled samples)
-        :param abundance_list: Path to abundance list file (for pooled samples)
-        :param output_dir: Output directory for MaxBin2 bins
-        :param prefix: Prefix for output bin files
-        :param PARAMS: Additional parameter like maxbin2_threads
-        """
-        self.assembly = assembly
-        self.abundance_file = abundance_file
-        self.abundance_list = abundance_list
-        self.output_dir = output_dir
-        self.prefix = prefix
-        self.PARAMS = PARAMS
+    @staticmethod
+    def run_for_sample(depth_file, output_dir, PARAMS, mapping_mode):
+        fasta_dir = PARAMS["general"]["fasta_dir"]
 
-    def build_command(self):
-        """
-        Build statement for MaxBin2.
-        """
-        maxbin2_threads = self.PARAMS.get("maxbin2_threads", 4)
+        if mapping_mode == "many2one":
+            fasta_files = glob.glob(os.path.join(fasta_dir, "*.fasta"))
+            if len(fasta_files) != 1:
+                raise FileNotFoundError(
+                    f"Expected 1 pooled FASTA in {fasta_dir}, found: {fasta_files}"
+                )
+            fasta_path = fasta_files[0]
+            prefix = os.path.splitext(os.path.basename(fasta_path))[0]
+        else:
+            prefix = os.path.basename(depth_file).replace("_maxbin2_depth.txt", "")
+            fasta_path = os.path.join(fasta_dir, f"{prefix}.fasta")
+            if not os.path.exists(fasta_path):
+                raise FileNotFoundError(
+                    f"FASTA not found for {depth_file}: {fasta_path}"
+                )
 
-        output_prefix = os.path.join(self.output_dir, f"{self.prefix}_bin")
+        # Params
+        threads = PARAMS["maxbin2"].get("threads", 4)
 
-        statement = (
-            f"MaxBin "
-            f"-fasta {self.assembly} "
-            f"-out {output_prefix} "
-            f"-thread {maxbin2_threads}"
+        os.makedirs(output_dir, exist_ok=True)
+        out_prefix = os.path.join(output_dir, f"{prefix}_bin")
+        log_file = os.path.join(output_dir, f"{prefix}_maxbin2.log")
+
+        # Build command
+        return (
+            f"run_MaxBin.pl -contig {fasta_path} "
+            f"-abund {depth_file} "
+            f"-out {out_prefix} "
+            f"-thread {threads} "
+            f"> {log_file} 2>&1 && gzip -f {out_prefix}.*.fasta"
         )
-        # Add abundance file or list
-        if self.abundance_list:
-            statement += f" -abund_list {self.abundance_list}"
-        elif self.abundance_file:
-            statement += f" -abund {self.abundance_file}"
 
-        return statement.strip()
+    @staticmethod
+    def run_all(output_dir, PARAMS, tool="maxbin2"):
+        mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
+        depth_manager = DepthFileManager()
+        depth_files = depth_manager.get_depth_files(mapping_mode, tool=tool)
+
+        commands = []
+        if mapping_mode == "many2one":
+            prefix = "pooled"
+            sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
+            os.makedirs(sample_dir, exist_ok=True)
+            cmd = MaxBin2Runner.run_for_sample(depth_files[0], sample_dir, PARAMS, mapping_mode)
+            commands.append((prefix, cmd))
+        else:
+            for depth_file in depth_files:
+                prefix = os.path.basename(depth_file).replace(f"_{tool}_depth.txt", "")
+                sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
+                os.makedirs(sample_dir, exist_ok=True)
+                cmd = MaxBin2Runner.run_for_sample(depth_file, sample_dir, PARAMS, mapping_mode)
+                commands.append((prefix, cmd))
+
+        return commands
 
