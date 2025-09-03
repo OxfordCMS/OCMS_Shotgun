@@ -24,9 +24,15 @@ mapfastq2fasta:
   job_threads: 8
   job_memory: 1G
   
+
+binning_tools: "metabat2, maxbin2"  
+
 metabat2:
   threads: 8
   min_contig_length: 2500
+
+maxbin2:
+  threads: 8
 
 binners:
   job_threads: 8
