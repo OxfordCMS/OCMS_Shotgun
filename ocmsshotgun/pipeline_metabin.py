@@ -217,8 +217,7 @@ def generate_cumulative_maxbin2_depth(infiles, outfile):
         return
 
     input_files = sorted(infiles)
-    print("DEBUG >>> input_files:", input_files)
-
+    
     sample_names = [
         os.path.basename(f).replace("_maxbin2_depth.txt", "")
         for f in input_files
@@ -251,15 +250,24 @@ def prepare_binning_inputs():
     Prepares all depth/coverage files required for MetaBAT2, MaxBin2, and CONCOCT.
     """
     pass
+
+# -------------------------------------------------------------------------
+# User-selected binning tools
+# -------------------------------------------------------------------------
+selected_tools = [
+    t.strip() for t in PARAMS.get("binning_tools", "metabat2").split(",")
+]
+
 # ---------------------------------------------------------
 # 3. Run Binning Tools
 # ---------------------------------------------------------
 # -------------------------------------------------------------------------
 # MetaBAT2 execution via DepthFileManager
 # -------------------------------------------------------------------------
+
 mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
 
-if mapping_mode == "many2one":
+if mapping_mode == "many2one" and "metabat2" in selected_tools:
 
     @follows(prepare_binning_inputs)
     @files("01_mapping.dir/cumulative_metabat2_depth.txt",
@@ -268,12 +276,12 @@ if mapping_mode == "many2one":
         pooled_dir = "02_bins.dir/pooled/metabat2_bins"
         os.makedirs(pooled_dir, exist_ok=True)
 
-        # Safe to call DepthFileManager here if you need it
+        # Fetch depth files for MetaBAT2
         depth_manager = MB.DepthFileManager("01_mapping.dir")
-        depth_files = depth_manager.get_depth_files("many2one")
+        depth_files = depth_manager.get_depth_files("many2one", tool="metabat2")
         assert len(depth_files) == 1, f"Expected 1 pooled depth file, got {len(depth_files)}"
 
-        commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS)
+        commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS, tool="metabat2")
         assert len(commands) == 1, f"Expected 1 pooled command, got {len(commands)}"
         _, statement = commands[0]
 
@@ -282,25 +290,85 @@ if mapping_mode == "many2one":
               job_threads=PARAMS["binners_job_threads"])
         Path(outfile).touch()
 
-elif mapping_mode == "one2one":
-
-    depth_files = "01_mapping.dir/*_metabat2_depth.txt"
-
+elif mapping_mode == "one2one" and "metabat2" in selected_tools:
+    
     @follows(prepare_binning_inputs)
-    @subdivide(depth_files,
-               regex(r"01_mapping\.dir/(?!cumulative)(.+)_metabat2_depth\.txt"),
+    @subdivide(f"01_mapping.dir/*_metabat2_depth.txt",
+               regex(rf"01_mapping\.dir/(?!cumulative)(.+)_metabat2_depth\.txt"),
                r"02_bins.dir/\1/\1_metabat2_done.txt")
-    def run_metabat2(infile, outfile):
+    def run_metabat2(infile, outfile, tool="metabat2"):
         sample = os.path.basename(infile).replace("_metabat2_depth.txt", "")
-        sample_dir = f"02_bins.dir/{sample}/metabat2_bins"
+        sample_dir = f"02_bins.dir/{sample}/{tool}_bins"
         os.makedirs(sample_dir, exist_ok=True)
 
-        # Build all MetaBAT2 commands
-        commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS)
+        # Fetch depth files (per-sample)
+        depth_manager = MB.DepthFileManager("01_mapping.dir")
+        depth_files = depth_manager.get_depth_files("one2one", tool=tool)
+
+        # Build all commands
+        commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS, tool=tool)
         command_map = dict(commands)
 
         if sample not in command_map:
-            raise RuntimeError(f"No MetaBAT2 command built for {sample}")
+            raise RuntimeError(f"No {tool} command built for {sample}")
+
+        statement = command_map[sample]
+
+        P.run(statement,
+              job_memory=PARAMS["binners_job_memory"],
+              job_threads=PARAMS["binners_job_threads"])
+        Path(outfile).touch()
+
+# -------------------------------------------------------------------------
+# MaxBin2 execution via DepthFileManager
+# -------------------------------------------------------------------------
+
+mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
+
+if mapping_mode == "many2one" and "maxbin2" in selected_tools:
+
+    @follows(prepare_binning_inputs)
+    @files("01_mapping.dir/cumulative_maxbin2_depth.txt",
+           "02_bins.dir/pooled/pooled_maxbin2_done.txt")
+    def run_maxbin2(infile, outfile):
+        pooled_dir = "02_bins.dir/pooled/maxbin2_bins"
+        os.makedirs(pooled_dir, exist_ok=True)
+
+        # Fetch depth files for MaxBin2
+        depth_manager = MB.DepthFileManager("01_mapping.dir")
+        depth_files = depth_manager.get_depth_files("many2one", tool="maxbin2")
+        assert len(depth_files) == 1, f"Expected 1 pooled depth file, got {len(depth_files)}"
+
+        # Build pooled command
+        commands = MB.MaxBin2Runner.run_all("02_bins.dir", PARAMS, tool="maxbin2")
+        assert len(commands) == 1, f"Expected 1 pooled command, got {len(commands)}"
+        _, statement = commands[0]
+
+        P.run(statement,
+              job_memory=PARAMS["binners_job_memory"],
+              job_threads=PARAMS["binners_job_threads"])
+        Path(outfile).touch()
+
+elif mapping_mode == "one2one" and "maxbin2" in selected_tools:
+    @follows(prepare_binning_inputs)
+    @subdivide(f"01_mapping.dir/*_maxbin2_depth.txt",
+               regex(rf"01_mapping\.dir/(?!cumulative)(.+)_maxbin2_depth\.txt"),
+               r"02_bins.dir/\1/\1_maxbin2_done.txt")
+    def run_maxbin2(infile, outfile, tool ="maxbin2"):
+        sample = os.path.basename(infile).replace("_maxbin2_depth.txt", "")
+        sample_dir = f"02_bins.dir/{sample}/{tool}_bins"
+        os.makedirs(sample_dir, exist_ok=True)
+
+        # Fetch depth files (per-sample)
+        depth_manager = MB.DepthFileManager("01_mapping.dir")
+        depth_files = depth_manager.get_depth_files("one2one", tool=tool)
+
+        # Build all commands
+        commands = MB.MaxBin2Runner.run_all("02_bins.dir", PARAMS, tool=tool)
+        command_map = dict(commands)
+
+        if sample not in command_map:
+            raise RuntimeError(f"No {tool} command built for {sample}")
 
         statement = command_map[sample]
 
