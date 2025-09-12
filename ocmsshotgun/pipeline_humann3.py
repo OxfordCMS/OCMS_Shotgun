@@ -242,8 +242,8 @@ def mapUniref2KOs(infile, outfile):
                  " 2> %(outfile)s.log |"
                  " gzip > %(outfile)s")
     P.run(statement,
-          job_memory = PARAMS["humann3_postprocess_memory"],
-          job_threads = PARAMS["humann3_postprocess_threads"])
+          job_memory = PARAMS["humann3_posthumann_memory"],
+          job_threads = PARAMS["humann3_posthumann_threads"])
 
 @transform([mergeHumannOutput, mapUniref2KOs],
            suffix('.tsv.gz'),
