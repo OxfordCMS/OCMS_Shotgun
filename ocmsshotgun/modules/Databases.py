@@ -138,7 +138,6 @@ class METAPHLANdb(DB):
         outdir = os.path.join(outdir[0],
                               "python-"+self.python_version,
                               "metaphlan-"+metaphlan_version)
-        print(outdir)        
 
         if metaphlan_version == "3":
             statement = '''
@@ -161,5 +160,16 @@ class METAPHLANdb(DB):
 class MINIMAP2db(DB):
     def build_statement(self, infile, outfile):
         statement = (f"minimap2 -d {outfile} {infile}")
+
+        return statement
+
+class Trimmomatic(DB):
+    def build_statement(self, infile, outfile):
+
+        statement = (f"wget https://github.com/usadellab/Trimmomatic/files/5854859/Trimmomatic-{self.version}.zip; "
+                    f"unzip Trimmomatic-{self.version}.zip; "
+                    f"mv Trimmomatic-{self.version}/adapters/*.fa Trimmomatic/trimmomatic-{self.version}/; "
+                    f"rm -rf Trimmomatic-{self.version}; "
+                    f"rm -rf Trimmomatic-{self.version}.zip ")
 
         return statement
