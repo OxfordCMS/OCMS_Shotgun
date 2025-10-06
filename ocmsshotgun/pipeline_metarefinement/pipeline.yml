@@ -1,0 +1,3 @@
+general:
+    # input directory (fastq single or paired end reads)
+    input.dir: 'input.dir'
