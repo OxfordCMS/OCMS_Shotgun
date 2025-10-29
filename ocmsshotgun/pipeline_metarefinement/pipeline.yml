@@ -1,3 +1,14 @@
 general:
     # input directory (fastq single or paired end reads)
     input.dir: 'input.dir'
+
+extract_refined_bin_reads:
+   memory: 20G
+   threads: 4
+
+
+    
+extract_fastqs_by_bin:
+    memory: 40G
+    threads: 8
+    
