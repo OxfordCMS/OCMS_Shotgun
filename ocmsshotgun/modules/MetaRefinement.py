@@ -87,15 +87,26 @@ class ExtractRefinedBinReads(Utility.BaseTool):
         with pysam.AlignmentFile(self.bam_file, "rb") as bam_in:
             for read in bam_in.fetch(until_eof=True):
                 total_reads += 1        
+                
+                # Define suffix for directionality
+                if read.is_read1:
+                    suffix = "/1"
+                elif read.is_read2:
+                    suffix = "/2"
+                else:
+                    suffix = ""
+                
+                # Unmapped reads - reads that do not align to any contig in the assembly.
                 if read.is_unmapped:
-                    unmapped_handle.write(read.query_name + "\n")
+                    unmapped_handle.write(read.query_name + suffix + "\n")
                     read_counts["unmapped"] += 1
                     continue
-
+                
+                # Reads mapped but not to valid contigs
                 ref_name = bam_in.get_reference_name(read.reference_id) #retrive contig names this reads aligned to
                 if ref_name not in valid_contigs: #skip if the reads not aligned to contigs resulted in refined bin
                 # mapped but not to any refined-bin contig
-                    unassigned_handle.write(read.query_name + "\n")
+                    unassigned_handle.write(read.query_name + suffix + "\n")
                     read_counts["unassigned"] += 1
                     continue
                     
@@ -103,7 +114,7 @@ class ExtractRefinedBinReads(Utility.BaseTool):
                 bin_name = contig_to_bin[ref_name] #look up which refined bin that contig belong to 
                 handle = bin_to_handles.get(bin_name) #retrieves the open file handle (e.g., the output file for that bin) from the dictionary bin_to_handles using the key bin_name
                 if handle: #if a valid file handle exists for this bin, write the current read’s ID (name) to that bin’s output file
-                    handle.write(read.query_name + "\n")
+                    handle.write(read.query_name + suffix + "\n")
                     read_counts[bin_name] += 1
 
         # --- Close output handles ---
