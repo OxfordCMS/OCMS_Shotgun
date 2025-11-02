@@ -88,7 +88,7 @@ def indexfasta(infile, outfile):
     out_dir = re.sub(r'\.fasta$', '_index', infile)
     os.makedirs(out_dir, exist_ok=True)
 
-    threads = PARAMS["mapfastq2fasta"]["threads"]
+    threads = PARAMS["mapfastq2fasta"]["job_threads"]
     out_prefix = os.path.join(out_dir,
                               re.sub(r'\.fasta$', '', os.path.basename(infile)))
 
