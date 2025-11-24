@@ -17,14 +17,6 @@ import pysam
 # ---------------------------------------------------------------------------
 
 class ExtractRefinedBinReads(Utility.BaseTool):
-    """
-    ExtractRefinedBinReads tool class.
-
-    Extracts read IDs for contigs belonging to refined bins
-    using alignments in a BAM file. Creates one text file per
-    refined bin listing all read IDs.
-    """
-
     def __init__(self, inputs, **PARAMS):
         """
         Parameters
@@ -34,7 +26,6 @@ class ExtractRefinedBinReads(Utility.BaseTool):
         PARAMS : dict
             Pipeline parameters (threads, memory, etc.)
         """
-        # Pass a dummy outfile so Utility.BaseTool initializes cleanly, as this requires outfile to be valid filesystem paths (strings or Path objects).
         dummy_outfile = f"03_refined_bin_reads.dir/{Path(inputs[0]).stem}_placeholder.txt"
         super().__init__(inputs[0], dummy_outfile, **PARAMS)
 
@@ -52,9 +43,7 @@ class ExtractRefinedBinReads(Utility.BaseTool):
 
         # --- Load contig → bin mapping ---
         if not self.map_file.exists():
-            raise FileNotFoundError(
-                f"Mapping file not found for {self.sample_id}: {self.map_file}"
-            )
+            raise FileNotFoundError(f"Mapping file not found for {self.sample_id}: {self.map_file}")
 
         with open(self.map_file) as f:
             contig_to_bin = json.load(f)
@@ -86,8 +75,8 @@ class ExtractRefinedBinReads(Utility.BaseTool):
         # --- Iterate over BAM and write read IDs ---
         with pysam.AlignmentFile(self.bam_file, "rb") as bam_in:
             for read in bam_in.fetch(until_eof=True):
-                total_reads += 1        
-                
+                total_reads += 1
+
                 # Define suffix for directionality
                 if read.is_read1:
                     suffix = "/1"
@@ -95,25 +84,24 @@ class ExtractRefinedBinReads(Utility.BaseTool):
                     suffix = "/2"
                 else:
                     suffix = ""
-                
-                # Unmapped reads - reads that do not align to any contig in the assembly.
+
+                # Unmapped reads
                 if read.is_unmapped:
                     unmapped_handle.write(read.query_name + suffix + "\n")
                     read_counts["unmapped"] += 1
                     continue
-                
+
                 # Reads mapped but not to valid contigs
-                ref_name = bam_in.get_reference_name(read.reference_id) #retrive contig names this reads aligned to
-                if ref_name not in valid_contigs: #skip if the reads not aligned to contigs resulted in refined bin
-                # mapped but not to any refined-bin contig
+                ref_name = bam_in.get_reference_name(read.reference_id)
+                if ref_name not in valid_contigs:
                     unassigned_handle.write(read.query_name + suffix + "\n")
                     read_counts["unassigned"] += 1
                     continue
-                    
-                # mapped to a refined-bin contig
-                bin_name = contig_to_bin[ref_name] #look up which refined bin that contig belong to 
-                handle = bin_to_handles.get(bin_name) #retrieves the open file handle (e.g., the output file for that bin) from the dictionary bin_to_handles using the key bin_name
-                if handle: #if a valid file handle exists for this bin, write the current read’s ID (name) to that bin’s output file
+
+                # Mapped to a refined-bin contig
+                bin_name = contig_to_bin[ref_name]
+                handle = bin_to_handles.get(bin_name)
+                if handle:
                     handle.write(read.query_name + suffix + "\n")
                     read_counts[bin_name] += 1
 
@@ -125,8 +113,8 @@ class ExtractRefinedBinReads(Utility.BaseTool):
 
         # --- Sanity check for missing contigs ---
         with pysam.AlignmentFile(self.bam_file, "rb") as bam_in:
-            bam_contigs = set(bam_in.references) #gives you a set of unique contig names for quick, reference stores list of contigs/chromosome stored in a BAM file
-        missing_contigs = [c for c in contig_to_bin if c not in bam_contigs] #identifies contigs that are present in your refined-bin mapping but missing from the sample’s actual BAM file
+            bam_contigs = set(bam_in.references)
+        missing_contigs = [c for c in contig_to_bin if c not in bam_contigs]
 
         if missing_contigs:
             print(f"[WARN] {self.sample_id}: {len(missing_contigs)} contigs not in BAM header")
@@ -134,17 +122,49 @@ class ExtractRefinedBinReads(Utility.BaseTool):
             print(f"[OK] {self.sample_id}: all refined-bin contigs found in BAM")
 
         print(f"[{self.sample_id}] Extracted read IDs for {len(bin_to_contigs)} refined bins.")
-        
+
         # --- Write summary TSV report ---
         summary_path = self.outdir / f"{self.sample_id}_read_summary.tsv"
-        with open(summary_path, "w") as s:
-            s.write("bin_name\tread_count\n")
-            for bin_name, count in read_counts.items():
-                s.write(f"{bin_name}\t{count}\n")
-            s.write(f"total\t{total_reads}\n")
 
-        print(f"[{self.sample_id}] Extracted read IDs for {len(bin_to_contigs)} bins.")
-        print(f"[{self.sample_id}] Summary written to: {summary_path}")
+        # Calculate totals
+        total_reads = read_counts.get("unmapped", 0) + read_counts.get("unassigned", 0)
+        mapped_reads = 0
+        for key, val in read_counts.items():
+            if key not in ["unmapped", "unassigned"]:
+                mapped_reads += val
+        total_reads += mapped_reads
+
+        # Compute summary lines
+        with open(summary_path, "w") as s:
+            s.write("bin_name\tread_count\t%_of_mapped_reads\t%_of_total_reads\n")
+
+            # Each refined bin
+            for bin_name, count in sorted(
+                ((b, c) for b, c in read_counts.items() if b not in ["unmapped", "unassigned"]),
+                key=lambda x: x[1],
+                reverse=True,
+            ):
+                pct_mapped = (100 * count / mapped_reads) if mapped_reads > 0 else 0
+                pct_total = (100 * count / total_reads) if total_reads > 0 else 0
+                s.write(f"{bin_name}\t{count}\t{pct_mapped:.2f}\t{pct_total:.2f}\n")
+
+            # Corrected combined totals
+            pct_bins_mapped = 100 * mapped_reads / (mapped_reads + read_counts.get("unassigned", 0))
+            pct_bins_total = 100 * mapped_reads / total_reads
+            s.write(f"All_refined_bins_combined\t{mapped_reads}\t{pct_bins_mapped:.2f}\t{pct_bins_total:.2f}\n")
+
+            pct_unassigned_mapped = 100 * read_counts.get("unassigned", 0) / (mapped_reads + read_counts.get("unassigned", 0))
+            pct_unassigned_total = 100 * read_counts.get("unassigned", 0) / total_reads
+            s.write(f"unassigned\t{read_counts.get('unassigned', 0)}\t{pct_unassigned_mapped:.2f}\t{pct_unassigned_total:.2f}\n")
+
+            pct_unmapped_total = 100 * read_counts.get("unmapped", 0) / total_reads
+            s.write(f"unmapped\t{read_counts.get('unmapped', 0)}\t\t{pct_unmapped_total:.2f}\n")
+
+            s.write(f"total\t{total_reads}\t\t100.00\n")
+
+        print(f"[{self.sample_id}] Read summary with percentages written to: {summary_path}")
+
+
     # ---------------------------------------------------------------------
     # Statement builder for CGAT-core P.run()
     # ---------------------------------------------------------------------
