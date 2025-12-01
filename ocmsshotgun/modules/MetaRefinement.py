@@ -11,6 +11,8 @@ from Bio import SeqIO
 import gzip
 import json
 import pysam
+import re
+import os
 
 # ---------------------------------------------------------------------------
 # Class 1: ExtractRefinedBinReads
@@ -181,91 +183,114 @@ tool._extract_reads()"
 # ---------------------------------------------------------------------------
 # Class 2: FilterFastqByIds
 # ---------------------------------------------------------------------------
-
 class FilterFastqByIds(Utility.BaseTool):
     """
-    FilterFastqByIds tool class.
-
-    Filters paired-end FASTQ files using read ID lists produced in previous
-    steps of the pipeline. Produces filtered FASTQs for each refined bin.
+    Extract paired-end FASTQ reads for a refined bin based on
+    read ID list containing /1 or /2 suffixes.
     """
 
-    def __init__(self, infile, outfile, **PARAMS):
+    def __init__(self, infile, outfiles, **PARAMS):
         """
-        Parameters
-        ----------
-        infile : str
-            Path to read ID list (.txt)
-        outfile : list[str]
-            List of two output FASTQs [R1, R2]
-        PARAMS : dict
-            Pipeline parameters (threads, memory, etc.)
+        infile   : read-ID list (contains read/1 and read/2)
+        outfiles : [R1.fastq.gz, R2.fastq.gz]
         """
-        # BaseTool expects one output path → use R1
-        super().__init__(infile, outfile[0], **PARAMS)
+        super().__init__(infile, outfiles[0], **PARAMS)
 
         self.read_id_file = Path(infile)
-        self.out_r1, self.out_r2 = map(Path, outfile)
+        self.out_r1 = Path(outfiles[0])
+        self.out_r2 = Path(outfiles[1])
 
-        # Derive sample info
+        # Input FASTQ directory provided in pipeline.yml
+        self.fastq_dir = Path(PARAMS["general_input_fastqs_dir"])
+
+        # Sample name from parent directory
         self.sample_id = self.out_r1.parent.name
-        self.bin_name = self.out_r1.stem.replace("_R1", "")
-        self.fq_dir = Path("input_fastqs.dir")
 
-        # Build full paths to input FASTQs
-        self.r1_path = self.fq_dir / f"{self.sample_id}.fastq.1.gz"
-        self.r2_path = self.fq_dir / f"{self.sample_id}.fastq.2.gz"
+        # Input FASTQs
+        self.r1_in = self.fastq_dir / f"{self.sample_id}.fastq.1.gz"
+        self.r2_in = self.fastq_dir / f"{self.sample_id}.fastq.2.gz"
 
-        if not self.r1_path.exists() or not self.r2_path.exists():
+        if not self.r1_in.exists() or not self.r2_in.exists():
             raise FileNotFoundError(
-                f"FASTQ files for {self.sample_id} not found in {self.fq_dir}"
+                f"FASTQ files not found: {self.r1_in} {self.r2_in}"
             )
 
-    # ---------------------------------------------------------------------
-    # Core logic: filter FASTQs
-    # ---------------------------------------------------------------------
-    def _filter_fastqs(self):
-        """Perform FASTQ filtering."""
+        # Output folder
         self.out_r1.parent.mkdir(parents=True, exist_ok=True)
-        print(f"[{self.sample_id}] Processing refined bin: {self.bin_name}")
 
-        # Load read IDs
-        with open(self.read_id_file) as f:
-            read_ids = set(line.strip() for line in f if line.strip())
-        print(f"  Loaded {len(read_ids)} read IDs")
 
-        if not read_ids:
-            print(f"  [WARN] No read IDs found, skipping bin")
-            return
-
-        # Helper for filtering one FASTQ file
-        def filter_fastq(in_path, out_path):
-            count_in, count_out = 0, 0
-            with gzip.open(in_path, "rt") as in_fq, gzip.open(out_path, "wt") as out_fq:
-                for rec in SeqIO.parse(in_fq, "fastq"):
-                    count_in += 1
-                    if rec.id in read_ids:
-                        SeqIO.write(rec, out_fq, "fastq")
-                        count_out += 1
-            return count_in, count_out
-
-        # Run filtering
-        c1_in, c1_out = filter_fastq(self.r1_path, self.out_r1)
-        c2_in, c2_out = filter_fastq(self.r2_path, self.out_r2)
-
-        print(f"  R1: {c1_out}/{c1_in} reads written")
-        print(f"  R2: {c2_out}/{c2_in} reads written")
-        print(f"  [OK] Wrote FASTQs: {self.out_r1.name}, {self.out_r2.name}")
-
-    # ---------------------------------------------------------------------
-    # Statement builder for CGAT-core P.run()
-    # ---------------------------------------------------------------------
-    def build_statement(self):
-        """Return shell command to run this class via Python inline execution."""
-        statement = f"""
-        python -c "from ocmsshotgun.modules.MetaRefinement import FilterFastqByIds;
-tool = FilterFastqByIds('{self.read_id_file}', ['{self.out_r1}', '{self.out_r2}']);
-tool._filter_fastqs()"
+    # ------------------------------------------------------------------
+    def _load_read_ids(self):
         """
-        return statement.strip()
+        Load read IDs from the *_read_ids.txt file.
+        Remove /1 or /2 but KEEP mapping to correct mate.
+        """
+        ids_R1 = set()
+        ids_R2 = set()
+
+        with open(self.read_id_file) as f:
+            for line in f:
+                line=line.strip()
+                if not line:
+                    continue
+
+                if line.endswith("/1"):
+                    ids_R1.add(line[:-2])   # strip /1
+                elif line.endswith("/2"):
+                    ids_R2.add(line[:-2])   # strip /2
+
+        return ids_R1, ids_R2
+
+
+    # ------------------------------------------------------------------
+    def _extract_fastq(self, in_path, out_path, read_ids_set):
+        """
+        Extract reads whose ID matches entries in read_ids_set.
+        Matching is tolerant:
+          FASTQ ID may be '@ID' while stored ID is 'ID'
+        """
+        count_in = count_out = 0
+
+        with gzip.open(in_path, "rt") as in_f, gzip.open(out_path, "wt") as out_f:
+            for rec in SeqIO.parse(in_f, "fastq"):
+                count_in += 1
+
+                rid = rec.id
+                rid_no_at = rid[1:] if rid.startswith("@") else rid
+
+                if rid_no_at in read_ids_set:
+                    SeqIO.write(rec, out_f, "fastq")
+                    count_out += 1
+
+        return count_in, count_out
+
+
+    # ------------------------------------------------------------------
+    def _run(self):
+        print(f"[INFO] Extracting FASTQs for {self.sample_id}")
+
+        ids_R1, ids_R2 = self._load_read_ids()
+
+        print(f"  R1 IDs: {len(ids_R1)}  R2 IDs: {len(ids_R2)}")
+
+        c1_in, c1_out = self._extract_fastq(self.r1_in, self.out_r1, ids_R1)
+        c2_in, c2_out = self._extract_fastq(self.r2_in, self.out_r2, ids_R2)
+
+        print(f"  R1: wrote {c1_out}/{c1_in}")
+        print(f"  R2: wrote {c2_out}/{c2_in}")
+
+
+    # ------------------------------------------------------------------
+    def build_statement(self):
+        """Return command string for pipeline execution."""
+    
+        code = (
+            "from ocmsshotgun.modules.MetaRefinement import FilterFastqByIds; "
+            f"tool = FilterFastqByIds('{self.read_id_file}', "
+            f"['{self.out_r1}', '{self.out_r2}'], **{self.PARAMS}); "
+            "tool._run()"
+        )
+
+        statement = f'python3 -c "{code}"'
+        return statement
 
