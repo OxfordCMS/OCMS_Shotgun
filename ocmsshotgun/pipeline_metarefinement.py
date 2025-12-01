@@ -10,8 +10,10 @@ import csv
 import json
 import pysam
 import gzip
+import re
 from Bio import SeqIO
 import ocmsshotgun.modules.MetaRefinement as MR
+import ocmsshotgun.modules.MetaAssembly as PMA
 
 # load options from the config file
 PARAMS = P.get_parameters(["pipeline.yml"])
@@ -81,7 +83,7 @@ def create_contig_to_bin_map(infile, outfile):
 ###############################################################################
 
 @follows(create_contig_to_bin_map, mkdir("03_refined_bin_reads.dir"))
-@subdivide("input_bams.dir/*_sorted.bam",
+@subdivide(PARAMS["general_input_bams_dir"] + "/*_sorted.bam",
            regex(r".*/([^/]+)_sorted\.bam$"),
            add_inputs(r"02_contig_bin_maps.dir/\1_contig_to_bin.json"),
            r"03_refined_bin_reads.dir/\1_*.*")
@@ -97,25 +99,48 @@ def extract_refined_bin_reads(inputs, outfiles):
 
 ###############################################################################
 
-@follows(extract_refined_bin_reads, mkdir("04_refined_bin_fastqs.dir"))
+#@follows(extract_refined_bin_reads, mkdir("04_refined_bin_fastqs.dir"))
 @transform("03_refined_bin_reads.dir/*/*_read_ids.txt",
-           regex(r"03_refined_bin_reads\.dir/(.+)/(.+)_read_ids\.txt"),
-           [r"04_refined_bin_fastqs.dir/\1/\2_R1.fastq.gz",
-            r"04_refined_bin_fastqs.dir/\1/\2_R2.fastq.gz"])
+           regex(r"03_refined_bin_reads\.dir/([^/]+)/(.+)_([0-9]+)_read_ids\.txt$"),
+           [r"04_refined_bin_fastqs.dir/\1/bin\3.fastq.1.gz",
+            r"04_refined_bin_fastqs.dir/\1/bin\3.fastq.2.gz"])
 def extract_fastqs_by_bin(infile, outfiles):
-    """Filter original FASTQ files using read ID lists."""
     tool = MR.FilterFastqByIds(infile, outfiles, **PARAMS)
     statement = tool.build_statement()
-
     P.run(
         statement,
         job_memory=PARAMS["extract_fastqs_by_bin_memory"],
-        job_threads=PARAMS["extract_fastqs_by_bin_threads"],
+        job_threads=PARAMS["extract_fastqs_by_bin_threads"]
     )
 
+##############################################################################
+@follows(extract_fastqs_by_bin, mkdir("05_refined_bin_assemblies.dir"))
+@transform(
+    "04_refined_bin_fastqs.dir/*/bin*.fastq.1.gz",
+    regex(r"04_refined_bin_fastqs\.dir/([^/]+)/bin([0-9]+)\.fastq\.1\.gz$"),
+    r"05_refined_bin_assemblies.dir/\1/bin\2.spades.contigs.fasta"
+)
+def assemble_refined_bins(infile, outfile):
 
+    # Create only the directory — NOT the outfile itself
+    outdir = os.path.dirname(outfile)
+    os.makedirs(outdir, exist_ok=True)
 
-@follows(extract_fastqs_by_bin)
+    # Wrapper for MetaSPAdes
+    assembler = PMA.runMetaSpades()
+
+    # Pass only R1; wrapper auto-detects R2 (.fastq.2.gz) properly
+    statement = assembler.build(infile, outfile, **PARAMS)
+
+    # Run job
+    P.run(
+        statement,
+        job_threads=PARAMS["spades_meta_threads"],
+        job_memory=PARAMS["spades_meta_memory"],
+        job_options=PARAMS.get("spades_meta_job_options", "")
+    )
+
+@follows(assemble_refined_bins)
 def full():
     pass
 
