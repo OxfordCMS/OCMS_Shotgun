@@ -1,296 +1,278 @@
-# Module: MetaRefinement
-# Description:
-#     Tools for metagenomic bin refinement steps:
-#       1. ExtractRefinedBinReads — extract read IDs per refined bin.
-#       2. FilterFastqByIds — filter original FASTQs using those read IDs.
+"""
+MetaRefinement.py
 
-import ocmstoolkit.modules.Utility as Utility
-from cgatcore import pipeline as P
+Single-file module for refined-bin read extraction and paired FASTQ generation.
+
+Key behaviours:
+ - Option A: if either mate maps to a refined contig, recruit BOTH mates.
+ - FASTQ extraction uses simultaneous paired-iteration (4-line records), enforcing strict 1:1 pairing.
+ - Normalization is minimal and tuned to your data: only strip leading '@' from FASTQ headers.
+"""
+
 from pathlib import Path
-from Bio import SeqIO
+from typing import Tuple, Set, Dict, Iterable
 import gzip
+import shlex
 import json
 import pysam
-import re
+import subprocess
 import os
 
-# ---------------------------------------------------------------------------
-# Class 1: ExtractRefinedBinReads
-# ---------------------------------------------------------------------------
+# ----------------------------
+# Utilities
+# ----------------------------
+def normalize_read_name(raw: str) -> str:
+    """
+    Minimal normalization tailored to your dataset:
+      - Remove leading '@' from FASTQ header lines (BAM names do not have '@').
+    """
+    if not raw:
+        return raw
+    if raw.startswith("@"):
+        raw = raw[1:]
+    return raw
 
-class ExtractRefinedBinReads(Utility.BaseTool):
-    def __init__(self, inputs, **PARAMS):
-        """
-        Parameters
-        ----------
-        inputs : tuple
-            (Sorted BAM file, contig→bin JSON file)
-        PARAMS : dict
-            Pipeline parameters (threads, memory, etc.)
-        """
-        dummy_outfile = f"03_refined_bin_reads.dir/{Path(inputs[0]).stem}_placeholder.txt"
-        super().__init__(inputs[0], dummy_outfile, **PARAMS)
+def ensure_gz_path(p: Path) -> Path:
+    """Ensure an output path ends with .gz."""
+    return p if str(p).endswith(".gz") else Path(str(p) + ".gz")
 
-        self.bam_file, self.map_file = map(Path, inputs)
-        self.sample_id = self.bam_file.stem.replace("_sorted", "")
+# ----------------------------
+# Class: ExtractRefinedBinReads
+# ----------------------------
+class ExtractRefinedBinReads:
+    """
+    Extract base read names from a BAM file grouped by refined bins.
+
+    Produces:
+      03_refined_bin_reads.dir/<sample_id>/
+        <bin_name>_read_ids.txt
+        unmapped_read_ids.txt
+        unassigned_read_ids.txt
+        <sample_id>_read_summary.tsv
+    """
+
+    def __init__(self, inputs: Tuple[str, str], **PARAMS):
+        """
+        inputs: (bam_path, contig_to_bin_json)
+        PARAMS: optional pipeline parameters (kept for API parity)
+        """
+        self.bam_path = Path(inputs[0])
+        self.map_path = Path(inputs[1])
+        self.PARAMS = PARAMS
+
+        # Derive sample id from BAM filename; remove _sorted suffix if present
+        self.sample_id = self.bam_path.stem.replace("_sorted", "")
         self.outdir = Path("03_refined_bin_reads.dir") / self.sample_id
         self.outdir.mkdir(parents=True, exist_ok=True)
 
-    # ---------------------------------------------------------------------
-    # Core logic: extract read IDs from BAM
-    # ---------------------------------------------------------------------
+    def _load_map(self) -> Dict[str, str]:
+        if not self.map_path.exists():
+            raise FileNotFoundError(f"Contig->bin JSON not found: {self.map_path}")
+        with open(self.map_path) as fh:
+            contig_to_bin = json.load(fh)
+        return contig_to_bin
+
     def _extract_reads(self):
-        """Perform read ID extraction from BAM."""
-        print(f"[{self.sample_id}] Extracting read IDs from {self.bam_file.name}")
+        contig_to_bin = self._load_map()
 
-        # --- Load contig → bin mapping ---
-        if not self.map_file.exists():
-            raise FileNotFoundError(f"Mapping file not found for {self.sample_id}: {self.map_file}")
-
-        with open(self.map_file) as f:
-            contig_to_bin = json.load(f)
-
-        # --- Group contigs by bin ---
-        bin_to_contigs = {}
-        for contig, bin_name in contig_to_bin.items():
-            bin_to_contigs.setdefault(bin_name, []).append(contig)
+        # Precompute bin->contig mapping
+        bin_to_contigs: Dict[str, Set[str]] = {}
+        for contig, binname in contig_to_bin.items():
+            bin_to_contigs.setdefault(binname, set()).add(contig)
         valid_contigs = set(contig_to_bin.keys())
 
-        # --- Prepare output files ---
-        bin_to_handles = {}
-        for bin_name in bin_to_contigs:
-            out_path = self.outdir / f"{bin_name}_read_ids.txt"
-            bin_to_handles[bin_name] = open(out_path, "w")
-
-        # Additional output files for unmapped/unassigned reads
-        unmapped_path = self.outdir / "unmapped_read_ids.txt"
-        unassigned_path = self.outdir / "unassigned_read_ids.txt"
-        unmapped_handle = open(unmapped_path, "w")
-        unassigned_handle = open(unassigned_path, "w")
-
-        # --- Initialize counters ---
-        read_counts = {bin_name: 0 for bin_name in bin_to_contigs}
-        read_counts["unmapped"] = 0
-        read_counts["unassigned"] = 0
+        # Accumulate base read names per bin (Option A: base names only)
+        bin_to_ids: Dict[str, Set[str]] = {b: set() for b in bin_to_contigs}
+        unmapped_ids: Set[str] = set()
+        unassigned_ids: Set[str] = set()
         total_reads = 0
 
-        # --- Iterate over BAM and write read IDs ---
-        with pysam.AlignmentFile(self.bam_file, "rb") as bam_in:
+        with pysam.AlignmentFile(str(self.bam_path), "rb") as bam_in:
             for read in bam_in.fetch(until_eof=True):
                 total_reads += 1
+                base = normalize_read_name(read.query_name)
 
-                # Define suffix for directionality
-                if read.is_read1:
-                    suffix = "/1"
-                elif read.is_read2:
-                    suffix = "/2"
-                else:
-                    suffix = ""
-
-                # Unmapped reads
                 if read.is_unmapped:
-                    unmapped_handle.write(read.query_name + suffix + "\n")
-                    read_counts["unmapped"] += 1
+                    unmapped_ids.add(base)
                     continue
 
-                # Reads mapped but not to valid contigs
-                ref_name = bam_in.get_reference_name(read.reference_id)
-                if ref_name not in valid_contigs:
-                    unassigned_handle.write(read.query_name + suffix + "\n")
-                    read_counts["unassigned"] += 1
+                try:
+                    ref_name = bam_in.get_reference_name(read.reference_id)
+                except Exception:
+                    ref_name = None
+
+                if not ref_name or ref_name not in valid_contigs:
+                    unassigned_ids.add(base)
                     continue
 
-                # Mapped to a refined-bin contig
-                bin_name = contig_to_bin[ref_name]
-                handle = bin_to_handles.get(bin_name)
-                if handle:
-                    handle.write(read.query_name + suffix + "\n")
-                    read_counts[bin_name] += 1
+                binname = contig_to_bin[ref_name]
+                bin_to_ids.setdefault(binname, set()).add(base)
 
-        # --- Close output handles ---
-        for handle in bin_to_handles.values():
-            handle.close()
-        unmapped_handle.close()
-        unassigned_handle.close()
+        # Write per-bin id files
+        for binname, ids in bin_to_ids.items():
+            out_path = self.outdir / f"{binname}_read_ids.txt"
+            with open(out_path, "w") as out_f:
+                for rid in sorted(ids):
+                    out_f.write(rid + "\n")
 
-        # --- Sanity check for missing contigs ---
-        with pysam.AlignmentFile(self.bam_file, "rb") as bam_in:
-            bam_contigs = set(bam_in.references)
-        missing_contigs = [c for c in contig_to_bin if c not in bam_contigs]
+        # Write unmapped/unassigned lists
+        with open(self.outdir / "unmapped_read_ids.txt", "w") as f:
+            for rid in sorted(unmapped_ids):
+                f.write(rid + "\n")
 
-        if missing_contigs:
-            print(f"[WARN] {self.sample_id}: {len(missing_contigs)} contigs not in BAM header")
-        else:
-            print(f"[OK] {self.sample_id}: all refined-bin contigs found in BAM")
+        with open(self.outdir / "unassigned_read_ids.txt", "w") as f:
+            for rid in sorted(unassigned_ids):
+                f.write(rid + "\n")
 
-        print(f"[{self.sample_id}] Extracted read IDs for {len(bin_to_contigs)} refined bins.")
+        # Write summary TSV
+        mapped_reads = sum(len(s) for s in bin_to_ids.values())
+        total_collected = mapped_reads + len(unassigned_ids) + len(unmapped_ids) or 1
 
-        # --- Write summary TSV report ---
         summary_path = self.outdir / f"{self.sample_id}_read_summary.tsv"
-
-        # Calculate totals
-        total_reads = read_counts.get("unmapped", 0) + read_counts.get("unassigned", 0)
-        mapped_reads = 0
-        for key, val in read_counts.items():
-            if key not in ["unmapped", "unassigned"]:
-                mapped_reads += val
-        total_reads += mapped_reads
-
-        # Compute summary lines
         with open(summary_path, "w") as s:
             s.write("bin_name\tread_count\t%_of_mapped_reads\t%_of_total_reads\n")
+            for binname, ids in sorted(bin_to_ids.items(), key=lambda x: len(x[1]), reverse=True):
+                count = len(ids)
+                pct_mapped = (100.0 * count / mapped_reads) if mapped_reads else 0.0
+                pct_total = 100.0 * count / total_collected
+                s.write(f"{binname}\t{count}\t{pct_mapped:.2f}\t{pct_total:.2f}\n")
 
-            # Each refined bin
-            for bin_name, count in sorted(
-                ((b, c) for b, c in read_counts.items() if b not in ["unmapped", "unassigned"]),
-                key=lambda x: x[1],
-                reverse=True,
-            ):
-                pct_mapped = (100 * count / mapped_reads) if mapped_reads > 0 else 0
-                pct_total = (100 * count / total_reads) if total_reads > 0 else 0
-                s.write(f"{bin_name}\t{count}\t{pct_mapped:.2f}\t{pct_total:.2f}\n")
-
-            # Corrected combined totals
-            pct_bins_mapped = 100 * mapped_reads / (mapped_reads + read_counts.get("unassigned", 0))
-            pct_bins_total = 100 * mapped_reads / total_reads
+            pct_bins_mapped = 100.0 * mapped_reads / (mapped_reads + len(unassigned_ids)) if (mapped_reads + len(unassigned_ids)) else 0.0
+            pct_bins_total = 100.0 * mapped_reads / total_collected
             s.write(f"All_refined_bins_combined\t{mapped_reads}\t{pct_bins_mapped:.2f}\t{pct_bins_total:.2f}\n")
 
-            pct_unassigned_mapped = 100 * read_counts.get("unassigned", 0) / (mapped_reads + read_counts.get("unassigned", 0))
-            pct_unassigned_total = 100 * read_counts.get("unassigned", 0) / total_reads
-            s.write(f"unassigned\t{read_counts.get('unassigned', 0)}\t{pct_unassigned_mapped:.2f}\t{pct_unassigned_total:.2f}\n")
+            pct_unassigned_mapped = 100.0 * len(unassigned_ids) / (mapped_reads + len(unassigned_ids)) if (mapped_reads + len(unassigned_ids)) else 0.0
+            pct_unassigned_total = 100.0 * len(unassigned_ids) / total_collected
+            s.write(f"unassigned\t{len(unassigned_ids)}\t{pct_unassigned_mapped:.2f}\t{pct_unassigned_total:.2f}\n")
 
-            pct_unmapped_total = 100 * read_counts.get("unmapped", 0) / total_reads
-            s.write(f"unmapped\t{read_counts.get('unmapped', 0)}\t\t{pct_unmapped_total:.2f}\n")
+            pct_unmapped_total = 100.0 * len(unmapped_ids) / total_collected
+            s.write(f"unmapped\t{len(unmapped_ids)}\t\t{pct_unmapped_total:.2f}\n")
 
-            s.write(f"total\t{total_reads}\t\t100.00\n")
+            s.write(f"total\t{total_collected}\t\t100.00\n")
 
-        print(f"[{self.sample_id}] Read summary with percentages written to: {summary_path}")
+        print(f"[OK] {self.sample_id}: per-bin read-id lists -> {self.outdir}")
+        print(f"[OK] summary -> {summary_path}")
 
-
-    # ---------------------------------------------------------------------
-    # Statement builder for CGAT-core P.run()
-    # ---------------------------------------------------------------------
+    # ------------------------------
+    # FIXED: build_statement at class level
+    # ------------------------------
     def build_statement(self):
-        """Return command string for pipeline execution."""
-        statement = f"""
-        python -c "from ocmsshotgun.modules.MetaRefinement import ExtractRefinedBinReads;
-tool = ExtractRefinedBinReads(('{self.bam_file}', '{self.map_file}'));
-tool._extract_reads()"
-        """
-        return statement.strip()
+        cmd = (
+            f'python3 -c "'
+            f'from ocmsshotgun.modules.MetaRefinement import ExtractRefinedBinReads; '
+            f"tool = ExtractRefinedBinReads(('{self.bam_path}', '{self.map_path}')); "
+            f'tool._extract_reads()"'
+        )
+        return cmd
 
-
-# ---------------------------------------------------------------------------
-# Class 2: FilterFastqByIds
-# ---------------------------------------------------------------------------
-class FilterFastqByIds(Utility.BaseTool):
+# ----------------------------
+# Class: FilterFastqByIds (paired lockstep)
+# ----------------------------
+class FilterFastqByIds:
     """
-    Extract paired-end FASTQ reads for a refined bin based on
-    read ID list containing /1 or /2 suffixes.
+    Given a read-id file (base names), extract paired FASTQs by iterating R1 and R2
+    simultaneously (4-line FASTQ records). Only writes pairs where the base id is in the set.
     """
 
-    def __init__(self, infile, outfiles, **PARAMS):
-        """
-        infile   : read-ID list (contains read/1 and read/2)
-        outfiles : [R1.fastq.gz, R2.fastq.gz]
-        """
-        super().__init__(infile, outfiles[0], **PARAMS)
-
-        self.read_id_file = Path(infile)
+    def __init__(self, read_id_file: str, outfiles: Tuple[str, str], **PARAMS):
+        self.read_id_file = Path(read_id_file)
         self.out_r1 = Path(outfiles[0])
         self.out_r2 = Path(outfiles[1])
+        self.PARAMS = PARAMS
 
-        # Input FASTQ directory provided in pipeline.yml
+        if "general_input_fastqs_dir" not in PARAMS:
+            raise ValueError("PARAMS must include 'general_input_fastqs_dir'")
         self.fastq_dir = Path(PARAMS["general_input_fastqs_dir"])
 
-        # Sample name from parent directory
-        self.sample_id = self.out_r1.parent.name
+        parent = self.out_r1.parent
+        self.sample_id = parent.name if parent.name else self.read_id_file.stem
 
-        # Input FASTQs
+        # expected input naming convention: <sample>.fastq.1.gz and .fastq.2.gz
         self.r1_in = self.fastq_dir / f"{self.sample_id}.fastq.1.gz"
         self.r2_in = self.fastq_dir / f"{self.sample_id}.fastq.2.gz"
 
         if not self.r1_in.exists() or not self.r2_in.exists():
-            raise FileNotFoundError(
-                f"FASTQ files not found: {self.r1_in} {self.r2_in}"
-            )
+            raise FileNotFoundError(f"Input FASTQs not found: {self.r1_in} {self.r2_in}")
 
-        # Output folder
         self.out_r1.parent.mkdir(parents=True, exist_ok=True)
 
-
-    # ------------------------------------------------------------------
-    def _load_read_ids(self):
-        """
-        Load read IDs from the *_read_ids.txt file.
-        Remove /1 or /2 but KEEP mapping to correct mate.
-        """
-        ids_R1 = set()
-        ids_R2 = set()
-
-        with open(self.read_id_file) as f:
-            for line in f:
-                line=line.strip()
+    def _load_base_ids(self) -> Set[str]:
+        ids: Set[str] = set()
+        with open(self.read_id_file) as fh:
+            for line in fh:
+                line = line.strip()
                 if not line:
                     continue
+                base = normalize_read_name(line)
+                if base:
+                    ids.add(base)
+        return ids
 
-                if line.endswith("/1"):
-                    ids_R1.add(line[:-2])   # strip /1
-                elif line.endswith("/2"):
-                    ids_R2.add(line[:-2])   # strip /2
+    def _iterate_paired_fastq(self, r1_path: Path, r2_path: Path) -> Iterable[Tuple[str, str]]:
+        """Yield pairs of FASTQ record strings (rec1, rec2)."""
+        with gzip.open(r1_path, "rt") as f1, gzip.open(r2_path, "rt") as f2:
+            while True:
+                r1_lines = [f1.readline() for _ in range(4)]
+                r2_lines = [f2.readline() for _ in range(4)]
+                if not r1_lines[0] or not r2_lines[0]:
+                    break
+                yield ("".join(r1_lines), "".join(r2_lines))
 
-        return ids_R1, ids_R2
+    def run(self):
+        print(f"[INFO] FilterFastqByIds (paired lockstep) sample={self.sample_id}")
+        allowed_ids = self._load_base_ids()
+        print(f"[INFO] Loaded {len(allowed_ids)} allowed IDs from {self.read_id_file}")
 
+        out_r1_path = ensure_gz_path(self.out_r1)
+        out_r2_path = ensure_gz_path(self.out_r2)
 
-    # ------------------------------------------------------------------
-    def _extract_fastq(self, in_path, out_path, read_ids_set):
-        """
-        Extract reads whose ID matches entries in read_ids_set.
-        Matching is tolerant:
-          FASTQ ID may be '@ID' while stored ID is 'ID'
-        """
-        count_in = count_out = 0
+        written = 0
+        processed = 0
 
-        with gzip.open(in_path, "rt") as in_f, gzip.open(out_path, "wt") as out_f:
-            for rec in SeqIO.parse(in_f, "fastq"):
-                count_in += 1
+        with gzip.open(out_r1_path, "wt") as out_r1_f, gzip.open(out_r2_path, "wt") as out_r2_f:
+            for rec1, rec2 in self._iterate_paired_fastq(self.r1_in, self.r2_in):
+                processed += 1
+                header1 = rec1.split("\n", 1)[0]
+                header2 = rec2.split("\n", 1)[0]
+                id1 = normalize_read_name(header1.lstrip("@"))
+                id2 = normalize_read_name(header2.lstrip("@"))
 
-                rid = rec.id
-                rid_no_at = rid[1:] if rid.startswith("@") else rid
+                # Strict validation: IDs must match
+                if id1 != id2:
+                    raise ValueError(f"FASTQ files out of sync at record {processed}: R1={id1} != R2={id2}")
 
-                if rid_no_at in read_ids_set:
-                    SeqIO.write(rec, out_f, "fastq")
-                    count_out += 1
+                if id1 in allowed_ids:
+                    out_r1_f.write(rec1)
+                    out_r2_f.write(rec2)
+                    written += 1
 
-        return count_in, count_out
+        print(f"[INFO] Processed paired records: {processed}")
+        print(f"[INFO] Wrote paired records: {written}")
+        if written == 0:
+            print(f"[WARN] No reads written for sample {self.sample_id}. Check read-id file and FASTQ naming.")
+        else:
+            print(f"[OK] Output FASTQs (paired) written: {out_r1_path}, {out_r2_path} ({written} reads each)")
 
+    def build_statement(self) -> str:
+        # JSON-serialize PARAMS (JSON uses double-quotes so safe to embed in single-quoted Python literal)
+        params_json = json.dumps(self.PARAMS)
 
-    # ------------------------------------------------------------------
-    def _run(self):
-        print(f"[INFO] Extracting FASTQs for {self.sample_id}")
-
-        ids_R1, ids_R2 = self._load_read_ids()
-
-        print(f"  R1 IDs: {len(ids_R1)}  R2 IDs: {len(ids_R2)}")
-
-        c1_in, c1_out = self._extract_fastq(self.r1_in, self.out_r1, ids_R1)
-        c2_in, c2_out = self._extract_fastq(self.r2_in, self.out_r2, ids_R2)
-
-        print(f"  R1: wrote {c1_out}/{c1_in}")
-        print(f"  R2: wrote {c2_out}/{c2_in}")
-
-
-    # ------------------------------------------------------------------
-    def build_statement(self):
-        """Return command string for pipeline execution."""
-    
-        code = (
+        # Build a single-line python snippet. Use repr() for the file paths so they become valid Python literals.
+        py_code = (
+            "import json; "
             "from ocmsshotgun.modules.MetaRefinement import FilterFastqByIds; "
-            f"tool = FilterFastqByIds('{self.read_id_file}', "
-            f"['{self.out_r1}', '{self.out_r2}'], **{self.PARAMS}); "
-            "tool._run()"
+            f"tool = FilterFastqByIds({repr(str(self.read_id_file))}, "
+            f"[{repr(str(self.out_r1))}, {repr(str(self.out_r2))}], "
+            f"**json.loads({repr(params_json)})); "
+            "tool.run()"
         )
 
-        statement = f'python3 -c "{code}"'
-        return statement
+        # Shell-quote the whole python snippet so it is passed as a single safe argument to the shell
+        return "python3 -c " + shlex.quote(py_code)
+# ----------------------------
+# Module main guard
+# ----------------------------
+if __name__ == "__main__":
+    print("MetaRefinement module.")
+    print("Import ExtractRefinedBinReads, FilterFastqByIds")
 
