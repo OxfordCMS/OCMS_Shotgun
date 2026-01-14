@@ -14,6 +14,7 @@ import re
 from Bio import SeqIO
 import ocmsshotgun.modules.MetaRefinement as MR
 import ocmsshotgun.modules.MetaAssembly as PMA
+import ocmsshotgun.modules.BinAssembly as BA
 
 # load options from the config file
 PARAMS = P.get_parameters(["pipeline.yml"])
@@ -29,6 +30,7 @@ print("indir =", indir)
 ###############################################################################
 # Run binning_refiner per sample
 ###############################################################################
+
 @follows(mkdir("01_refined_bins.dir"))
 @transform(str(indir) + "/*",
            regex(r".*/([^/]+)$"),
@@ -81,6 +83,8 @@ def create_contig_to_bin_map(infile, outfile):
     print(f"[INFO] Created contig→bin map for {len(contig_to_bin)} contigs → {outfile}")
 
 ###############################################################################
+# Extract read IDs per refined bin
+###############################################################################
 
 @follows(create_contig_to_bin_map, mkdir("03_refined_bin_reads.dir"))
 @subdivide(PARAMS["general_input_bams_dir"] + "/*_sorted.bam",
@@ -98,6 +102,8 @@ def extract_refined_bin_reads(inputs, outfiles):
     )
 
 ###############################################################################
+# Extract fastqs for each bin using reads IDs
+###############################################################################
 
 #@follows(extract_refined_bin_reads, mkdir("04_refined_bin_fastqs.dir"))
 @transform("03_refined_bin_reads.dir/*/*_read_ids.txt",
@@ -114,6 +120,9 @@ def extract_fastqs_by_bin(infile, outfiles):
     )
 
 ##############################################################################
+# Assemble refined bins
+##############################################################################
+
 @follows(extract_fastqs_by_bin, mkdir("05_refined_bin_assemblies.dir"))
 @transform(
     "04_refined_bin_fastqs.dir/*/bin*.fastq.1.gz",
@@ -122,22 +131,23 @@ def extract_fastqs_by_bin(infile, outfiles):
 )
 def assemble_refined_bins(infile, outfile):
 
-    # Create only the directory — NOT the outfile itself
+    # Create output directory
     outdir = os.path.dirname(outfile)
     os.makedirs(outdir, exist_ok=True)
 
-    # Wrapper for MetaSPAdes
-    assembler = PMA.runMetaSpades()
+    # Import and run bin-level SPAdes wrapper
+    import ocmsshotgun.modules.BinAssembly as BA
+    assembler = BA.runBinSpades()
 
-    # Pass only R1; wrapper auto-detects R2 (.fastq.2.gz) properly
+    # Build SPAdes run command (auto-detects R2 and singletons)
     statement = assembler.build(infile, outfile, **PARAMS)
 
-    # Run job
+    # Execute
     P.run(
         statement,
-        job_threads=PARAMS["spades_meta_threads"],
-        job_memory=PARAMS["spades_meta_memory"],
-        job_options=PARAMS.get("spades_meta_job_options", "")
+        job_threads=PARAMS.get("spades_threads", 8),
+        job_memory=PARAMS.get("spades_memory", "32G"),
+        job_options=PARAMS.get("spades_job_options", "")
     )
 
 @follows(assemble_refined_bins)
