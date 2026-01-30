@@ -8,6 +8,8 @@ from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 import ocmstoolkit.modules.Utility as Utility
 
+# load options from the config file
+PARAMS = P.get_parameters(["pipeline.yml"])
 try:
     IOTools.open_file("pipeline.yml")
 except FileNotFoundError:
