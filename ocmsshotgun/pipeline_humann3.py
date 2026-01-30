@@ -70,21 +70,21 @@ import re
 import shutil
 from ruffus import *
 from cgatcore import pipeline as P
-
+from cgatcore import iotools as IOTools
 import ocmstoolkit.modules.Utility as Utility
 import ocmsshotgun.modules.Humann3 as H
 
 # load options from the config file
 PARAMS = P.get_parameters(["pipeline.yml"])
-indir = PARAMS.get('general_input.dir','input.dir')
-
-# check all files to be processed
-FASTQ1s = Utility.get_fastns(indir)
-
-if PARAMS['general_transcriptome']:
-    FASTQ2s = Utility.get_fastns(PARAMS['general_transcriptome'])
+try:
+    IOTools.open_file("pipeline.yml")
+except FileNotFoundError as e:
+    indir = "."
+    FASTQ1S = None
 else:
-    FASTQ2s = None
+    # check that input files correspond
+    indir = PARAMS.get("general_input.dir", "input.dir")
+    FASTQ1S = Utility.get_fastns(indir)
 
 ###############################################################################
 # Run humann3 on concatenated fastq.gz
