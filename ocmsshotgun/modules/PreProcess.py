@@ -55,7 +55,7 @@ class Cdhit(Utility.BaseTool):
         else:
             if to_filter:
                 tmpf1 = P.get_temp_filename('.')
-                statement = (f"zcat {fastq1} > {tmpf1}"
+                statement = (f"zcat {fastq1} > {tmpf1} &&"
                              " cd-hit-dup"
                              f"  -i {tmpf1}"
                              f"  -o {outfile1}"
@@ -146,7 +146,7 @@ class Trimmomatic(Utility.BaseTool):
                          f"{trimmomatic_adapters}:"
                          f"{trimmomatic_seed_mismatches}:"
                          f"{trimmomatic_score_palendromic}:"
-                         f"{trimmomatic_score_simple}"
+                         f"{trimmomatic_score_simple}:"
                          f"{trimmomatic_min_adapter_len}:"
                          f"{trimmomatic_keep_both_reads}"
                          f" LEADING:{trimmomatic_quality_leading}"
@@ -669,33 +669,58 @@ class Hisat2(Utility.BaseTool):
     
     # post-processing for pipeline_preprocess
     def post_process_pp(self):
-        # rename hisat outputs to end in fastq.1.gz notation (if paired end)
+        # rename hisat outputs to end in fastq.gz notation
         postprocess_statement, hisat_fq = self.post_process()
 
-        # add fastq3 to dictionary
-        unmapped_fq3 = self.outfile.replace(self.prefixstrip,
-                                            "_unmapped.fastq.3.gz")
-        mapped_fq3 = self.outfile.replace(self.prefixstrip,
-                                          "_mapped.fastq.3.gz")
-        hisat_fq[unmapped_fq3] = unmapped_fq3
-        hisat_fq[mapped_fq3] = mapped_fq3
-        
-        # check if files exist
-        hisat_fq_found = {}
-        for file in hisat_fq.keys():
-            if os.path.exists(file):
-                hisat_fq_found[file] = hisat_fq[file]
-        
-        # rename hisat output to pipline expected outfile
-        new = [x.replace("unmapped","dehost") for x in hisat_fq_found.values()]
-        new = [x.replace("mapped", "host") for x in new]
-        rename = zip(hisat_fq.values(), new)
-        rename_statements = [f"mv {x[0]} {x[1]}" for x in rename]
-        
-        statements = [postprocess_statement] + rename_statements
-        statement = " && ".join(statements)
+        # detect single end
+        single_unmapped = self.outfile.replace(self.prefixstrip, "_unmapped.fastq.gz")
+        single_mapped   = self.outfile.replace(self.prefixstrip, "_mapped.fastq.gz")
 
-        return statement
+        if os.path.exists(single_unmapped) and os.path.exists(single_mapped):
+
+            hisat_fq = {
+                single_unmapped: single_unmapped,
+                single_mapped:   single_mapped
+            }
+
+            # check if files exist
+            hisat_fq_found = {}
+            for file in hisat_fq.keys():
+                if os.path.exists(file):
+                    hisat_fq_found[file] = hisat_fq[file]
+
+            # rename hisat output to pipeline expected outfile
+            new = [x.replace("unmapped.fastq.gz", "dehost.fastq.1.gz") for x in hisat_fq_found.values()]
+            new = [x.replace("mapped.fastq.gz", "host.fastq.1.gz")   for x in new]
+            rename = zip(hisat_fq_found.values(), new)
+            rename_statements = [f"mv {x[0]} {x[1]}" for x in rename]
+
+            statements = [postprocess_statement] + rename_statements
+            statement = " && ".join(statements)
+            return statement
+
+        else:
+            # add fastq3 to dictionary
+            unmapped_fq3 = self.outfile.replace(self.prefixstrip, "_unmapped.fastq.3.gz")
+            mapped_fq3 = self.outfile.replace(self.prefixstrip, "_mapped.fastq.3.gz")
+            hisat_fq[unmapped_fq3] = unmapped_fq3
+            hisat_fq[mapped_fq3] = mapped_fq3
+        
+            # check if files exist
+            hisat_fq_found = {}
+            for file in hisat_fq.keys():
+                if os.path.exists(file):
+                    hisat_fq_found[file] = hisat_fq[file]
+        
+            # rename hisat output to pipeline expected outfile
+            new = [x.replace("unmapped","dehost") for x in hisat_fq_found.values()]
+            new = [x.replace("mapped", "host") for x in new]
+            rename = zip(hisat_fq_found.values(), new)
+            rename_statements = [f"mv {x[0]} {x[1]}" for x in rename]
+        
+            statements = [postprocess_statement] + rename_statements
+            statement = " && ".join(statements)
+            return statement
     
     # method to read hisat summary file to dictionary
     def read_hisat_summary(self, summary_file):
@@ -874,10 +899,9 @@ class Bbtools(Utility.BaseTool):
                 statement = ("bbduk.sh"
                              " in=%(fastq1)s"
                              " out=%(outfile1)s"
-                             " outm=%(out_disc)s"
+                             " outm=%(out_disc1)s"
                              " entropy=%(entropy)s"
                              " threads=%(job_threads)s"
-                             " lowercase=t"
                              " %(bb_options)s"
                              " &> %(outfile)s.log" % locals())
 
