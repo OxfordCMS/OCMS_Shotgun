@@ -37,7 +37,7 @@ def connect():
 ###############################################################################
 @follows(mkdir('01_input_pooled.dir'))
 @collate(FASTQ1s,
-         regex(PARAMS['preprocess']['pool_input_regex']),  # Use regex from YAML
+         regex(indir + "/" + PARAMS['preprocess']['pool_input_regex']),  # Use regex from YAML
          r"01_input_pooled.dir/" + PARAMS['preprocess']['pool_output_regex'])  # Output pattern from YAML
 def poolSamples(infiles, out_fastq1):
     '''Pool samples based on the provided regular expression and handle paired reads.'''
@@ -114,7 +114,19 @@ def runReadProcessing(infile, outfile):
         P.run(statement)
 
     else:
-        os.symlink(infile, outfile)
+        os.symlink(os.path.abspath(infile), outfile)
+
+        fq2_infile = P.snip(infile, ".fastq.1.gz") + re.sub('1', '2', ".fastq.1.gz")
+        fq3_infile = P.snip(infile, ".fastq.1.gz") + re.sub('1', '3', ".fastq.1.gz")
+
+        fq2_outfile = P.snip(outfile, ".fastq.1.gz") + re.sub('1', '2', ".fastq.1.gz")
+        fq3_outfile = P.snip(outfile, ".fastq.1.gz") + re.sub('1', '3', ".fastq.1.gz")
+
+        if os.path.exists(os.path.abspath(fq2_infile)):
+             os.symlink(os.path.abspath(fq2_infile), fq2_outfile)
+
+        if os.path.exists(os.path.abspath(fq3_infile)):
+             os.symlink(os.path.abspath(fq3_infile), fq3_outfile)
 
    
 ###############################################################################

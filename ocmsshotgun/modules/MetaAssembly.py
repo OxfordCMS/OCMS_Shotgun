@@ -214,7 +214,7 @@ class SpadesReadCorrection(MetaAssembler):
         # specify single or p.e. libraries
         if len(infiles) == 1:
             assert self.paired == False
-            libraries = '--s ' + infiles[0]
+            libraries = '-s ' + infiles[0]
         elif len(infiles) == 3:
             assert self.paired == True and self.singletons == True
             libraries = zip(['--pe1-1', '--pe1-2', '--pe1-s'], sym_files)
@@ -342,11 +342,7 @@ class runMegaHit(MetaAssembler):
         #     os.mkdir(out_sub_dir)
 
         if len(infiles) == 1:
-            # check whether input files are interlaced
-            if self.checkPairs(infiles[0]):
-                libraries =  '--12 ' + infiles[0]
-            else:
-                libraries = '-r ' + infiles[0]
+            libraries = '-r ' + infiles[0]
         else:
             libraries = zip(['-1', '-2', '-r'], infiles)
             libraries = ' '.join([' '.join(x) for x in libraries])
