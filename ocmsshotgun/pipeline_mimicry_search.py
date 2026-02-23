@@ -166,6 +166,7 @@ def run_prokka(infile, outfiles):
     statement = (
         "prokka"
         " --cpus 0"
+        " --metagenome"
         f" --prefix {sample_id}"
         f" --locustag {sample_id}"
         f" --outdir {outdir}"
