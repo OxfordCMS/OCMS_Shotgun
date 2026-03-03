@@ -90,8 +90,8 @@ else:
 # Run humann3 on concatenated fastq.gz
 ###############################################################################
 @follows(mkdir("input_merged.dir"))
-@transform(FASTQ1s,
-           regex(f"{indir}/(.+).fastq.1.gz"),
+@transform(FASTQ1S,
+           regex(".+/(.+).fastq.1.gz"),
            r"input_merged.dir/\1.fastq.gz")
 def poolInputFastqs(infile, outfile):
     '''Humann relies on pooling input files'''
@@ -133,7 +133,7 @@ def runHumann3(infile, outfiles):
 # Run humann3 on metatranscriptome data
 ###############################################################################
 @active_if(PARAMS['general_transcriptome'])    
-@transform(FASTQ2s,
+@transform(FASTQ1S,
            regex(".+/(.+).fastq.1.gz"),
            r"input_mtx_merged.dir/\1.fastq.gz")
 def poolTranscriptomeFastqs(infile, outfile):
@@ -221,7 +221,9 @@ def mergeHumannOutput(infiles, outfile):
                  "  --file_name %(suffix)s"
                  "  -o %(outf)s &&"
                  " gzip %(outf)s")
-    P.run(statement)
+    P.run(statement,
+          job_memory = PARAMS["humann3_postprocess_memory"],
+          job_threads = PARAMS["humann3_postprocess_threads"])
     
 @transform(mergeHumannOutput,
            suffix('genefamilies.tsv.gz'),
@@ -235,8 +237,8 @@ def mapUniref2KOs(infile, outfile):
                  " 2> %(outfile)s.log |"
                  " gzip > %(outfile)s")
     P.run(statement,
-          job_memory = PARAMS["humann3_postprocess_memory"],
-          job_threads = PARAMS["humann3_postprocess_threads"])
+          job_memory = PARAMS["humann3_posthumann_memory"],
+          job_threads = PARAMS["humann3_posthumann_threads"])
 
 @transform([mergeHumannOutput, mapUniref2KOs],
            suffix('.tsv.gz'),

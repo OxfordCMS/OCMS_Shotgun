@@ -1,13 +1,8 @@
 # Module for generic shotgun preprocessing steps
 
-import os,sys,re
+import os,re
 import shutil
-import itertools
-import sqlite3
-import distutils
 import pandas as pd
-import errno
-import json
 from glob import glob
 from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
