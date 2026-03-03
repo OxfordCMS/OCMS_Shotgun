@@ -8,18 +8,14 @@ from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 import ocmstoolkit.modules.Utility as Utility
 
-# load options from the config file
-PARAMS = P.get_parameters(["pipeline.yml"])
-try:
-    IOTools.open_file("pipeline.yml")
-except FileNotFoundError:
-    raise RuntimeError("Required configuration file 'pipeline.yml' not found. Please provide one to run the pipeline.")
-else:
+# Safe import (so config works)
+if os.path.exists("pipeline.yml"):
     PARAMS = P.get_parameters("pipeline.yml")
     indir = PARAMS.get("general_input.dir", "input.dir")
-
-    # Check all files to be processed
-    FASTQs = Utility.get_fastns(indir)
+    FASTQs = Utility.get_fastns(indir) if os.path.exists(indir) else []
+else:
+    PARAMS = {}
+    FASTQs = []
 
 @follows(mkdir("metaphlan.dir"))
 @transform(FASTQs,
@@ -147,7 +143,29 @@ def full():
 def main(argv=None):
     if argv is None:
         argv = sys.argv
-    P.main(argv)
+
+    # If actually running the pipeline (not config/help), enforce checks
+    if "config" not in argv and "-h" not in argv and "--help" not in argv:
+        if not os.path.exists("pipeline.yml"):
+            raise RuntimeError(
+                "pipeline.yml not found.\n"
+                "Create one using:\n"
+                "  ocms_shotgun pipeline_metaphlan config"
+            )
+
+        PARAMS = P.get_parameters("pipeline.yml")
+        indir = PARAMS.get("general_input.dir", "input.dir")
+
+        if not os.path.exists(indir):
+            raise RuntimeError(f"Input directory '{indir}' does not exist.")
+
+        fastqs = Utility.get_fastns(indir)
+        if not fastqs:
+            raise RuntimeError(f"No FASTQ files found in '{indir}'.")
+
+    return P.main(argv)
+
 
 if __name__ == "__main__":
-    sys.exit(P.main(sys.argv))
+    sys.exit(main(sys.argv))
+
