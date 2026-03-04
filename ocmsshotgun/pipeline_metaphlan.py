@@ -8,14 +8,7 @@ from cgatcore import pipeline as P
 from cgatcore import iotools as IOTools
 import ocmstoolkit.modules.Utility as Utility
 
-# Safe import (so config works)
-if os.path.exists("pipeline.yml"):
-    PARAMS = P.get_parameters("pipeline.yml")
-    indir = PARAMS.get("general_input.dir", "input.dir")
-    FASTQs = Utility.get_fastns(indir) if os.path.exists(indir) else []
-else:
-    PARAMS = {}
-    FASTQs = []
+PARAMS, FASTQs = Utility.load_params_safe(P)
 
 @follows(mkdir("metaphlan.dir"))
 @transform(FASTQs,
@@ -140,32 +133,17 @@ def extractTaxonomyLevelsCounts(infile, outfiles):
 def full():
     pass
 
+
 def main(argv=None):
-    if argv is None:
-        argv = sys.argv
+    argv = argv or sys.argv
 
-    # If actually running the pipeline (not config/help), enforce checks
-    if "config" not in argv and "-h" not in argv and "--help" not in argv:
-        if not os.path.exists("pipeline.yml"):
-            raise RuntimeError(
-                "pipeline.yml not found.\n"
-                "Create one using:\n"
-                "  ocms_shotgun pipeline_metaphlan config"
-            )
+    # validate startup; returns (PARAMS, FASTQs) or raises RuntimeError
+    PARAMS, FASTQs = Utility.ensure_pipeline_ready(argv, P)
 
-        PARAMS = P.get_parameters("pipeline.yml")
-        indir = PARAMS.get("general_input.dir", "input.dir")
-
-        if not os.path.exists(indir):
-            raise RuntimeError(f"Input directory '{indir}' does not exist.")
-
-        fastqs = Utility.get_fastns(indir)
-        if not fastqs:
-            raise RuntimeError(f"No FASTQ files found in '{indir}'.")
+    # optional: make PARAMS available globally (some code expects global PARAMS)
+    globals()['PARAMS'] = PARAMS
 
     return P.main(argv)
 
-
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
-
+    sys.exit(main())
