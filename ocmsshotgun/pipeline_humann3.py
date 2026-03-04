@@ -86,11 +86,6 @@ else:
     indir = PARAMS.get("general_input.dir", "input.dir")
     FASTQ1S = Utility.get_fastns(indir)
 
-    if PARAMS['general_transcriptome']:
-        FASTQ2S = Utility.get_fastns(PARAMS['general_transcriptome'])
-    else:
-        FASTQ2S = None
-
 ###############################################################################
 # Run humann3 on concatenated fastq.gz
 ###############################################################################

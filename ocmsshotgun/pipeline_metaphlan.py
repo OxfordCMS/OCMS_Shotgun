@@ -5,13 +5,10 @@ import glob
 from pathlib import Path
 from ruffus import *
 from cgatcore import pipeline as P
+from cgatcore import iotools as IOTools
 import ocmstoolkit.modules.Utility as Utility
 
-PARAMS = P.get_parameters("pipeline.yml")
-indir=PARAMS["general_input.dir"]
-
-#check all files to be processed
-FASTQs = Utility.get_fastns(indir)
+PARAMS, FASTQs = Utility.load_params_safe(P)
 
 @follows(mkdir("metaphlan.dir"))
 @transform(FASTQs,
@@ -136,10 +133,17 @@ def extractTaxonomyLevelsCounts(infile, outfiles):
 def full():
     pass
 
+
 def main(argv=None):
-    if argv is None:
-        argv = sys.argv
-    P.main(argv)
+    argv = argv or sys.argv
+
+    # validate startup; returns (PARAMS, FASTQs) or raises RuntimeError
+    PARAMS, FASTQs = Utility.ensure_pipeline_ready(argv, P)
+
+    # optional: make PARAMS available globally (some code expects global PARAMS)
+    globals()['PARAMS'] = PARAMS
+
+    return P.main(argv)
 
 if __name__ == "__main__":
-    sys.exit(P.main(sys.argv))
+    sys.exit(main())
