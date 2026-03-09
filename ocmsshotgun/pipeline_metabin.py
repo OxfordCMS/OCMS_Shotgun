@@ -56,6 +56,8 @@ import re
 import os
 import glob
 import sys
+import subprocess
+import shutil
 from cgatcore import pipeline as P
 import ocmstoolkit.modules.Utility as Utility
 from ruffus import *
@@ -376,6 +378,104 @@ elif mapping_mode == "one2one" and "maxbin2" in selected_tools:
               job_memory=PARAMS["binners_job_memory"],
               job_threads=PARAMS["binners_job_threads"])
         Path(outfile).touch()
+
+# -------------------------------------------------------------------------
+# CheckM 
+# -------------------------------------------------------------------------
+# build dependency list so compile/CheckM depends on binners if they exist
+dependencies = []
+if 'prepare_binning_inputs' in globals():
+    dependencies.append(prepare_binning_inputs)
+if 'run_metabat2' in globals():
+    dependencies.append(run_metabat2)
+if 'run_maxbin2' in globals():
+    dependencies.append(run_maxbin2)
+
+@follows(*dependencies)
+@subdivide("02_bins.dir/*/*_bins",
+           regex(r"02_bins.dir/(.+)/(.+)_bins"),
+           r"03_checkm.dir/\1/\2/checkm_done.txt")
+def run_checkm_per_dir(infile, outfile):
+    """
+    infile: bin dir (e.g. 02_bins.dir/pooled/metabat2_bins)
+    outfile: done marker (e.g. 03_checkm.dir/pooled/metabat2/checkm_done.txt)
+    """
+
+    # derive sample/tool and make output/tmp dirs
+    rel = os.path.relpath(infile, "02_bins.dir")
+    sample, tool_dir = rel.split(os.sep)
+    tool = tool_dir.replace("_bins", "")
+    checkm_out_dir = os.path.join("03_checkm.dir", sample, tool)
+    tmp_unzip_dir = os.path.join(checkm_out_dir, "tmp_unzipped_bins")
+    os.makedirs(tmp_unzip_dir, exist_ok=True)
+
+    # collect only .fa.gz and .fasta.gz
+    bin_files = sorted(
+        glob.glob(os.path.join(infile, "*.fa.gz")) +
+        glob.glob(os.path.join(infile, "*.fasta.gz"))
+    )
+    if not bin_files:
+        raise RuntimeError(f"No .fa.gz or .fasta.gz bin files found in {infile}")
+
+    # uncompress into tmp_unzip_dir and normalize to .fa
+    for bf in bin_files:
+        bn = os.path.basename(bf)
+        target_name = re.sub(r'\.fasta\.gz$', '.fa', bn, flags=re.IGNORECASE)
+        target_name = re.sub(r'\.fa\.gz$', '.fa', target_name, flags=re.IGNORECASE)
+        target_path = os.path.join(tmp_unzip_dir, target_name)
+        with open(target_path, "wb") as outfh:
+            subprocess.check_call(["zcat", bf], stdout=outfh)
+
+    # run CheckM (use PARAMS keys; rm tmp only on success)
+    threads = PARAMS["checkm_job_threads"]
+    statement = (
+        "checkm lineage_wf -x fa -t %(threads)s %(tmp_unzip_dir)s %(checkm_out_dir)s"
+        " && rm -rf %(tmp_unzip_dir)s"
+    )
+    P.run(statement,
+          threads=threads,
+          tmp_unzip_dir=tmp_unzip_dir,
+          checkm_out_dir=checkm_out_dir,
+          job_memory=PARAMS["checkm_job_memory"],
+          job_threads=PARAMS["checkm_job_threads"])
+
+    # ----------------------------------------------------
+    # Call CheckMParser to parse stats files
+    # ----------------------------------------------------
+
+    hq_comp = float(PARAMS["checkm_hq_completeness"])
+    hq_cont = float(PARAMS["checkm_hq_contamination"])
+    mq_comp = float(PARAMS["checkm_mq_completeness"])
+    mq_cont = float(PARAMS["checkm_mq_contamination"])
+
+    score_val = PARAMS["checkm_score_multiplier"]
+    score_mult = None if score_val is None else float(score_val)
+
+    top_n = int(PARAMS["checkm_top_n_bins"])
+
+    parser = Utility.CheckMParser(checkm_out_dir)
+    parser.parse_and_write(
+        hq_comp=hq_comp,
+        hq_cont=hq_cont,
+        mq_comp=mq_comp,
+        mq_cont=mq_cont,
+        score_mult=score_mult,
+        top_n=top_n,
+        sample_name=sample,
+        tool_name=tool
+    )
+
+    Path(outfile).touch()
+
+@follows(run_checkm_per_dir)
+@merge("03_checkm.dir/*/*/bin_stats_parsed.tsv",
+       "03_checkm.dir/global_binning_summary.tsv")
+def build_checkm_combined_summaries(infiles, outfile):
+    """
+    Aggregate per-tool bin stats into per-sample combined summaries and one global TSV.
+    """
+    Utility.aggregate_checkm_summaries("03_checkm.dir")
+    Path(outfile).touch()
 
 def main(argv=None):
     if argv is None:
