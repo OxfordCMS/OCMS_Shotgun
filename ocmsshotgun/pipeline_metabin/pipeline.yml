@@ -37,3 +37,20 @@ maxbin2:
 binners:
   job_threads: 8
   job_memory: 1G
+
+checkm:
+  job_threads: 8
+  job_memory: 10G
+
+  #quality thresholds
+  hq_completeness: 90.0 
+  hq_contamination: 5.0
+
+  mq_completeness: 50.0
+  mq_contamination: 10.0
+
+  # metaWRAP-like score
+  score_multiplier: 5.0
+
+  # number of top bins to report
+  top_n_bins: 10
