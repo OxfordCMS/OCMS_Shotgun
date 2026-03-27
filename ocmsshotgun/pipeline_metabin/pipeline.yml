@@ -1,0 +1,56 @@
+# pipeline.yml
+
+general:
+  fasta_dir: input_metagenome_fasta.dir # directory with *.fasta files (individual or pooled)
+  fastq_dir: input_metagenome_fastq.dir # directory with *.fastq.1.gz and *.fastq.2.gz
+
+
+mapfastq2fasta:
+  mapping_mode: one2one  # or many2one
+
+  #For 1-1 mapping
+  fastq_regex: (.+).fastq.1.gz
+  fasta_regex: \1_index/\1.1.bt2
+  output_regex: \1_metabat2_depth.txt
+  
+  #For many to one mapping
+  # All FASTQ samples prefixed with 'chow_' (e.g., chow_sample1, chow_sample2)
+  # will be mapped to the same pooled reference assembly: chow_pooled.fasta
+  # The pipeline will generate separate output files for each sample,
+  # such as chow_sample1_depth.txt and chow_sample2_depth.txt
+  #fastq_regex: ([^_]+)_(.+).fastq.1.gz
+  #fasta_regex: \1_pooled_index/\1_pooled.1.bt2
+  #output_regex: \1_\2_metabat2_depth.txt
+  job_threads: 8
+  job_memory: 1G
+  
+
+binning_tools: "metabat2, maxbin2"  
+
+metabat2:
+  threads: 8
+  min_contig_length: 2500
+
+maxbin2:
+  threads: 8
+
+binners:
+  job_threads: 8
+  job_memory: 1G
+
+checkm:
+  job_threads: 8
+  job_memory: 10G
+
+  #quality thresholds
+  hq_completeness: 90.0 
+  hq_contamination: 5.0
+
+  mq_completeness: 50.0
+  mq_contamination: 10.0
+
+  # metaWRAP-like score
+  score_multiplier: 5.0
+
+  # number of top bins to report
+  top_n_bins: 10
