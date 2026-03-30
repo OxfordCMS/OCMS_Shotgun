@@ -65,11 +65,15 @@ def main(argv=None):
     # open the outfiles
     fastq1_out = IOTools.open_file(options.fq_out1, 'w')
     fastq2_out = IOTools.open_file(options.fq_out2, 'w')
-    fastq3_out = IOTools.open_file(options.fq_out3, 'w')
+    fastq3_out = None
+    if options.fq_out3:
+        fastq3_out = IOTools.open_file(options.fq_out3, 'w')
 
     fastq1_host = IOTools.open_file(options.fq_dropped1, 'w')
     fastq2_host = IOTools.open_file(options.fq_dropped2, 'w')
-    fastq3_host = IOTools.open_file(options.fq_dropped3, 'w')
+    fastq3_host = None
+    if options.fq_dropped3:
+        fastq3_host = IOTools.open_file(options.fq_dropped3, 'w')
 
     dropped_pairs = 0
     pairs = 0
@@ -111,27 +115,32 @@ def main(argv=None):
     # Drop singletons
     singletons = 0
     dropped_singletons = 0
-    if IOTools.open_file(options.fastq3).read(1):
+    if options.fastq3 and IOTools.open_file(options.fastq3).read(1):
         for read in Fastq.iterate(IOTools.open_file(options.fastq3)):
             singletons += 1
+            
             if read.identifier.split()[0] in singles_to_remove:
-                fastq3_host.write("@%s\n%s\n+\n%s\n" %
-                                  (read.identifier,
-                                   read.seq,
-                                   read.quals))
-                dropped_singletons +=1
+                if fastq3_host:
+                    fastq3_host.write("@%s\n%s\n+\n%s\n" %
+                                      (read.identifier,
+                                       read.seq,
+                                       read.quals))
+                    dropped_singletons +=1
             else:
-                fastq3_out.write("@%s\n%s\n+\n%s\n" %
-                                 (read.identifier,
-                                  read.seq,
-                                  read.quals))
+                if fastq3_out:
+                    fastq3_out.write("@%s\n%s\n+\n%s\n" %
+                                     (read.identifier,
+                                      read.seq,
+                                      read.quals))
 
         fastq1_out.close()
         fastq2_out.close()
-        fastq3_out.close()
+        if fastq3_out:
+            fastq3_out.close()
         fastq1_host.close()
         fastq2_host.close()
-        fastq3_host.close()
+        if fastq3_host:
+            fastq3_host.close()
 
     try:
         percent_pairs = dropped_pairs/float(pairs)*100
