@@ -1,0 +1,41 @@
+name: Validate PR Labels
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+jobs:
+  validate-labels:
+    runs-on: ubuntu-latest
+    steps:
+      # Fetch all labels on the PR
+      - name: Get PR labels
+        id: pr_labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+            return labels.data.map(label => label.name);
+
+      # Ensure PR has exactly one version bump label (major, minor, or patch)
+      - name: Validate labels
+        env:
+          PR_LABELS: ${{ steps.pr_labels.outputs.result }}
+        run: |
+          echo "PR Labels: $PR_LABELS"
+          # Count how many of major, minor, patch labels are present
+          count=$(echo "$PR_LABELS" | jq '[.[] | select(. == "patch" or . == "minor" or . == "major")] | length')
+
+          echo "Found $count special label(s)"
+
+          if [ "$count" -eq 1 ]; then
+            echo "✅ Exactly one valid label found."
+          else
+            echo "❌ PR must have exactly one of: patch, minor, or major."
+            exit 1
+          fi

@@ -1,0 +1,126 @@
+name: Bump Version on PR
+
+on: 
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, labeled]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  bump_version:
+    runs-on: ubuntu-latest
+    # Prevents concurrent runs for the same PR and cancels outdated ones
+    concurrency: 
+      group: version-bump-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      # Checkout the PR branch to make changes before merge
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history and tags for version calculation
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Configure git author for commits
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Extract version bump level from PR labels (major, minor, or patch)
+      - name: Get bump level from PR labels
+        id: bump_level
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.pull_request.labels.map(l => l.name.toLowerCase());
+            let level = 'patch';  // Default to patch if no label found
+            if (labels.includes('major')) level = 'major';
+            else if (labels.includes('minor')) level = 'minor';
+            core.setOutput('level', level);
+            core.info(`Detected bump level: ${level} (labels: ${labels.join(', ')})`);
+
+      # Get latest tag and calculate the next version number
+      - name: Calculate next version
+        id: next_version
+        run: |
+          # Fetch latest version tag (v*.*.* format), sorted by semantic version
+          latest=$(git tag -l 'v*.*.*' --sort=-version:refname | head -n 1 || echo "v0.0.0")
+          version=${latest#v}
+          IFS='.' read -r major minor patch <<<"$version"
+          major=${major:-0}
+          minor=${minor:-0}
+          patch=${patch:-0}
+
+          # Store base version for resetting setup.py
+          echo "base_version=$version" >> "$GITHUB_OUTPUT"
+          echo "Base version from tag: $version"
+
+          # Increment version based on bump level
+          level="${{ steps.bump_level.outputs.level }}"
+          case $level in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            *) patch=$((patch + 1)) ;;
+          esac
+
+          next_version="$major.$minor.$patch"
+          echo "version=$next_version" >> "$GITHUB_OUTPUT"
+          echo "New version: $next_version"
+
+      # Update setup.py with calculated version and push to PR branch
+      - name: Update setup.py and commit to PR branch
+        run: |
+          base_version="${{ steps.next_version.outputs.base_version }}"
+          new_version="${{ steps.next_version.outputs.version }}"
+          
+          # Extract current version from setup.py
+          current_version=$(sed -n 's/^[[:space:]]*version=["\x27]\([^"'\'']*\)["\x27].*/\1/p' setup.py)
+          
+          if [ -z "$current_version" ]; then
+            echo "Error: Could not extract version from setup.py"
+            exit 1
+          fi
+          
+          echo "Current version in setup.py: $current_version"
+          echo "Base version from git tag: $base_version"
+          echo "Target version: $new_version"
+          
+          # Check if version is already at target - this is a no-op scenario
+          if [ "$current_version" = "$new_version" ]; then
+            echo "Version is already at target ($new_version). No update needed."
+            exit 0
+          fi
+          
+          # Check if version is at base - this is the normal update scenario
+          if [ "$current_version" = "$base_version" ]; then
+            echo "Version is at base version. Proceeding with bump to $new_version"
+          else
+            # Version is neither base nor target - this is unexpected
+            echo "Error: setup.py has unexpected version $current_version"
+            echo "Expected either base version ($base_version) or target version ($new_version)"
+            echo "This may indicate:"
+            echo "  - Another PR was merged while this workflow was running"
+            echo "  - The PR branch is out of sync with main"
+            echo "  - Manual version changes were made to setup.py"
+            echo "Please update your branch from main or reset setup.py to match the git tag"
+            exit 1
+          fi
+          
+          # Update setup.py with the new calculated version
+          sed -i "s/^\([[:space:]]*version=\)[\"'][^\"']*[\"']/\1\"$new_version\"/" setup.py
+          
+          # Verify the update worked
+          final_version=$(sed -n 's/^[[:space:]]*version=["\x27]\([^"'\'']*\)["\x27].*/\1/p' setup.py)
+          if [ "$final_version" != "$new_version" ]; then
+            echo "Error: Failed to update version to $new_version (got $final_version)"
+            exit 1
+          fi
+          echo "Updated setup.py to new version: $new_version"
+          
+          git add setup.py
+          # [skip ci] prevents this commit from triggering workflows again
+          git commit -m "chore: bump version to $new_version [skip ci]"
+          git push origin HEAD:${{ github.head_ref }}
