@@ -1,0 +1,54 @@
+name: Tag on Merge
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  create_tag:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout main branch at merge commit
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history and tags to check for existing tags
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Configure git author for tagging
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Read version from setup.py and create tag pointing to merge commit
+      - name: Create version tag from setup.py
+        run: |
+          # Extract version from setup.py
+          version=$(sed -n 's/^[[:space:]]*version="\([^"]*\)".*/\1/p' setup.py)
+          if [ -z "$version" ]; then
+            echo "Could not extract version from setup.py" >&2
+            exit 1
+          fi
+          
+          # Derive tag name from version (e.g., 1.2.3 -> v1.2.3)
+          tag="v$version"
+          
+          # Ensure we know about all remote tags
+          git fetch --tags
+          
+          # If the tag already exists locally or on the remote, skip creating it
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists locally, skipping tag creation"
+            exit 0
+          fi
+          if git ls-remote --tags origin "$tag" | grep -q "$tag"; then
+            echo "Tag $tag already exists on remote, skipping tag creation"
+            exit 0
+          fi
+          
+          # Create annotated tag and push to origin
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
+          echo "✅ Tagged commit with $tag"
