@@ -108,7 +108,9 @@ class Trimmomatic(Utility.BaseTool):
             outfile2 = re.sub(fastn_obj.fn1_suffix, fastn_obj.fn2_suffix, self.outfile)
             outf1_singletons = sample_out + re.sub("1", "1s", fastn_obj.fn1_suffix)
             outf2_singletons = sample_out + re.sub("2", "2s", fastn_obj.fn2_suffix)
-            outf_singletons = sample_out + fastn_obj.fn3_suffix
+            outf_singletons = None
+            if fastn_obj.fn3_suffix:
+                outf_singletons = sample_out + fastn_obj.fn3_suffix
             
             statement = (f"java -Xmx5g -jar {trimmomatic_jar_path} PE"
                          f" -threads {trimmomatic_n_threads}"
@@ -131,11 +133,16 @@ class Trimmomatic(Utility.BaseTool):
                          f" MINLEN:{trimmomatic_minlen}"
                          f" {trimmomatic_options}"
                          f" &> {logfile2} &&"
-                         f" gzip -f {logfile} &&"
-                         f" cat {outf1_singletons} {outf2_singletons} "
-                         f"  > {outf_singletons} &&"
-                         f" rm -f {outf1_singletons} && rm -f {outf2_singletons}")
+                         f" gzip -f {logfile} &&")
+                          
+            if outf_singletons:
+                statement += (
+                    f" cat {outf1_singletons} {outf2_singletons} > {outf_singletons} &&"
+                )           
 
+            statement += (
+                f" rm -f {outf1_singletons} && rm -f {outf2_singletons}"
+                )  
         else:
             statement = (f"java -Xmx5g -jar {trimmomatic_jar_path} SE"
                          f" -threads {trimmomatic_n_threads}"
@@ -450,7 +457,7 @@ class Bmtagger(Utility.BaseTool):
                               f"  {outf_host_stub}_paired{n}")
 
                 # Screen the singletons
-                if os.path.exists(fastn_obj.fastn3) and IOTools.open_file(fastn_obj.fastn3).read(1):
+                if fastn_obj.fastn3 and os.path.exists(fastn_obj.fastn3) and IOTools.open_file(fastn_obj.fastn3).read(1):
                     statement2 = (f"zcat {fastq3} > {tmpf3} &&"
                                   f" {bmtagger_exec}"
                                   f"  -b {bitmask}"
@@ -515,27 +522,36 @@ class Bmtagger(Utility.BaseTool):
             
             fastq1_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn1_suffix
             fastq2_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn2_suffix
-            
-            fastq3 = fastn_obj.fastn3
-            fastq3_out = P.snip(self.outfile, fastn_obj.fn1_suffix) + fastn_obj.fn3_suffix
-            fastq3_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn3_suffix
             to_remove_paired = to_remove_tmp[0]
             to_remove_singletons = to_remove_tmp[1]
+
+            fastq3 = fastn_obj.fastn3
+            fastq3_out = None
+            fastq3_host = None
+
+            if fastn_obj.fn3_suffix:
+                fastq3_out = P.snip(self.outfile, fastn_obj.fn1_suffix) + fastn_obj.fn3_suffix
+                fastq3_host = P.snip(self.outfile, '_dehost'+fastn_obj.fn1_suffix) + '_host'+fastn_obj.fn3_suffix
 
             statement = ("ocms_shotgun drop_fastqs"
                          f" --fastq1 {fastq1}"
                          f" --fastq2 {fastq2}"
-                         f" --fastq3 {fastq3}"
                          f" --to-drop-paired {to_remove_paired}"
                          f" --to-drop-single {to_remove_singletons}"
                          f" --fastq-out1 {fastq1_out}"
                          f" --fastq-out2 {fastq2_out}"
-                         f" --fastq-out3 {fastq3_out}"
                          f" --fastq-drop1 {fastq1_host}"
-                         f" --fastq-drop2 {fastq2_host}"
-                         f" --fastq-drop3 {fastq3_host}"
-                         f" &>> {fastq1_out}.log")
+                         f" --fastq-drop2 {fastq2_host}")
 
+            if fastq3_out:
+                statement += (
+                    f" --fastq3 {fastq3}"
+                    f" --fastq-out3 {fastq3_out}"
+                    f" --fastq-drop3 {fastq3_host}"
+                )
+
+            statement += f" &>> {fastq1_out}.log"            
+            
             to_unlink = [to_remove_paired, to_remove_singletons]
 
         else:
@@ -821,7 +837,7 @@ class Bbtools(Utility.BaseTool):
                               "  threads=%(job_threads)s"
                               "  %(bb_options)s"
                               "  &> %(outfile)s.log" % locals())
-                if IOTools.open_file(fastq3).read(1):
+                if fastq3 and IOTools.open_file(fastq3).read(1):
                     statement2 = (" bbduk.sh"
                                   "  in=%(fastq3)s"
                                   "  out=%(outfile3)s"
@@ -910,15 +926,20 @@ class Bbtools(Utility.BaseTool):
             # Renaming files because of bbmap idiosyncracies
             of1 = P.snip(outfile1, '.1.fq.gz') + fastn_obj.fn1_suffix
             of2 = P.snip(outfile2, '.2.fq.gz') + fastn_obj.fn2_suffix
-            of3 = P.snip(outfile3, '.3.fq.gz') + fastn_obj.fn3_suffix
+            of3 = None
+            if fastn_obj.fn3_suffix:
+                of3 = P.snip(outfile3, '.3.fq.gz') + fastn_obj.fn3_suffix
             os.rename(outfile1, of1)
             os.rename(outfile2, of2)
-            os.rename(outfile3, of3)
+            if of3:
+                os.rename(outfile3, of3)
 
             if self.PARAMS['dust_discard_low_complexity']:
                 od1 = P.snip(out_disc1, '.1.fq.gz') + fastn_obj.fn1_suffix
                 od2 = P.snip(out_disc2, '.2.fq.gz') + fastn_obj.fn2_suffix
-                od3 = P.snip(out_disc3, '.3.fq.gz') + fastn_obj.fn3_suffix
+                od3 = None
+                if fastn_obj.fn3_suffix:
+                    od3 = P.snip(out_disc3, '.3.fq.gz') + fastn_obj.fn3_suffix
                 os.rename(out_disc1, od1)
                 os.rename(out_disc2, od2)
                 os.rename(out_disc3, od3)
