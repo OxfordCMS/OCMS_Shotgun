@@ -214,7 +214,7 @@ class SpadesReadCorrection(MetaAssembler):
         # specify single or p.e. libraries
         if len(infiles) == 1:
             assert self.paired == False
-            libraries = '--s ' + infiles[0]
+            libraries = '-s ' + infiles[0]
         elif len(infiles) == 3:
             assert self.paired == True and self.singletons == True
             libraries = zip(['--pe1-1', '--pe1-2', '--pe1-s'], sym_files)
