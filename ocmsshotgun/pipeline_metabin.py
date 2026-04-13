@@ -151,9 +151,18 @@ def mapfastq2fasta(infiles, outfile):
     threads = PARAMS["mapfastq2fasta"]["job_threads"]
     logfile = os.path.join("01_mapping.dir", sample + "_mapping.log")
     
+    # Decide paired vs single
+    use_paired = os.path.exists(fastq_2) and os.path.getsize(fastq_2) > 0
+
+    if use_paired:
+        bowtie_opts = "-1 %(fastq_1)s -2 %(fastq_2)s"
+    else:
+        bowtie_opts = "-U %(fastq_1)s"
+
     statement = (
         "(bowtie2 --threads %(threads)s -x %(index_prefix)s "
-        "-1 %(fastq_1)s -2 %(fastq_2)s | "
+        + bowtie_opts +
+        " | "
         "samtools view -bS - > %(bam)s && "
         "samtools sort -o %(sorted_bam)s %(bam)s && "
         "samtools index %(sorted_bam)s && "
@@ -173,6 +182,9 @@ def mapfastq2fasta(infiles, outfile):
 def generate_cumulative_metabat2_depth(outfile):
     """
     Generate cumulative MetaBAT2 depth file (pooled mode only).
+    
+    Group sorted BAMs by facility and run jgi_summarize_bam_contig_depths
+    separately for each facility. 
     """
     if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
         Path(outfile).touch()
@@ -182,9 +194,22 @@ def generate_cumulative_metabat2_depth(outfile):
     if len(bam_files) <= 1:
         raise ValueError("Expected multiple BAM files for pooled samples.")
 
-    bam_inputs = " ".join(bam_files)
-    statement = "jgi_summarize_bam_contig_depths --outputDepth %(outfile)s %(bam_inputs)s"
-    P.run(statement)
+    facility_map = {}
+    for bam in bam_files:
+        name = os.path.basename(bam)
+        facility = name[0] if name else ""
+        facility_map.setdefault(facility, []).append(bam)
+
+    os.makedirs("01_mapping.dir", exist_ok=True)
+
+    for facility, files in sorted(facility_map.items()):
+        if not files:
+            continue
+        out_facility = os.path.join("01_mapping.dir", f"cumulative_metabat2_depth_{facility}.txt")
+        statement = "jgi_summarize_bam_contig_depths --outputDepth %s %s" % (out_facility, " ".join(files))
+        P.run(statement)
+        Path(out_facility).touch()
+
     Path(outfile).touch()
 
 # ---------------------------------------------------------
@@ -210,31 +235,46 @@ def generate_maxbin2_depth(infile, outfile):
 def generate_cumulative_maxbin2_depth(infiles, outfile):
     """
     Merge per-sample MaxBin2 depth files into a single cumulative file.
+    Group per-sample _maxbin2_depth.txt by facility and produce 
+    01_mapping.dir/cumulative_maxbin2_depth_<facility>.txt for each facility.
     Columns: contigName, contigLen, depth_sample1, depth_sample2, ...
     """
     if PARAMS["mapfastq2fasta"]["mapping_mode"] != "many2one":
         Path(outfile).touch()
         return
 
-    input_files = sorted(infiles)
-    
-    sample_names = [
-        os.path.basename(f).replace("_maxbin2_depth.txt", "")
-        for f in input_files
-    ]
+    input_files = sorted(glob.glob("01_mapping.dir/*_maxbin2_depth.txt"))
+    if not input_files:
+        raise ValueError("No _maxbin2_depth.txt files found in 01_mapping.dir")
 
-    first = f"<(cut -f1,2,3 {input_files[0]})"
-    others = " ".join([f"<(cut -f3 {f})" for f in input_files[1:]])
+    facility_map = {}
+    for f in input_files:
+        name = os.path.basename(f)
+        facility = name[0] if name else ""
+        facility_map.setdefault(facility, []).append(f)
 
-    if others:
-        paste_cmd = f"paste {first} {others}"
-    else:
-        paste_cmd = f"cat {input_files[0]}"
+    for facility, files in sorted(facility_map.items()):
+        if not files:
+            continue
+        files = sorted(files)
+        sample_names = [os.path.basename(f).replace("_maxbin2_depth.txt", "") for f in files]
 
-    header = "contigName\tcontigLen\t" + "\t".join(sample_names)
-    statement = f"(echo -e '{header}' && {paste_cmd} | tail -n +2) > {outfile}"
+        first = f"<(cut -f1,2,3 {files[0]})"
+        others = " ".join([f"<(cut -f3 {f})" for f in files[1:]])
 
-    P.run(f"bash -c \"{statement}\"")
+        if others:
+            paste_cmd = f"paste {first} {others}"
+        else:
+            paste_cmd = f"cat {files[0]}"
+
+        header = "contigName\tcontigLen\t" + "\t".join(sample_names)
+        out_fac = os.path.join("01_mapping.dir", f"cumulative_maxbin2_depth_{facility}.txt")
+
+        statement = f"(echo -e '{header}' && {paste_cmd} | tail -n +2) > {out_fac}"
+        P.run(f"bash -c \"{statement}\"")
+        Path(out_fac).touch()
+
+    Path(outfile).touch()
 
 # ---------------------------------------------------------
 # c. Prepare all binning input files
@@ -270,24 +310,26 @@ mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
 if mapping_mode == "many2one" and "metabat2" in selected_tools:
 
     @follows(prepare_binning_inputs)
-    @files("01_mapping.dir/cumulative_metabat2_depth.txt",
+    @files("01_mapping.dir/cumulative_metabat2_depth_*.txt",
            "02_bins.dir/pooled/pooled_metabat2_done.txt")
     def run_metabat2(infile, outfile):
         pooled_dir = "02_bins.dir/pooled/metabat2_bins"
         os.makedirs(pooled_dir, exist_ok=True)
 
-        # Fetch depth files for MetaBAT2
+        # Fetch depth files for MetaBAT2 
         depth_manager = MB.DepthFileManager("01_mapping.dir")
         depth_files = depth_manager.get_depth_files("many2one", tool="metabat2")
-        assert len(depth_files) == 1, f"Expected 1 pooled depth file, got {len(depth_files)}"
-
         commands = MB.MetaBAT2Runner.run_all("02_bins.dir", PARAMS, tool="metabat2")
-        assert len(commands) == 1, f"Expected 1 pooled command, got {len(commands)}"
-        _, statement = commands[0]
 
-        P.run(statement,
-              job_memory=PARAMS["binners_job_memory"],
-              job_threads=PARAMS["binners_job_threads"])
+        for item in commands:
+            if isinstance(item, tuple) and len(item) == 2:
+                _, statement = item
+            else:
+                statement = item
+            P.run(statement,
+                  job_memory=PARAMS["binners_job_memory"],
+                  job_threads=PARAMS["binners_job_threads"])
+
         Path(outfile).touch()
 
 elif mapping_mode == "one2one" and "metabat2" in selected_tools:
@@ -328,25 +370,26 @@ mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
 if mapping_mode == "many2one" and "maxbin2" in selected_tools:
 
     @follows(prepare_binning_inputs)
-    @files("01_mapping.dir/cumulative_maxbin2_depth.txt",
+    @files("01_mapping.dir/cumulative_maxbin2_depth_*.txt",
            "02_bins.dir/pooled/pooled_maxbin2_done.txt")
     def run_maxbin2(infile, outfile):
         pooled_dir = "02_bins.dir/pooled/maxbin2_bins"
         os.makedirs(pooled_dir, exist_ok=True)
 
-        # Fetch depth files for MaxBin2
+        # Fetch depth files for MaxBin2 (may be one per facility)
         depth_manager = MB.DepthFileManager("01_mapping.dir")
         depth_files = depth_manager.get_depth_files("many2one", tool="maxbin2")
-        assert len(depth_files) == 1, f"Expected 1 pooled depth file, got {len(depth_files)}"
-
-        # Build pooled command
         commands = MB.MaxBin2Runner.run_all("02_bins.dir", PARAMS, tool="maxbin2")
-        assert len(commands) == 1, f"Expected 1 pooled command, got {len(commands)}"
-        _, statement = commands[0]
 
-        P.run(statement,
-              job_memory=PARAMS["binners_job_memory"],
-              job_threads=PARAMS["binners_job_threads"])
+        for item in commands:
+            if isinstance(item, tuple) and len(item) == 2:
+                _, statement = item
+            else:
+                statement = item
+            P.run(statement,
+                  job_memory=PARAMS["binners_job_memory"],
+                  job_threads=PARAMS["binners_job_threads"])
+
         Path(outfile).touch()
 
 elif mapping_mode == "one2one" and "maxbin2" in selected_tools:

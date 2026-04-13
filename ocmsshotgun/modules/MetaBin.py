@@ -20,8 +20,19 @@ class DepthFileManager:
             raise ValueError(f"Unsupported tool: {tool}")
 
         if mapping_mode == "many2one":
-            return [os.path.join(self.depth_dir, f"cumulative_{tool}_depth.txt")]
+            pattern = os.path.join(self.depth_dir, f"cumulative_{tool}_depth_*.txt")
+            depth_files = sorted(glob.glob(pattern))
         
+            if not depth_files:
+                single = os.path.join(self.depth_dir, f"cumulative_{tool}_depth.txt")
+                if os.path.exists(single):
+                    depth_files = [single]
+        
+            if not depth_files:
+                raise FileNotFoundError(f"No pooled cumulative {tool} depth files found in {self.depth_dir}")
+
+            return depth_files
+
         elif mapping_mode == "one2one":
             pattern = os.path.join(self.depth_dir, f"*_{tool}_depth.txt")
             depth_files = glob.glob(pattern)
@@ -48,16 +59,26 @@ class MetaBAT2Runner:
         fasta_dir = PARAMS["general"]["fasta_dir"]
 
         if mapping_mode == "many2one":
-            # Expect exactly one pooled FASTA
-            fasta_files = glob.glob(os.path.join(fasta_dir, "*.fasta"))
-            if len(fasta_files) != 1:
-                raise FileNotFoundError(
-                    f"Expected 1 pooled FASTA in {fasta_dir}, found: {fasta_files}"
-                )
-            fasta_path = fasta_files[0]
-            prefix = os.path.splitext(os.path.basename(fasta_path))[0]
+            name = os.path.basename(depth_file)
+            if "_" in name:
+                facility = os.path.splitext(name)[0].rsplit("_", 1)[-1]
+            else:
+                facility = os.path.splitext(name)[0]
 
-        else:  # one2one
+            candidate = os.path.join(fasta_dir, f"{facility}_pooled.fasta")
+            if os.path.exists(candidate):
+                fasta_path = candidate
+                prefix = os.path.splitext(os.path.basename(candidate))[0]
+            else:
+                fasta_files = glob.glob(os.path.join(fasta_dir, "*.fasta"))
+                if len(fasta_files) != 1:
+                    raise FileNotFoundError(
+                        f"Expected 1 pooled FASTA in {fasta_dir}, found: {fasta_files}"
+                    )
+                fasta_path = fasta_files[0]
+                prefix = os.path.splitext(os.path.basename(fasta_path))[0]
+
+        else:
             prefix = os.path.basename(depth_file).replace("_metabat2_depth.txt", "")
             fasta_path = os.path.join(fasta_dir, f"{prefix}.fasta")
             if not os.path.exists(fasta_path):
@@ -89,16 +110,28 @@ class MetaBAT2Runner:
         Returns a list of (prefix, command).
         """
         mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
-        depth_manager = DepthFileManager()
+        depth_manager = DepthFileManager("01_mapping.dir")
         depth_files = depth_manager.get_depth_files(mapping_mode, tool=tool)
+
+        if depth_files is None:
+            raise RuntimeError(f"DepthFileManager.get_depth_files returned None for mode={mapping_mode}, tool={tool}")
+        if not depth_files:
+            raise FileNotFoundError(f"No depth files found for mode={mapping_mode}, tool={tool} in 01_mapping.dir")
 
         commands = []
         if mapping_mode == "many2one":
-            prefix = "pooled"
-            sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
-            os.makedirs(sample_dir, exist_ok=True)
-            cmd = MetaBAT2Runner.run_for_sample(depth_files[0], sample_dir, PARAMS, mapping_mode)
-            commands.append((prefix, cmd))
+            for depth_file in depth_files:
+                base = os.path.basename(depth_file)
+                prefix = base.replace(f"cumulative_{tool}_depth_", "").replace(".txt", "")
+                if not prefix:
+                    prefix = "pooled"
+
+                sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
+                os.makedirs(sample_dir, exist_ok=True)
+
+                cmd = MetaBAT2Runner.run_for_sample(depth_file, sample_dir, PARAMS, mapping_mode)
+                commands.append((prefix, cmd))
+
         else:  # one2one
             for depth_file in depth_files:
                 prefix = os.path.basename(depth_file).replace(f"_{tool}_depth.txt", "")
@@ -108,6 +141,7 @@ class MetaBAT2Runner:
                 commands.append((prefix, cmd))
 
         return commands
+
 
 class MaxBin2Runner:
     """
@@ -119,13 +153,25 @@ class MaxBin2Runner:
         fasta_dir = PARAMS["general"]["fasta_dir"]
 
         if mapping_mode == "many2one":
-            fasta_files = glob.glob(os.path.join(fasta_dir, "*.fasta"))
-            if len(fasta_files) != 1:
-                raise FileNotFoundError(
-                    f"Expected 1 pooled FASTA in {fasta_dir}, found: {fasta_files}"
-                )
-            fasta_path = fasta_files[0]
-            prefix = os.path.splitext(os.path.basename(fasta_path))[0]
+            name = os.path.basename(depth_file)
+            if "_" in name:
+                facility = os.path.splitext(name)[0].rsplit("_", 1)[-1]
+            else:
+                facility = os.path.splitext(name)[0]
+
+            candidate = os.path.join(fasta_dir, f"{facility}_pooled.fasta")
+            if os.path.exists(candidate):
+                fasta_path = candidate
+                prefix = os.path.splitext(os.path.basename(candidate))[0]
+            else:
+                fasta_files = glob.glob(os.path.join(fasta_dir, "*.fasta"))
+                if len(fasta_files) != 1:
+                    raise FileNotFoundError(
+                        f"Expected 1 pooled FASTA in {fasta_dir}, found: {fasta_files}"
+                    )
+                fasta_path = fasta_files[0]
+                prefix = os.path.splitext(os.path.basename(fasta_path))[0]
+
         else:
             prefix = os.path.basename(depth_file).replace("_maxbin2_depth.txt", "")
             fasta_path = os.path.join(fasta_dir, f"{prefix}.fasta")
@@ -153,21 +199,33 @@ class MaxBin2Runner:
     @staticmethod
     def run_all(output_dir, PARAMS, tool="maxbin2"):
         mapping_mode = PARAMS["mapfastq2fasta"]["mapping_mode"]
-        depth_manager = DepthFileManager()
+        depth_manager = DepthFileManager("01_mapping.dir")
         depth_files = depth_manager.get_depth_files(mapping_mode, tool=tool)
+
+        if depth_files is None:
+            raise RuntimeError(f"DepthFileManager.get_depth_files returned None for mode={mapping_mode}, tool={tool}")
+        if not depth_files:
+            raise FileNotFoundError(f"No depth files found for mode={mapping_mode}, tool={tool} in 01_mapping.dir")
 
         commands = []
         if mapping_mode == "many2one":
-            prefix = "pooled"
-            sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
-            os.makedirs(sample_dir, exist_ok=True)
-            cmd = MaxBin2Runner.run_for_sample(depth_files[0], sample_dir, PARAMS, mapping_mode)
-            commands.append((prefix, cmd))
+            for depth_file in depth_files:
+                base = os.path.basename(depth_file)
+                prefix = base.replace(f"cumulative_{tool}_depth_", "").replace(".txt", "")
+                if not prefix:
+                    prefix = "pooled"
+
+                sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
+                os.makedirs(sample_dir, exist_ok=True)
+
+                cmd = MaxBin2Runner.run_for_sample(depth_file, sample_dir, PARAMS, mapping_mode)
+                commands.append((prefix, cmd))
         else:
             for depth_file in depth_files:
                 prefix = os.path.basename(depth_file).replace(f"_{tool}_depth.txt", "")
                 sample_dir = os.path.join(output_dir, prefix, f"{tool}_bins")
                 os.makedirs(sample_dir, exist_ok=True)
+
                 cmd = MaxBin2Runner.run_for_sample(depth_file, sample_dir, PARAMS, mapping_mode)
                 commands.append((prefix, cmd))
 
