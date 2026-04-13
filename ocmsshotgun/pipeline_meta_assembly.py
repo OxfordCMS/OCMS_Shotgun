@@ -91,10 +91,12 @@ def poolSamples(infiles, out_fastq1):
 @transform(poolSamples,
            regex('.+/(.+).fastq.1.gz'),
            r'02_processed_reads.dir/\1_corrected.fastq.1.gz')
+
 def runReadProcessing(infile, outfile):
     '''Run BayesHammer read correction on pooled or unpooled samples
     using SPAdes, based on YAML configuration.
     '''
+    os.makedirs(os.path.dirname(outfile), exist_ok=True)
 
     if PARAMS['preprocess']['error_correction']:
 
@@ -114,8 +116,18 @@ def runReadProcessing(infile, outfile):
         P.run(statement)
 
     else:
-        os.symlink(infile, outfile)
+        os.symlink(os.path.realpath(infile), outfile)
+        fq2_infile = infile.replace(".fastq.1.gz", ".fastq.2.gz")
+        fq3_infile = infile.replace(".fastq.1.gz", ".fastq.3.gz")
 
+        fq2_outfile = outfile.replace(".fastq.1.gz", ".fastq.2.gz")
+        fq3_outfile = outfile.replace(".fastq.1.gz", ".fastq.3.gz")
+
+        if os.path.exists(fq2_infile):
+            os.symlink(os.path.realpath(fq2_infile), fq2_outfile)
+
+        if os.path.exists(fq3_infile):
+            os.symlink(os.path.realpath(fq3_infile), fq3_outfile)
    
 ###############################################################################
 # Run Assembly Tools
