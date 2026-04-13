@@ -1,12 +1,4 @@
 
-._*
-*~
-.ipynb*
-build/
-dist/
-ocms_shotgun.egg-info/
-__pycache__
-
 # Python bytecode
 *.pyc
 __pycache__/
@@ -22,3 +14,16 @@ __pycache__/
 # Backup files
 *.bak
 
+# IPython/Jupyter files
+.ipynb*
+
+# Build artifacts
+build/
+dist/
+ocms_shotgun.egg-info/
+
+# Hidden temporary files
+._*
+
+# Miscellaneous
+#*

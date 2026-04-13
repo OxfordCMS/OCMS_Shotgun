@@ -1,0 +1,41 @@
+
+general:
+  # input directory (fastq single or paired end reads)
+  input.dir: 'input.dir'
+  
+  # A comma-separated list of assemblers to run
+  assemblers: metaspades,megahit
+
+preprocess:
+  # Use the following regex patterns to disable pooling (each sample remains separate)
+  pool_input_regex: ".*/(.+).fastq.1.gz"
+  pool_output_regex: "\\1.fastq.1.gz"
+ 
+  # Uncomment the following regex patterns to enable pooling (all samples will be combined into one file)
+  #pool_input_regex: ".*\\.fastq\\.1\\.gz"
+  #pool_output_regex: "samples_pooled.fastq.1.gz"
+  
+  error_correction: true # Set to true to implement Spades error correction
+
+spades:
+  # options for error correction
+  ec_threads: 4
+  ec_memory: 20G
+
+  # options for running spades
+  meta_threads: 8
+  meta_memory: 30G
+
+megahit:
+  # options for running megahit
+  meta_threads: 8
+  meta_memory: 30G
+
+quast:
+  # options for running quast
+  options: '--threads 8 ' #no-check flag tells QUAST not to perform any reference searches/checks or downlaod from NCBI
+  reference: /well/kir/projects/mirror/ocms/quast/human_gut_meta_assemblies_v1/gut_microbiome_references.fasta.gz
+  meta_threads: 2
+  meta_memory: 15G
+          
+
