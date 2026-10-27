@@ -108,7 +108,6 @@ class Trimmomatic(Utility.BaseTool):
             outfile2 = re.sub(fastn_obj.fn1_suffix, fastn_obj.fn2_suffix, self.outfile)
             outf1_singletons = sample_out + re.sub("1", "1s", fastn_obj.fn1_suffix)
             outf2_singletons = sample_out + re.sub("2", "2s", fastn_obj.fn2_suffix)
-            outf_singletons = sample_out + fastn_obj.fn3_suffix
             
             statement = (f"java -Xmx5g -jar {trimmomatic_jar_path} PE"
                          f" -threads {trimmomatic_n_threads}"
@@ -131,10 +130,7 @@ class Trimmomatic(Utility.BaseTool):
                          f" MINLEN:{trimmomatic_minlen}"
                          f" {trimmomatic_options}"
                          f" &> {logfile2} &&"
-                         f" gzip -f {logfile} &&"
-                         f" cat {outf1_singletons} {outf2_singletons} "
-                         f"  > {outf_singletons} &&"
-                         f" rm -f {outf1_singletons} && rm -f {outf2_singletons}")
+                         f" gzip -f {logfile} &&")
 
         else:
             statement = (f"java -Xmx5g -jar {trimmomatic_jar_path} SE"
@@ -155,8 +151,29 @@ class Trimmomatic(Utility.BaseTool):
                          f" {trimmomatic_options}"
                          f" &> {logfile2} &&"
                          f" gzip -f {logfile}")
-                
         return statement
+
+    def post_process(self, fastn_obj):
+        """Put singletons into fastq3 file in paired end reads"""
+        if fastn_obj.fastn2:
+            outf1_singletons = re.sub("1", "1s", fastn_obj.fastn1)
+            outf2_singletons = re.sub("2", "2s", fastn_obj.fastn2)
+            outf3_singletons = re.sub("1", "3", fastn_obj.fastn1)
+
+            if (os.stat(outf1_singletons).st_size != 0 or 
+                os.stat(outf2_singletons).st_size != 0):
+
+                statement = (
+                    f"cat {outf1_singletons} {outf2_singletons} "
+                    f"> {outf3_singletons} &&"
+                    f" rm -f {outf1_singletons} &&"
+                    f" rm -f {outf2_singletons}"
+                )
+        else:
+            statement = "echo 'No singletons to process for single end reads'"
+        
+        return statement
+
 
 #def removeContaminants(in_fastq, out_fastq, method, **PARAMS):
 #    """
@@ -588,7 +605,7 @@ class Hisat2(Utility.BaseTool):
                      f" --al-gz {mapped}")
             statement.append(entry)
         # paired end reads, no singletons
-        elif not fastn_obj.has_singleton:
+        elif not fastn_obj.fastn3:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped")
             unmapped_unpaired = self.outfile.replace(self.prefixstrip, 
@@ -600,7 +617,7 @@ class Hisat2(Utility.BaseTool):
                      f" --al-conc-gz {mapped} --al-gz {mapped_unpaired}")
             statement.append(entry)
         # paired end reads with singletons
-        elif fastn_obj.has_singleton:
+        elif fastn_obj.fastn3:
             unmapped = self.outfile.replace(self.prefixstrip, "_unmapped")
             mapped = self.outfile.replace(self.prefixstrip, "_mapped")
             unmapped_unpaired = self.outfile.replace(self.prefixstrip, 
