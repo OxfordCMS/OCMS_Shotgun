@@ -102,6 +102,8 @@ def removeAdapters(fastq1, outfile1):
           job_memory = PARAMS['trimmomatic_job_memory'],
           job_options = PARAMS.get('trimmomatic_job_options', ''))
 
+    statement = tool.post_process(Utility.MetaFastn(fastq1))
+    P.run(statement, without_cluster=True)
 
 ###############################################################################
 # Remove Contamination
