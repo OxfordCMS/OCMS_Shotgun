@@ -46,7 +46,7 @@ class Humann3(Utility.BaseTool):
             statement = f"ln -s {self.infile} {self.outfile}"
         else:
             fastqs = [fastn_obj.fastn1, fastn_obj.fastn2, fastn_obj.fastn3]
-            fastqs = [x for x in fastqs if os.path.exists(x)]
+            fastqs = [x for x in fastqs if x is not None and os.path.exists(x)]
             fastqs = ' '.join(fastqs)
             statement = f"cat {fastqs} > {self.outfile}"
         return(statement)
